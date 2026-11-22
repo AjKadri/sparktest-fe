@@ -105,7 +105,7 @@ The contract returns `false` instead of reverting on insufficient balance/allowa
 | P6 | balances of the 4 actors always sum to totalSupply | (Index<4> sender, Index<4> receiver, amount) | fails; minimum (0, 0, 1) (honest prediction: (a, a, 1)) | (sender=0, receiver=0, amount=1) | yes: exactly (0, 0, 1) | 64 | 1 | 16 | 11,593,937 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
 
 
-## A contract that really panics: `examples/rewards` (2026-11-22, commit pending)
+## A contract that really panics: `examples/rewards` (2026-11-22, commit eb27a98)
 
 A small staking-rewards contract written for this proof (not a Fe example): `claim` returns `stake * 1000 / 10000` and computes `stake * 1000` in `u64`.
 The planted overflow (Panic 0x11) starts at stake 18446744073709552 (`18446744073709552 * 1000 >= 2^64`). Property: "stake, then claim, succeeds and returns stake / 10 for every stake <= 2^63".

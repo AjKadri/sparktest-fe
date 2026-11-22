@@ -1,3 +1,4 @@
+use std::evm::Address
 // Shared, effect-free core: PRNG + Arbitrary + Shrink + runner.
 pub const MASK64: u256 = 0xffffffffffffffff
 
@@ -88,4 +89,92 @@ pub fn run<T: Arbitrary + Shrink + Copy, P: Fn(T) -> bool>(_ prop: P, _ seed: u2
         i += 1
     }
     Outcome { found: false, input: default, first_case: 0, steps: 0, evals: 0 }
+}
+
+// ---- E3: composites ----
+pub fn count_candidates<T: Shrink + Copy>(_ x: T) -> u256 {
+    var k: u256 = 0
+    var more = true
+    while more {
+        match x.shrink_step(k) {
+            Option::None => { more = false }
+            Option::Some(_) => { k += 1 }
+        }
+    }
+    k
+}
+
+impl<A: Arbitrary, B: Arbitrary> Arbitrary for (A, B) {
+    fn arbitrary(_ rng: mut XorShift) -> Self {
+        let a = A::arbitrary(mut rng)
+        let b = B::arbitrary(mut rng)
+        (a, b)
+    }
+}
+
+// candidates: all of A's (B fixed), then all of B's (A fixed)
+impl<A: Shrink + Copy, B: Shrink + Copy> Shrink for (A, B) {
+    fn shrink_step(self, _ i: u256) -> Option<Self> {
+        let (a, b) = self
+        let na = count_candidates(a)
+        if i < na {
+            match a.shrink_step(i) {
+                Option::Some(a2) => { return Option::Some((a2, b)) }
+                Option::None => { return Option::None }
+            }
+        }
+        match b.shrink_step(i - na) {
+            Option::Some(b2) => Option::Some((a, b2))
+            Option::None => Option::None
+        }
+    }
+}
+
+// ---- E3c: fixed arrays, generic over element type and length ----
+impl<T: Arbitrary + Copy, const N: usize> Arbitrary for [T; N] {
+    fn arbitrary(_ rng: mut XorShift) -> Self {
+        var arr = [T::arbitrary(mut rng); N]
+        var i: usize = 1
+        while i < N {
+            arr[i] = T::arbitrary(mut rng)
+            i += 1
+        }
+        arr
+    }
+}
+
+// candidates: element 0's candidates, then element 1's, ...
+impl<T: Shrink + Copy, const N: usize> Shrink for [T; N] {
+    fn shrink_step(self, _ i: u256) -> Option<Self> {
+        var j: usize = 0
+        var rest = i
+        while j < N {
+            let n = count_candidates(self[j])
+            if rest < n {
+                match self[j].shrink_step(rest) {
+                    Option::Some(e) => {
+                        var out = self
+                        out[j] = e
+                        return Option::Some(out)
+                    }
+                    Option::None => { return Option::None }
+                }
+            }
+            rest -= n
+            j += 1
+        }
+        Option::None
+    }
+}
+
+impl Arbitrary for Address {
+    fn arbitrary(_ rng: mut XorShift) -> Self { Address::from_word_truncate(rng.next() % 100000) }
+}
+impl Shrink for Address {
+    fn shrink_step(self, _ i: u256) -> Option<Self> {
+        match self.word().shrink_step(i) {
+            Option::Some(w) => Option::Some(Address::from_word_truncate(w))
+            Option::None => Option::None
+        }
+    }
 }

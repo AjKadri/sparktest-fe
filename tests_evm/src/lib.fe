@@ -22,3 +22,64 @@ fn e2_shrink_evm_fixed_seed() uses (evm: mut Evm) {
     let gas = g0 - evm.gas()
     evm.emit(Shrunk { min: o.input, first_case: o.first_case, steps: o.steps, evals: o.evals, gas })
 }
+
+#[event]
+struct Pair { a: u256, b: u256, steps: u256, evals: u256, gas: u256 }
+
+#[test]
+fn e3_tuple() uses (evm: mut Evm) {
+    let g0 = evm.gas()
+    let o = run(|p: (u256, u256)| p.0 + p.1 < 10, evm.gas(), 1000, (0, 0))
+    let gas = g0 - evm.gas()
+    evm.emit(Pair { a: o.input.0, b: o.input.1, steps: o.steps, evals: o.evals, gas })
+    assert!(o.found)
+    assert!(o.input.0 + o.input.1 == 10)
+}
+
+// E3b: user struct with hand-written Arbitrary + Shrink (pairs of fields as a tuple)
+use std::evm::Address
+use qc::{Arbitrary, Shrink, XorShift}
+
+struct Transfer { to: Address, amount: u256 }
+impl Copy for Transfer {}
+
+impl Arbitrary for Transfer {
+    fn arbitrary(_ rng: mut XorShift) -> Self {
+        let to = <Address as Arbitrary>::arbitrary(mut rng)
+        let amount = <u256 as Arbitrary>::arbitrary(mut rng)
+        Transfer { to, amount }
+    }
+}
+impl Shrink for Transfer {
+    fn shrink_step(self, _ i: u256) -> Option<Self> {
+        match (self.to, self.amount).shrink_step(i) {
+            Option::Some(p) => Option::Some(Transfer { to: p.0, amount: p.1 })
+            Option::None => Option::None
+        }
+    }
+}
+
+#[event]
+struct TransferMin { to: u256, amount: u256, steps: u256, evals: u256, gas: u256 }
+
+#[test]
+fn e3_struct() uses (evm: mut Evm) {
+    let g0 = evm.gas()
+    let o = run(|t: Transfer| t.to.word() + t.amount < 10, evm.gas(), 1000, Transfer { to: Address::zero(), amount: 0 })
+    let gas = g0 - evm.gas()
+    evm.emit(TransferMin { to: o.input.to.word(), amount: o.input.amount, steps: o.steps, evals: o.evals, gas })
+    assert!(o.found)
+    assert!(o.input.to.word() + o.input.amount == 10)
+}
+
+#[event]
+struct Arr { a0: u256, a1: u256, a2: u256, a3: u256, steps: u256, gas: u256 }
+
+#[test]
+fn e3_array() uses (evm: mut Evm) {
+    let g0 = evm.gas()
+    let o = run(|a: [u256; 4]| a[0] + a[1] + a[2] + a[3] < 10, evm.gas(), 1000, [0, 0, 0, 0])
+    let gas = g0 - evm.gas()
+    evm.emit(Arr { a0: o.input[0], a1: o.input[1], a2: o.input[2], a3: o.input[3], steps: o.steps, gas })
+    assert!(o.found)
+}

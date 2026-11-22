@@ -1,0 +1,26 @@
+// Arbitrary / Shrink / Encode for std::evm::Address (a plain value type; no effects used).
+use std::evm::Address
+use std::abi::DynArray
+use ingot::{Rng, Arbitrary, Shrink, Encode, one_word}
+use ingot::widths::bits_value
+
+impl Arbitrary for Address {
+    // 160 random bits with edge values: zero address, 0x…01, max address, 2^k, 2^k±1 for k < 160
+    fn arbitrary<R: Rng>(_ rng: mut R) -> Self {
+        Address::from_word_truncate(bits_value(mut rng, 160))
+    }
+}
+
+impl Shrink for Address {
+    // shrinks the address word toward the zero address
+    fn shrink_step(self, _ i: u256) -> Option<Self> {
+        match self.word().shrink_step(i) {
+            Option::Some(w) => Option::Some(Address::from_word_truncate(w))
+            Option::None => Option::None
+        }
+    }
+}
+
+impl Encode for Address {
+    fn words(self) -> DynArray<u256> { one_word(self.word()) }
+}

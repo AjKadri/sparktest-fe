@@ -1,4 +1,6 @@
 // fe-quickcheck core: pure, effect-free. No `uses (evm ...)` anywhere in this ingot.
+use std::abi::{DynArray, dyn_array_from}
+use core::ptr::MemVec
 pub const MAX: u256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 const MASK64: u256 = 0xffffffffffffffff
 
@@ -39,8 +41,22 @@ pub trait Shrink {
     fn shrink_step(self, _ i: u256) -> Option<Self>
 }
 
+// Encodes a value as a flat list of u256 words (ABI-ish), for reporting counterexamples of any size.
 pub trait Encode {
-    fn words(self) -> [u256; 4]
+    fn words(self) -> DynArray<u256>
+}
+
+pub fn one_word(_ w: u256) -> DynArray<u256> {
+    dyn_array_from([w])
+}
+
+// appends every word of `src` to `out`
+pub fn append_words(_ out: mut MemVec<u256>, _ src: DynArray<u256>) {
+    var i: usize = 0
+    while i < src.len() {
+        out.push(src.get(i))
+        i += 1
+    }
 }
 
 // ---- u256 ----
@@ -90,7 +106,7 @@ impl Shrink for u256 {
 }
 
 impl Encode for u256 {
-    fn words(self) -> [u256; 4] { [self, 0, 0, 0] }
+    fn words(self) -> DynArray<u256> { one_word(self) }
 }
 
 // ---- bool ----
@@ -106,7 +122,7 @@ impl Shrink for bool {
 }
 
 impl Encode for bool {
-    fn words(self) -> [u256; 4] { [if self { 1 } else { 0 }, 0, 0, 0] }
+    fn words(self) -> DynArray<u256> { one_word(if self { 1 } else { 0 }) }
 }
 
 // ---- runner ----

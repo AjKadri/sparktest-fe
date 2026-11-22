@@ -1,0 +1,8 @@
+# Ingot config
+[ingot]
+name = "fe_quickcheck"
+version = "0.1.0"
+
+# Optional dependencies
+# [dependencies]
+# utils = { path = "../utils" }

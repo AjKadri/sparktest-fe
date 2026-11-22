@@ -1,0 +1,37 @@
+use std::io::Stdout
+
+const MASK64: u256 = 0xffffffffffffffff
+
+struct XorShift { state: u256 }
+impl XorShift {
+    fn new(_ seed: u256) -> Self { XorShift { state: seed & MASK64 | 1 } }
+    fn next(mut self) -> u256 {
+        var x = self.state
+        x = x ^ ((x << 13) & MASK64)
+        x = x ^ (x >> 7)
+        x = x ^ ((x << 17) & MASK64)
+        self.state = x
+        x
+    }
+}
+
+fn run(_ n: u256) -> u256 {
+    var rng = XorShift::new(42)
+    var failures: u256 = 0
+    var i: u256 = 0
+    while i < n {
+        if rng.next() % 1000 >= 900 { failures += 1 }
+        i += 1
+    }
+    failures
+}
+
+#[test]
+fn d_pure() {
+    assert!(run(1000) < 1000)
+}
+
+#[test]
+fn d_print() uses (out: mut Stdout) {
+    println!("failures:", run(100000000))
+}

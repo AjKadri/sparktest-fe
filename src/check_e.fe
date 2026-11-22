@@ -1,0 +1,47 @@
+use std::evm::{Evm, revert_error}
+
+pub trait Arbitrary { fn arbitrary(_ seed: u256) -> Self }
+impl Arbitrary for u256 { fn arbitrary(_ seed: u256) -> Self { seed } }
+
+#[event]
+struct Counterexample { input: u256, case: u256 }
+
+#[error]
+pub struct PropertyFailed { pub input: u256, pub case: u256 }
+
+// returns (found, input, case) without reverting
+fn find_failure<P: Fn(u256) -> bool>(_ prop: P, _ n: u256) -> (bool, u256, u256) uses P::E {
+    var i: u256 = 0
+    while i < n {
+        let x = <u256 as Arbitrary>::arbitrary(i * 3)
+        if !prop(x) { return (true, x, i) }
+        i += 1
+    }
+    (false, 0, 0)
+}
+
+// E1: emit log then assert(false) -- are logs shown for a reverted test?
+#[test]
+fn e1_log_then_assert() uses (evm: mut Evm) {
+    let (found, x, i) = find_failure(|v: u256| v < 50, 100)
+    if found {
+        evm.emit(Counterexample { input: x, case: i })
+        assert!(false)
+    }
+}
+
+// E2: revert with custom error carrying the input
+#[test]
+fn e2_revert_with_data() uses (evm: mut Evm) {
+    let (found, x, i) = find_failure(|v: u256| v < 50, 100)
+    if found {
+        revert_error(PropertyFailed { input: x, case: i })
+    }
+}
+
+// E3: success path (property holds)
+#[test]
+fn e3_holds() uses (evm: mut Evm) {
+    let (found, _, _) = find_failure(|v: u256| v < 1000, 100)
+    assert!(!found)
+}

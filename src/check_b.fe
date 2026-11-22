@@ -1,0 +1,63 @@
+use std::evm::Address
+
+pub trait Arbitrary {
+    fn arbitrary(_ seed: u256) -> Self
+}
+impl Arbitrary for u256 {
+    fn arbitrary(_ seed: u256) -> Self { seed }
+}
+impl Arbitrary for Address {
+    fn arbitrary(_ seed: u256) -> Self { Address::from_word_truncate(seed) }
+}
+
+// Pattern 1: generic over a closure / fn item bound by Fn
+// returns number of failing cases (does not revert)
+fn run_fn<T: Arbitrary, P: Fn(T) -> bool>(_ prop: P, _ n: u256) -> u256 uses P::E {
+    var failures: u256 = 0
+    var i: u256 = 0
+    while i < n {
+        if !prop(T::arbitrary(i)) {
+            failures += 1
+        }
+        i += 1
+    }
+    failures
+}
+
+// Pattern 2: user-defined Property trait implemented by a struct
+pub trait Property<T> {
+    fn check(self, _ x: T) -> bool
+}
+struct Below { limit: u256 }
+impl Property<u256> for Below {
+    fn check(self, _ x: u256) -> bool { x < self.limit }
+}
+fn run_prop<T: Arbitrary, P: Property<T>>(_ prop: P, _ n: u256) -> u256 {
+    var failures: u256 = 0
+    var i: u256 = 0
+    while i < n {
+        if !prop.check(T::arbitrary(i)) {
+            failures += 1
+        }
+        i += 1
+    }
+    failures
+}
+
+fn is_small(_ x: u256) -> bool { x < 10 }
+fn nonzero_addr(_ a: Address) -> bool { a.word() < 1000 }
+
+#[test]
+fn b_closure() {
+    assert!(run_fn(|x: u256| x < 100, 50) == 0)
+    assert!(run_fn(|x: u256| x < 40, 50) == 10)
+}
+#[test]
+fn b_fn_item() {
+    assert!(run_fn(is_small, 10) == 0)
+    assert!(run_fn(nonzero_addr, 2000) == 1000)
+}
+#[test]
+fn b_trait() {
+    assert!(run_prop(Below { limit: 25 }, 50) == 25)
+}

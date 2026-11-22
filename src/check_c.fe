@@ -1,0 +1,38 @@
+use std::evm::Evm
+
+#[event]
+struct GasUsed { used: u256, failures: u256 }
+
+const MASK64: u256 = 0xffffffffffffffff
+
+struct XorShift { state: u256 }
+impl XorShift {
+    fn new(_ seed: u256) -> Self {
+        XorShift { state: if seed == 0 { 0x9e3779b97f4a7c15 } else { seed & MASK64 } }
+    }
+    fn next(mut self) -> u256 {
+        var x = self.state
+        x = x ^ ((x << 13) & MASK64)
+        x = x ^ (x >> 7)
+        x = x ^ ((x << 17) & MASK64)
+        self.state = x
+        x
+    }
+}
+
+fn prop(_ x: u256) -> bool { x % 1000 < 900 }
+
+#[test]
+fn c_loop() uses (evm: mut Evm) {
+    let g0 = evm.gas()
+    var rng = XorShift::new(evm.gas() + 1)
+    var failures: u256 = 0
+    var i: u256 = 0
+    while i < 1000 {
+        if !prop(rng.next()) { failures += 1 }
+        i += 1
+    }
+    let used = g0 - evm.gas()
+    evm.emit(GasUsed { used, failures })
+    assert!(failures < 1000000000)
+}

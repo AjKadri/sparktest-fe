@@ -1,0 +1,31 @@
+use std::evm::Address
+
+pub trait Arbitrary {
+    fn arbitrary(_ seed: u256) -> Self
+}
+
+impl Arbitrary for u256 {
+    fn arbitrary(_ seed: u256) -> Self {
+        seed
+    }
+}
+
+impl Arbitrary for Address {
+    fn arbitrary(_ seed: u256) -> Self {
+        Address::from_word_truncate(seed)
+    }
+}
+
+fn gen<T: Arbitrary>(_ seed: u256) -> T {
+    T::arbitrary(seed)
+}
+
+#[test]
+fn a_arbitrary() {
+    let x: u256 = gen(7)
+    assert!(x == 7)
+    let a: Address = gen(0xbeef)
+    assert!(a.word() == 0xbeef)
+    let b: Address = gen(5)
+    assert!(b.word() == 5)
+}

@@ -1,0 +1,8 @@
+use std::io::Stdout
+
+#[test]
+fn f_native_fail_prints() uses (out: mut Stdout) {
+    let input: u256 = 51
+    println!("counterexample input =", input)
+    assert!(false)
+}

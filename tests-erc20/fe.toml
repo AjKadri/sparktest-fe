@@ -1,0 +1,9 @@
+[ingot]
+name = "tests_erc20"
+version = "0.1.0"
+
+[dependencies]
+sparktest = { path = "../sparktest" }
+sparktest_evm = { path = "../sparktest-evm" }
+erc20_example = { path = "../examples/erc20" }
+erc20_buggy = { path = "../examples/erc20-buggy" }

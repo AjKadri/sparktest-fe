@@ -20,3 +20,34 @@ Five realistic contract bug classes, each with a buggy and a fixed version. Reru
 | pack_fixed | d) fixed: shift 128 | unpack(pack(a, b)) == (a, b) | passes | passed 256 cases | yes | - | - | 5008 | identical | 260,485 |
 | bounds_buggy | e) index check uses <= instead of < | an index declared in bounds is below len | (i=0, len=0) | i=0, len=0 | yes | 28 | 0 | 5009 | identical | 30,493 |
 | bounds_fixed | e) fixed: < | an index declared in bounds is below len | passes | passed 256 cases | yes | - | - | 5010 | identical | 199,528 |
+
+## ERC20 through contract calls (sonatina only)
+
+Contract: `crates/fe/tests/fixtures/fe_test/erc20.fe` of Fe v26.7.0, vendored unchanged in `examples/erc20` (Apache-2.0). Four actor proxy contracts
+make the calls, so the token sees four different senders; each case deploys a fresh token (supply 1000 to actor 0, which sends 250 to each other actor).
+Actor indices are taken `% 4`, so self-transfers and repeated actors are common. 64 cases per property. Views are read with the plain typed `evm.call`;
+state-changing calls go through the actors using the non-reverting `try_*` helpers (`CallOutcome::decode` also returns view data from `try_call`).
+The contract returns `false` instead of reverting on insufficient balance/allowance, so "reverts" is checked as "does not succeed".
+
+### Unchanged contract (`examples/erc20`)
+
+| # | property | input | expected | found | as expected | cases | case | shrink steps | gas | backend | rerun |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| P1 | transfer(amount <= balance) succeeds and moves exactly amount | (sender, receiver, amount) | passes | passed 64 cases | yes | 64 | - | - | 20,917,166 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P2 | transfer(amount > balance) does not succeed and changes nothing | (sender, receiver, amount over balance) | passes | passed 64 cases | yes | 64 | - | - | 20,925,060 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P3 | transfers never change totalSupply | (sender, receiver, amount) | passes | passed 64 cases | yes | 64 | - | - | 20,742,165 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P4 | approve, then transferFrom(amount <= allowance) lowers the allowance by exactly amount | (owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 22,566,986 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P5 | transferFrom(amount > allowance) does not succeed | (owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 22,237,637 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P6 | balances of the 4 actors always sum to totalSupply | (sender, receiver, amount) | passes | passed 64 cases | yes | 64 | - | - | 21,016,188 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+
+### Planted bug (`examples/erc20-buggy`: a self-transfer credits without debiting)
+
+| # | property | input | expected | found | as expected | cases | case | shrink steps | gas | backend | rerun |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| P1 | transfer(amount <= balance) succeeds and moves exactly amount | (sender, receiver, amount) | fails; minimum (0, 0, 1) | (sender=21, receiver=125, amount=1) | partly: self-transfer of amount 1 as expected, but raw indices are not minimal (both map to the same actor) | 64 | 3 | 13 | 66,388,067 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P2 | transfer(amount > balance) does not succeed and changes nothing | (sender, receiver, amount over balance) | passes | passed 64 cases | yes | 64 | - | - | 21,109,055 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P3 | transfers never change totalSupply | (sender, receiver, amount) | passes | passed 64 cases | yes | 64 | - | - | 20,923,317 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P4 | approve, then transferFrom(amount <= allowance) lowers the allowance by exactly amount | (owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 22,669,130 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P5 | transferFrom(amount > allowance) does not succeed | (owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 22,365,547 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P6 | balances of the 4 actors always sum to totalSupply | (sender, receiver, amount) | fails; minimum (0, 0, 1) | (sender=26, receiver=190, amount=1) | partly: self-transfer of amount 1 as expected, but raw indices are not minimal (both map to the same actor) | 64 | 2 | 20 | 100,039,184 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+

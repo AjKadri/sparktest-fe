@@ -98,7 +98,8 @@ sections = []
 rows = pure_rows()
 
 try:
-    import proof_erc20  # scripts/proof_erc20.py, optional until Part 2 exists
+    sys.path.insert(0, os.path.join(ROOT, 'scripts'))
+    import proof_erc20  # scripts/proof_erc20.py
     sections.append(proof_erc20.section(run, problems))
 except ImportError:
     pass

@@ -1,0 +1,34 @@
+// Client-side view of the ERC20 token and of the actor proxies (selectors only; no token source is needed).
+use std::abi::sol
+use std::evm::{Evm, Call, Address}
+use ingot::actor::ActorMsg
+
+pub msg Tok {
+    #[selector = sol("totalSupply()")]
+    TotalSupply -> u256,
+    #[selector = sol("balanceOf(address)")]
+    BalanceOf { account: Address } -> u256,
+    #[selector = sol("allowance(address,address)")]
+    Allowance { owner: Address, spender: Address } -> u256,
+}
+
+// Views use the plain typed call API (`evm.call`), which decodes the return value. State-changing calls go through the
+// actors, which use `try_*` (non-reverting) and report 1 = succeeded and returned true, 0 = anything else.
+pub fn total_supply(_ token: Address) -> u256 uses (evm: mut Evm) {
+    evm.call(addr: token, gas: 1000000, value: Wei::zero(), message: Tok::TotalSupply {})
+}
+pub fn balance_of(_ token: Address, _ who: Address) -> u256 uses (evm: mut Evm) {
+    evm.call(addr: token, gas: 1000000, value: Wei::zero(), message: Tok::BalanceOf { account: who })
+}
+pub fn allowance(_ token: Address, _ owner: Address, _ spender: Address) -> u256 uses (evm: mut Evm) {
+    evm.call(addr: token, gas: 1000000, value: Wei::zero(), message: Tok::Allowance { owner, spender })
+}
+pub fn actor_transfer(_ actor: Address, _ token: Address, _ to: Address, _ amount: u256) -> u256 uses (evm: mut Evm) {
+    evm.call(addr: actor, gas: 5000000, value: Wei::zero(), message: ActorMsg::Transfer { token, to, amount })
+}
+pub fn actor_approve(_ actor: Address, _ token: Address, _ spender: Address, _ amount: u256) -> u256 uses (evm: mut Evm) {
+    evm.call(addr: actor, gas: 5000000, value: Wei::zero(), message: ActorMsg::Approve { token, spender, amount })
+}
+pub fn actor_transfer_from(_ actor: Address, _ token: Address, _ from: Address, _ to: Address, _ amount: u256) -> u256 uses (evm: mut Evm) {
+    evm.call(addr: actor, gas: 5000000, value: Wei::zero(), message: ActorMsg::TransferFrom { token, from, to, amount })
+}

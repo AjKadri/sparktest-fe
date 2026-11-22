@@ -1,0 +1,30 @@
+// Actor proxy: a tiny contract that makes calls to a token AS ITSELF, so the token sees four different msg.senders.
+// Each handler returns 1 if the token call succeeded and returned `true`, else 0 (reverted, returned false, bad return).
+use std::abi::sol
+use std::evm::{Address, Call, Ctx}
+use std::evm::erc20::{try_transfer, try_transfer_from, try_approve}
+
+pub msg ActorMsg {
+    #[selector = sol("transfer(address,address,uint256)")]
+    Transfer { token: Address, to: Address, amount: u256 } -> u256,
+    #[selector = sol("approve(address,address,uint256)")]
+    Approve { token: Address, spender: Address, amount: u256 } -> u256,
+    #[selector = sol("transferFrom(address,address,address,uint256)")]
+    TransferFrom { token: Address, from: Address, to: Address, amount: u256 } -> u256,
+}
+
+pub contract Actor {
+    init() {}
+
+    recv ActorMsg {
+        Transfer { token, to, amount } -> u256 uses (ctx: Ctx, call: mut Call) {
+            if try_transfer(token, receiver: to, amount).is_ok() { 1 } else { 0 }
+        }
+        Approve { token, spender, amount } -> u256 uses (ctx: Ctx, call: mut Call) {
+            if try_approve(token, spender, amount).is_ok() { 1 } else { 0 }
+        }
+        TransferFrom { token, from, to, amount } -> u256 uses (ctx: Ctx, call: mut Call) {
+            if try_transfer_from(token, owner: from, receiver: to, amount).is_ok() { 1 } else { 0 }
+        }
+    }
+}

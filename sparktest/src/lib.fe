@@ -215,3 +215,19 @@ pub fn summarize<T: Encode + Copy>(_ o: Outcome<T>) -> Summary {
         Outcome::Fail { original, shrunk, case, seed: _, steps } => Summary { failed: 1, case, steps, original: first4(original.words()), shrunk: first4(shrunk.words()) }
     }
 }
+
+// ---- Full: an Outcome with the COMPLETE words of the original and shrunk inputs (Summary keeps only the first 4) ----
+pub struct Full {
+    pub failed: u256,
+    pub case: u256,
+    pub steps: u256,
+    pub original: DynArray<u256>,
+    pub shrunk: DynArray<u256>,
+}
+
+pub fn full<T: Encode + Copy>(_ o: Outcome<T>) -> Full {
+    match o {
+        Outcome::Pass { cases } => Full { failed: 0, case: cases, steps: 0, original: DynArray::empty(), shrunk: DynArray::empty() }
+        Outcome::Fail { original, shrunk, case, seed: _, steps } => Full { failed: 1, case, steps, original: original.words(), shrunk: shrunk.words() }
+    }
+}

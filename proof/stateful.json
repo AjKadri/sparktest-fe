@@ -1,0 +1,8 @@
+[
+ {"id": 31, "name": "seq_adjacent", "prop": "props::prop_seq_no_adjacent_equal", "seed": 8001, "cases": 256, "kind": "seq",
+  "title": "Seq<Index<3>, 8>: no two adjacent commands are equal", "expected": "length 2, two equal commands (a, a)", "check": "seq_adjacent"},
+ {"id": 32, "name": "bank_buggy", "prop": "props::prop_bank_sequence", "seed": 8002, "cases": 256, "kind": "buggy",
+  "title": "bank model (planted bug: a drained account's next deposit counts twice)", "expected": "length 3: deposit(a,1), withdraw(a,1), deposit(a,1)", "check": "bank"},
+ {"id": 33, "name": "bank_fixed", "prop": "props::prop_bank_fixed", "seed": 8003, "cases": 256, "kind": "fixed",
+  "title": "bank model, fixed", "expected": "passes", "check": "pass"}
+]

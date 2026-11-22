@@ -113,6 +113,18 @@ nothing was vendored as `examples/erc20-docs/`. The other ERC20-like files in th
 | P6 | balances of the 4 actors always sum to totalSupply | (Index<4> sender, Index<4> receiver, amount) | fails; minimum (0, 0, 1) (honest prediction: (a, a, 1)) | (sender=0, receiver=0, amount=1) | yes: exactly (0, 0, 1) | 64 | 1 | 16 | 11,593,937 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
 
 
+## Stateful testing: random command sequences, shortest failing sequence (sonatina and native)
+
+A property is run over a `Seq<C, 8>` of commands; the invariant is checked after every command. Shrinking: halve the length, drop one command, then shrink single commands.
+Expected sequences were committed first (`docs/EXPECTATIONS.md`, section "L6"). Case numbers are 1-based. "found" lists the shrunk sequence; sonatina and native must agree on every word.
+
+| scenario | expected minimal sequence | found (shrunk) sequence | length | as expected | case | shrink steps | seed | sonatina = native | gas (sonatina) | rerun |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Seq<Index<3>, 8>: no two adjacent commands are equal | length 2, two equal commands (a, a) | cmd 0 ; cmd 0 | 2 | yes | 3 | 2 | 8001 | identical | 30,706 | `cd tests-evm && fe test --filter stateful_seq_adjacent --show-logs`; native: `./scripts/proof.sh` |
+| bank model (planted bug: a drained account's next deposit counts twice) | length 3: deposit(a,1), withdraw(a,1), deposit(a,1) | deposit(acct 1, 1) ; withdraw(acct 1, 1) ; deposit(acct 1, 1) | 3 | yes: length 3, kinds deposit/withdraw/deposit, amounts 1, one account (a = 1; a local minimum, as pre-registered) | 137 | 48 | 8002 | identical | 17,737,382 | `cd tests-evm && fe test --filter stateful_bank_buggy --show-logs`; native: `./scripts/proof.sh` |
+| bank model, fixed | passes | passed 256 cases | - | yes | - | - | 8003 | identical | 3,242,800 | `cd tests-evm && fe test --filter stateful_bank_fixed --show-logs`; native: `./scripts/proof.sh` |
+
+
 ## A contract that really panics: `examples/rewards` (2026-11-22, commit eb27a98)
 
 A small staking-rewards contract written for this proof (not a Fe example): `claim` returns `stake * 1000 / 10000` and computes `stake * 1000` in `u64`.

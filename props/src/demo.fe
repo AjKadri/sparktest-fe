@@ -1,3 +1,5 @@
+use sparktest::{Seq, Index}
+
 // Demo properties for the Sparktest web demo. Planted bugs, 64-bit-safe (inputs are u32 so they cross the wasm boundary).
 // The text between `// @demo <name>` and `// @end` is shown verbatim in the demo page (extracted by scripts/build-demo.sh).
 
@@ -60,5 +62,66 @@ pub fn prop_pair_sum(_ p: (u32, u32)) -> bool {
 // A property that holds: saturating addition never goes below its left operand.
 pub fn prop_saturating_add(_ p: (u32, u32)) -> bool {
     p.0.saturating_add(p.1) >= p.0
+}
+// @end
+
+// @demo bank_sequence
+// A tiny bank with 3 accounts. A command is (kind, a, b, amount): kind 0 = deposit(a, amount), kind 1 = withdraw(a, amount)
+// (takes at most the balance), kind 2 = transfer(a -> b, amount) (needs the balance, a != b).
+// Invariant, checked after EVERY command: total deposited == sum of balances + total withdrawn.
+pub struct Bank {
+    pub bal: [u64; 3],
+    pub drained: [bool; 3],
+    pub deposited: u64,
+    pub withdrawn: u64,
+}
+
+pub fn bank_new() -> Bank {
+    Bank { bal: [0, 0, 0], drained: [false, false, false], deposited: 0, withdrawn: 0 }
+}
+
+pub fn bank_apply(_ bank: mut Bank, _ cmd: (Index<3>, Index<3>, Index<3>, u16)) {
+    let kind = cmd.0.value
+    let a = cmd.1.value
+    let b = cmd.2.value
+    let amount = cmd.3 as u64
+    if kind == 0 {
+        var credit = amount
+        // BUG: after an account is drained to exactly 0, its next deposit is credited twice (the books still count it once).
+        if bank.drained[a] {
+            credit = amount * 2
+            bank.drained[a] = false
+        }
+        bank.bal[a] += credit
+        bank.deposited += amount
+    } else if kind == 1 {
+        let taken = if amount < bank.bal[a] { amount } else { bank.bal[a] }
+        bank.bal[a] -= taken
+        bank.withdrawn += taken
+        if taken > 0 && bank.bal[a] == 0 {
+            bank.drained[a] = true
+        }
+    } else {
+        if a != b && bank.bal[a] >= amount {
+            bank.bal[a] -= amount
+            bank.bal[b] += amount
+        }
+    }
+}
+
+pub fn bank_consistent(_ bank: Bank) -> bool {
+    bank.deposited == bank.bal[0] + bank.bal[1] + bank.bal[2] + bank.withdrawn
+}
+
+// Property: for every sequence of up to 8 commands, the invariant holds after every command.
+pub fn prop_bank_sequence(_ s: Seq<(Index<3>, Index<3>, Index<3>, u16), 8>) -> bool {
+    var bank = bank_new()
+    var i: usize = 0
+    while i < s.len {
+        bank_apply(mut bank, s.items[i])
+        if !bank_consistent(bank) { return false }
+        i += 1
+    }
+    true
 }
 // @end

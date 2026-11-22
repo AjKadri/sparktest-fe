@@ -1,7 +1,8 @@
 // Native shim for Sparktest: prints failures with println! and then fails the test.
 use std::io::Stdout
+use std::abi::DynArray
 use std::native::cpu_clock_ticks
-use sparktest::{Outcome, Encode, Summary}
+use sparktest::{Outcome, Encode, Summary, Full}
 
 // An optimizer-opaque zero: the CPU clock is an extern host call, so the compiler cannot know its value,
 // and it is never this magic number (an unavailable clock reads -1).
@@ -47,4 +48,23 @@ pub fn assert_holds<T: Encode + Copy>(_ outcome: Outcome<T>) uses (out: mut Stdo
             assert!(false)
         }
     }
+}
+
+fn print_all_words(_ label: String<16>, _ w: DynArray<u256>) uses (out: mut Stdout) {
+    print!("XW ", label, "=")
+    var i: usize = 0
+    while i < w.len() {
+        let word: u256 = w.get(i)
+        if i > 0 { print!(",") }
+        print!(word)
+        i += 1
+    }
+    println!("")
+}
+
+// Prints a Full result: one header line, then the complete original and shrunk words (comma separated)
+pub fn print_full(_ name: String<31>, _ f: Full) uses (out: mut Stdout) {
+    println!("XW ", name, " failed=", f.failed, " case=", f.case, " steps=", f.steps)
+    print_all_words("original", f.original)
+    print_all_words("shrunk", f.shrunk)
 }

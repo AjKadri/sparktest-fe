@@ -1,0 +1,29 @@
+// Bank model tests (native): the planted bug needs 3 commands; the fixed bank passes.
+use sparktest::{check, Config, Outcome}
+use sparktest_native::{fixed_seed, ticks}
+
+#[test]
+fn bank_bug_is_found_and_shrunk_to_three_commands() {
+    match check(Config::new(fixed_seed(960)).with_cases(512), props::prop_bank_sequence) {
+        Outcome::Pass { cases: _ } => { assert!(false) }
+        Outcome::Fail { original, shrunk, case: _, seed: _, steps: _ } => {
+            assert!(original.len > 3)
+            assert!(shrunk.len == 3)
+            // deposit, withdraw, deposit; amounts 1; one account throughout; the unused `b` is 0
+            assert!(shrunk.items[0].0.value == 0 && shrunk.items[1].0.value == 1 && shrunk.items[2].0.value == 0)
+            assert!(shrunk.items[0].3 == 1 && shrunk.items[1].3 == 1 && shrunk.items[2].3 == 1)
+            assert!(shrunk.items[0].1.value == shrunk.items[1].1.value && shrunk.items[1].1.value == shrunk.items[2].1.value)
+            assert!(shrunk.items[0].2.value == 0 && shrunk.items[1].2.value == 0 && shrunk.items[2].2.value == 0)
+        }
+    }
+}
+
+#[test]
+fn bank_fixed_passes() {
+    let g0 = ticks()
+    match check(Config::new(fixed_seed(961)).with_cases(100000), props::prop_bank_fixed) {
+        Outcome::Pass { cases } => { assert!(cases == 100000) }
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _ } => { assert!(false) }
+    }
+    assert!(ticks() - g0 > 1000)   // proof of work: more than 1 ms of CPU for 100k cases
+}

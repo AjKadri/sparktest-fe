@@ -21,6 +21,7 @@ console.log(`selector(${SIGNATURE}) = 0x4c350703  OK`);
 const u = decode(fx('u256_below_1000.hex'));
 assert.equal(u.input.length, 1); assert.equal(u.input[0], 1000n); assert.equal(u.steps, 253n); assert.equal(u.case, 0n);
 console.log('\n--- u256: x < 1000\n' + format(u));
+assert.match(format(u), /case      1 \(index 0\)/); // user-facing case numbers are 1-based
 const a = decode(fx('array6_ends_lt_10.hex'));
 assert.equal(a.input.length, 6); assert.equal(a.input[5], 10n); assert.equal(a.input.slice(0, 5).every((x) => x === 0n), true);
 console.log('\n--- [u64; 6]: a[0] + a[5] < 10\n' + format(a));

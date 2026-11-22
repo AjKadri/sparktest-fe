@@ -30,7 +30,7 @@ export function format(d) {
   return [
     `selector  ${d.selector}  (${SIGNATURE})`,
     `seed      ${d.seed}  (0x${d.seed.toString(16)})`,
-    `case      ${d.case}`,
+    `case      ${d.case + 1n} (index ${d.case})`,
     `steps     ${d.steps}`,
     `input     ${d.input.length} word(s): [${d.input.join(', ')}]`,
   ].join('\n');

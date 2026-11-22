@@ -11,7 +11,7 @@ export async function loadSparktest(bytes) {
   const imports = {
     env: {
       st_pass: (cases) => { last = { passed: true, cases }; },
-      st_fail: (seed, kase, steps, w0, w1, w2, w3) => { last = { passed: false, seed, case: kase, steps, words: [w0, w1, w2, w3] }; },
+      st_fail: (seed, kase, steps, w0, w1, w2, w3) => { last = { passed: false, seed, caseIndex: kase, steps, words: [w0, w1, w2, w3] }; },
       // Fe panics (overflow, assert) call this with Solidity Panic/Error data
       __fe_revert: (addr, len) => {
         const data = Array.from(new Uint8Array(memory.buffer, addr, len)).map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -22,6 +22,7 @@ export async function loadSparktest(bytes) {
   const { instance } = await WebAssembly.instantiate(bytes, imports);
   memory = instance.exports.memory;
 
+  // Case numbers: `caseIndex` is 0-based (internal); `caseNumber` is 1-based (what users see).
   // Runs one property. seed/cases/maxShrinks may be Number or BigInt (u64). max_shrinks = 0 returns the unshrunk counterexample.
   function run(prop, seed, cases = 256, maxShrinks = 1000) {
     const fn = instance.exports['run_' + prop];
@@ -32,7 +33,7 @@ export async function loadSparktest(bytes) {
     if (!last) throw new Error('property returned without reporting');
     return held
       ? { passed: true, cases: Number(last.cases), seed: s }
-      : { passed: false, seed: s, case: Number(last.case), steps: Number(last.steps), words: last.words.map(BigInt) };
+      : { passed: false, seed: s, caseIndex: Number(last.caseIndex), caseNumber: Number(last.caseIndex) + 1, steps: Number(last.steps), words: last.words.map(BigInt) };
   }
 
   // The shrink animation: [unshrunk, after 1 step, after 2 steps, ...]. Each entry is a full run with max_shrinks = k.
@@ -41,7 +42,7 @@ export async function loadSparktest(bytes) {
     for (let k = 0; k < limit; k++) {
       const r = run(prop, seed, cases, k);
       if (r.passed) return trace; // property holds: nothing to shrink
-      trace.push({ step: k, words: r.words, case: r.case });
+      trace.push({ step: k, words: r.words, caseIndex: r.caseIndex });
       if (r.steps < k) { trace.pop(); break; } // no more progress: the previous entry is minimal
     }
     return trace;

@@ -15,15 +15,17 @@ function highlight(src) {
   );
 }
 
-let doc, st, current, seed, busy = false, skipRequested = false, lastResult = null;
+let doc, recorded, st, current, seed, busy = false, skipRequested = false, lastResult = null;
 
 async function boot() {
   try {
-    const [d, bytes] = await Promise.all([
+    const [d, rec, bytes] = await Promise.all([
       fetch('props.json').then((r) => { if (!r.ok) throw new Error('props.json: HTTP ' + r.status); return r.json(); }),
+      fetch('recorded.json').then((r) => { if (!r.ok) throw new Error('recorded.json: HTTP ' + r.status); return r.json(); }),
       fetch('demo_wasm.wasm').then((r) => { if (!r.ok) throw new Error('demo_wasm.wasm: HTTP ' + r.status); return r.arrayBuffer(); }),
     ]);
     doc = d;
+    recorded = rec;
     st = await loadSparktest(bytes);
   } catch (e) {
     $('stage').innerHTML = `<p><span class="verdict bad">Could not load</span></p><p class="note">${esc(e.message)}. Serve this folder over http (for example <code>python3 -m http.server 8765</code>) rather than opening the file directly.</p>`;
@@ -31,8 +33,7 @@ async function boot() {
   }
   buildPicker();
   select(doc.props[0].id);
-  const g = doc.generated;
-  $('build').textContent = `Compiled Fe → WebAssembly: ${doc.wasm.bytes.toLocaleString()} bytes, imports ${doc.wasm.imports.join(', ')}. Built from commit ${g.commit}${g.dirty ? ' (with local changes)' : ''}, ${g.date}, ${g.fe}.`;
+  $('build').textContent = `Compiled Fe → WebAssembly: ${doc.wasm.bytes.toLocaleString()} bytes, imports ${doc.wasm.imports.join(', ')}. EVM recordings made at commit ${recorded.generated.commit}, ${recorded.generated.date}, ${recorded.generated.fe}.`;
   $('run').onclick = () => start(seed);
   $('random').onclick = () => { seed = randomSeed(); showSeed(); start(seed); };
   $('replay').onclick = () => start(seed, true);
@@ -90,21 +91,28 @@ function valsHtml(words, prev, cls = '') {
   }).join('')}</div>`;
 }
 
+function fmtMs(ms) { return ms < 0.01 ? '<0.01 ms' : `${ms.toFixed(ms < 1 ? 2 : 1)} ms`; }
+
+// runs `f` once to warm up, then once more under performance.now(); returns [result, milliseconds]
+function timed(f) {
+  f();
+  const t0 = performance.now();
+  const r = f();
+  return [r, performance.now() - t0];
+}
+
 async function start(s, isReplay = false) {
   if (busy) return;
   setBusy(true);
   skipRequested = false;
   const stage = $('stage');
   const cases = current.cases;
-  const r = st.run(current.id, s, cases);
+  const [r, ms] = timed(() => st.run(current.id, s, cases));
 
   if (r.passed) {
-    stage.innerHTML = '';
-    const b = el('div', 'block');
-    b.innerHTML = `<h3>Result</h3><p class="big"><span class="verdict good">Held</span></p><p class="counter" id="ctr">0<small>cases tried</small></p>`;
-    stage.appendChild(b);
-    await countTo($('ctr'), r.cases, 'cases tried');
-    b.insertAdjacentHTML('beforeend', `<p class="note">No counterexample in ${r.cases} cases (edge values such as 0, 1, max and powers of two are generated on purpose). Run again with a random seed to try another sequence.</p>`);
+    stage.innerHTML = `<div class="block"><h3>Result</h3><p class="big"><span class="verdict good">Held</span></p>
+      <p class="counter">${r.cases} cases in ${fmtMs(ms)}<small>measured in your browser, in WebAssembly</small></p>
+      <p class="note">No counterexample in ${r.cases} cases (edge values such as 0, 1, max and powers of two are generated on purpose). Run again with a random seed to try another sequence.</p></div>`;
     lastResult = r;
     setBusy(false);
     return;
@@ -114,10 +122,9 @@ async function start(s, isReplay = false) {
   const first = trace[0].words;
   stage.innerHTML = '';
   const b1 = el('div', 'block');
-  b1.innerHTML = `<h3>Searching</h3><p class="counter" id="ctr">0<small>cases tried</small></p>`;
+  b1.innerHTML = `<h3>First counterexample</h3><p class="big"><span class="verdict bad">Property failed</span> on case ${r.caseNumber}</p>${valsHtml(first, null)}
+    <p class="note">Search and shrink together took ${fmtMs(ms)} (measured in your browser, in WebAssembly).</p>`;
   stage.appendChild(b1);
-  await countTo($('ctr'), r.case + 1, 'cases tried');
-  b1.innerHTML = `<h3>First counterexample</h3><p class="big"><span class="verdict bad">Property failed</span> on case ${r.case + 1}</p>${valsHtml(first, null)}`;
 
   const b2 = el('div', 'block');
   b2.innerHTML = `<h3>Shrinking</h3><div id="shr"></div><p class="stepline" id="stepline"></p><div class="bar"><i id="barfill"></i></div>`;
@@ -137,41 +144,30 @@ async function start(s, isReplay = false) {
   $('stepline').textContent = `done after ${total} shrink step${total === 1 ? '' : 's'}`;
 
   const b3 = el('div', 'block');
-  const same = lastResult && !lastResult.passed && lastResult.seed === r.seed && lastResult.steps === r.steps && lastResult.case === r.case && lastResult.words.every((x, i) => x === r.words[i]);
+  const same = lastResult && !lastResult.passed && lastResult.seed === r.seed && lastResult.steps === r.steps && lastResult.caseIndex === r.caseIndex && lastResult.words.every((x, i) => x === r.words[i]);
   b3.innerHTML = `<h3>Minimal counterexample</h3>${valsHtml(r.words, null, 'final')}
-    <p class="note">seed <code>${r.seed}</code> · found on case ${r.case + 1} · ${r.steps} shrink steps</p>
+    <p class="note">seed <code>${r.seed}</code> · found on case ${r.caseNumber} · ${r.steps} shrink steps</p>
     ${isReplay ? (same ? '<p class="note ok">Replayed with the same seed: identical counterexample, identical shrink.</p>' : '<p class="note">Replayed.</p>') : '<p class="note">Press <strong>Replay</strong> to reproduce this exact failure from the seed, or <strong>Random seed</strong> to hunt for another.</p>'}`;
   stage.appendChild(b3);
   lastResult = r;
   setBusy(false);
 }
 
-async function countTo(node, target, unit) {
-  if (reduceMotion || skipRequested || target < 2) { node.innerHTML = `${target}<small>${unit}</small>`; return; }
-  const steps = Math.min(target, 30);
-  for (let i = 1; i <= steps; i++) {
-    node.innerHTML = `${Math.round((target * i) / steps)}<small>${unit}</small>`;
-    if (skipRequested) { node.innerHTML = `${target}<small>${unit}</small>`; return; }
-    await sleep(14);
-  }
-}
-
 function renderRecorded() {
-  const e = current.evm;
+  const e = recorded.props[current.id];
   const box = $('recorded');
-  const cmd = `cd demo-record &amp;&amp; fe test --show-logs`;
   const rows = [];
   if (current.expect === 'fail') {
     const input = current.labels.map((l, i) => `${l} = ${e.input[i] ?? 0}`).join(', ');
-    rows.push(['seed', e.seed], ['failed on case', e.case + 1], ['shrink steps', e.steps], ['shrunk input', input]);
+    rows.push(['seed', e.seed], ['failed on case', e.case_index + 1], ['shrink steps', e.steps], ['shrunk input', input]);
   } else {
     rows.push(['seed', current.seed], ['result', `held for ${e.cases} cases`], ['gas for the run', e.gas.toLocaleString()]);
   }
-  rows.push(['commit', e.commit], ['recorded', e.date]);
+  rows.push(['commit', recorded.generated.commit], ['recorded', recorded.generated.date]);
   box.innerHTML = `<span class="badge">Recorded, not computed here</span>
     <dl>${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
-    <p class="cmd">${cmd}<br>then decode the revert data: node tools/decode-revert/decode.mjs &lt;hex&gt;</p>
-    <p class="note small">This run happened on the sonatina EVM test backend when the page was built, with the same seed. The native backend gives the same result (checked in <code>scripts/cross-check.sh</code>).</p>`;
+    <p class="cmd">to re-record: <code>${esc(recorded.command)}</code></p>
+    <p class="note small">This run happened on the sonatina EVM test backend (not in your browser), with the same seed. The native backend gives the same result (checked by <code>scripts/cross-check.sh</code>).</p>`;
 }
 
 boot();

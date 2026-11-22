@@ -1,6 +1,6 @@
 # Sparktest
 
-Property testing for Fe: find the input that breaks your code, shrink it, replay it.
+**Pitch:** Sparktest is a property-testing library written in Fe that finds the input that breaks your code, shrinks it to a minimal case and replays it from a seed, on the EVM, natively and in the browser.
 
 **[Live demo](https://ajkadri.github.io/sparktest-fe/)** (the properties run in your browser as compiled Fe, via WebAssembly).
 
@@ -12,7 +12,22 @@ Unit tests check the inputs you thought of. The bugs that cost money tend to sit
 
 - Trail of Bits studied 246 findings from 23 of its own audits ([arXiv:1911.07567](https://arxiv.org/pdf/1911.07567)). The authors estimate that 37% of all findings (91 of 246) and 63% of the high-severity, low-difficulty ones (17 of 27) were plausibly detectable with user-defined properties. These are the authors' optimistic estimates from one company's audits, not measured detection rates.
 - Share-rounding in ERC-4626 vaults is a documented attack surface: OpenZeppelin's guide has a "Security concern: Inflation attack" section built on how deposits round ([docs](https://docs.openzeppelin.com/contracts/erc4626)).
-- Solidity has fuzzers (Echidna, Foundry). Fe had no property-testing library; this is one, written in Fe.
+- Solidity has fuzzers (Echidna, Foundry). Fe's built-in test runner has no property testing.
+
+## Approach
+
+Sparktest was built during the contest (22 to 24 November 2026): two feasibility spikes first, then one bounded step at a time, each with its expected results written down before it was run ([docs/EXPECTATIONS.md](docs/EXPECTATIONS.md)). The design, in a few bullets:
+
+- **Generators with edge bias.** One `Arbitrary` implementation per type; about 1 draw in 4 is an edge value (0, 1, 2, max, 2^k and its neighbours).
+- **Shrinking.** Greedy: the first simpler candidate that still fails is taken. Component candidates run to a fixed point, then joint candidates (all components together, equal components together, moving an amount to a later slot) as a finishing pass, repeated while anything improves.
+- **Seeds and replay.** Every failure reports its seed; the same seed gives the same failure on every backend.
+- **Checked helpers.** `checked_add`, `checked_sub`, `checked_mul` return `Option`, so an overflow inside a property is a reported failure.
+- **Contract testing.** Properties call deployed contracts through actor contracts and `evm.try_call`, so a contract panic becomes a failed call that is found and shrunk.
+- **Panic recovery.** `check_isolated` runs each evaluation inside a harness contract (sonatina); bisect-and-replay does the same on native and wasm.
+- **Stateful testing.** `Seq<C, N>` generates and shrinks command sequences; an invariant is checked after every command.
+- **Vacuity guards.** A property records its calls in a `Tally`; a pass that never exercised its premise is reported as vacuous.
+- **Gas-safe shrinking.** `sparktest_evm::check_gas` stops shrinking before the gas cap and reports the best input so far with an `early` flag.
+- **Three backends.** sonatina (the EVM test backend), native, and WebAssembly (the demo); results are compared across them.
 
 ## Before / after
 
@@ -72,12 +87,12 @@ sparktest = { path = "../sparktest" }
 sparktest_evm = { path = "../sparktest-evm" }   # EVM shim: assert_holds, seeds
 ```
 
-Fe 26.7.0 also accepts a git dependency (`source`, `rev`, and `path` for the subdirectory of the ingot). I tested this form against a `file://` URL of this repository (both `sparktest` and `sparktest_evm` resolved and ran a property); the same syntax with the GitHub URL has not been tested until the repository is published:
+Fe 26.7.0 also accepts a git dependency (`source`, `rev`, and `path` for the subdirectory of the ingot). Pinned to the v0.1.0 tag (verified with `./scripts/check-git-dep.sh`).
 
 ```toml
 [dependencies]
-sparktest = { source = "https://github.com/ajkadri/sparktest-fe", rev = "<commit hash>", path = "sparktest" }
-sparktest_evm = { source = "https://github.com/ajkadri/sparktest-fe", rev = "<commit hash>", path = "sparktest-evm" }
+sparktest = { source = "https://github.com/AjKadri/sparktest-fe", rev = "v0.1.0", path = "sparktest" }
+sparktest_evm = { source = "https://github.com/AjKadri/sparktest-fe", rev = "v0.1.0", path = "sparktest-evm" }
 ```
 
 **2. Write a property**: a function from one input to `bool` that returns `true` when the rule holds. The input can be any type with a generator (`u8` to `u256`, `Address`, tuples, arrays, `Index<N>`, `Seq<C, N>`, or your own struct; see [docs/API.md](docs/API.md)).
@@ -126,7 +141,7 @@ Shrinking is greedy, so it stops at a local minimum. Over seeds 1 to 12 on this 
 
 - **Generators**: `u8`, `u16`, `u32`, `u64`, `u128`, `u256`, `bool`, `Address`, tuples of 2 to 4, fixed arrays `[T; N]` (generic over element type and length), `Index<N>` (a value in 0..N-1 for picking from a small set) and `Seq<C, N>` (a sequence of up to N commands). User structs work by delegating to a tuple of their fields.
 - **Edge bias**: about 1 draw in 4 is an edge value (0, 1, 2, max, max-1, 2^k, 2^k-1, 2^k+1), the rest are uniform.
-- **Shrinking**: greedy, per type (integers toward 0, sequences shorter first, then simpler commands).
+- **Shrinking**: greedy, per type (integers toward 0, sequences shorter first, then simpler commands), then joint candidates for coupled components.
 - **Seeds and replay**: every failure reports its seed; the same seed gives the same failure on every backend.
 - **Checked helpers**: `checked_add`, `checked_sub`, `checked_mul` for `u8` to `u256`, returning `Option`, so an overflow inside a property is a reported failure instead of a panic.
 - **Contract testing**: properties can call deployed contracts; through `evm.try_call` a contract panic becomes a failed call that is found and shrunk.
@@ -134,30 +149,34 @@ Shrinking is greedy, so it stops at a local minimum. Over seeds 1 to 12 on this 
 - **Vacuity guards**: a property records its calls and command kinds in a `Tally` (an effect), and `guard` reports a passing run that never exercised its premise (no call succeeded, or a command kind never ran) as vacuous instead of as a pass.
 - **Stateful testing**: random command sequences, an invariant checked after every command, failing sequences shrunk to the shortest.
 - **Three backends**: sonatina (the EVM test backend), native, and WebAssembly (the demo).
+- **Gas-safe shrinking** (EVM): `check_gas` stops shrinking while gas remains and reports the best input so far with an `early` flag instead of ending in `OutOfGas`.
 
-## What is Fe-specific
+## Fe highlight
 
-Each claim below is backed by a check in this repository; the spike reports record the compiler output ([spike/SPIKE_REPORT.md](spike/SPIKE_REPORT.md), [spike/SPIKE2_REPORT.md](spike/SPIKE2_REPORT.md)).
+**An effect-polymorphic runner that carries a `Tally` from a property to its caller.** `check` is declared `uses P::E`: whatever effects the property closure needs become effects of `check` itself, so the same runner accepts a pure property, a property that calls contracts (`Evm`) and a property that records into a `Tally`. The core has no effects of its own; the caller provides the `Tally` with `with (mut tally) { ... }`:
 
-- **An effect-polymorphic runner.** `check` is declared `uses P::E`, so a property that needs an effect (for example `Evm`) is accepted when its caller provides it; a runner that omits `uses P::E` is rejected (`error[8-0106]: missing effect row 'P::E' required by 'call'`). Spike 2, check E5.
+```fe-excerpt sparktest/src/lib.fe
+pub fn check<T: Arbitrary + Shrink + Copy, P: Fn(T) -> bool>(_ cfg: Config, _ prop: P) -> Outcome<T> uses P::E {
+    check_with(cfg, prop, || false)
+}
+```
+
+```fe-excerpt tests-erc20/src/original_idx.fe
+fn p1(_ actors: [Address; 4], _ p: (Index<4>, Index<4>, Index<251>)) -> bool uses (evm: mut Evm, tally: mut Tally) {
+```
+
+```fe-excerpt tests-erc20/src/original_idx.fe
+    var tally = Tally::new()
+    let g0 = evm.gas()
+    let o = with (mut tally) { check(Config::new(fixed_seed(2107)).with_cases(64), |p: (Index<4>, Index<4>, Index<251>)| p1(actors, p)) }
+```
+
+A runner that omits `uses P::E` is rejected: `error[8-0106]: missing effect row 'P::E' required by 'call'` (spike 2, check E5). The other Fe-specific points, each backed by a check in this repository (the spike reports record the compiler output: [spike/SPIKE_REPORT.md](spike/SPIKE_REPORT.md), [spike/SPIKE2_REPORT.md](spike/SPIKE2_REPORT.md)):
+
 - **An effect-free core with per-backend shims.** A test's entry effect is `Evm` on sonatina and `Host` on native, so one file cannot mix them (`error[8-0153]: unsupported entry effect`). The core (`sparktest/`) has no effects; `sparktest-evm/` and `sparktest-native/` are thin shims, and test ingots are separate. Spike 1 check D, spike 2 check E6.
 - **Generic traits, including const-generic arrays.** `Arbitrary`, `Shrink` and `Encode` are implemented generically for tuples and `[T; N]`, and `Seq<C, N>` builds on them. Spike 2, check E3; `sparktest/src/composite.fe`.
-- **A revert as a value.** Through `evm.try_call` a panicking contract call comes back as a result; through a direct `evm.call` the panic bubbles up and ends the whole test with no report. Both are shown side by side in [docs/PROOF.md](docs/PROOF.md) (the `examples/rewards` section).
+- **A revert as a value.** Through `evm.try_call` a panicking contract call comes back as a result (and `check_isolated` builds on it); through a direct `evm.call` the panic bubbles up and ends the whole test with no report. Both are shown side by side in [docs/PROOF.md](docs/PROOF.md) (the `examples/rewards` section).
 - **Cross-backend determinism as a compiler check.** The same seed gives identical results on sonatina and native, and on wasm in the demo, so a disagreement between backends is a finding. `scripts/cross-check.sh` compares 11 scenarios (11/11 identical), and the demo test compares all six demo properties.
-
-## Proof
-
-[docs/PROOF.md](docs/PROOF.md) is generated by `./scripts/proof.sh`. Expected minimums were written down before running, in [docs/EXPECTATIONS.md](docs/EXPECTATIONS.md) (commits [`95fa0e8`](https://github.com/ajkadri/sparktest-fe/commit/95fa0e8), [`de453d8`](https://github.com/ajkadri/sparktest-fe/commit/de453d8) and [`07bed4d`](https://github.com/ajkadri/sparktest-fe/commit/07bed4d), each before the runs it covers).
-
-| area | what was tested | result |
-|---|---|---|
-| planted bugs (pure code, sonatina and native) | vault rounding, fee overflow, balance underflow, packing shift, bounds off-by-one; each with a fixed version | 5 of 5 bugs found and shrunk (vault to 3 assets, 1 share, deposit 1; withdraw to balance 0, amount 1; pack to a=1, b=0; bounds to i=0, len=0); 5 of 5 fixed versions pass 256 cases; both backends identical |
-| ERC20 through contract calls (sonatina) | the ERC20 test fixture from the Fe compiler repo (`crates/fe/tests/fixtures/fe_test/erc20.fe` at e6e6342), 4 actor contracts, 64 cases per property | 6 of 6 properties hold on the unchanged fixture; a planted self-transfer bug is caught by 2 properties, both shrunk to exactly (0, 0, 1) with `Index<4>` actors (with raw `u8` actors, 1 of the 2 stops at (1, 1, 1); before joint shrinking one `Index<4>` result stopped at (3, 3, 1)) |
-| the Fe Guide's ERC-20 and a mutation test (sonatina) | the "Complete ERC20" example from https://fe-lang.org/examples/erc20/ (vendored unchanged), the 6 ERC20 properties and the stateful model check, then 10 single-change mutants | all 7 checks pass on the unchanged contract (none vacuous); 8 of 10 mutants caught, 2 missed with a probe-backed explanation each (an equivalent mutant, a dropped event); M10 (no MINTER check) was missed until the stateful command set got a Mint from any actor, and is now caught; 7 of 10 matched the pre-registered expectation exactly, 3 partly (M03 and M04 are now caught by P4 only: the stateful check lost power with a fifth command kind; M09 caught by more than the stateful run) |
-| panic recovery (sonatina, native, wasm) | a property that overflows (`u64`), one that divides by zero, and a normal false-returning one, through `check_isolated`, `scripts/find-panic.sh` and the demo page | overflow shrunk to exactly 18446744073709552 and division by zero to (0, 0), each with the panic reason; the false-returning property gives the same result as `check`; first case, shrink steps and shrunk input identical on sonatina and native, and on wasm for the overflow property; one isolated evaluation costs about 1,500 gas |
-| a contract that panics (sonatina) | `examples/rewards`, overflow in `claim` | through `try_call`: found and shrunk to exactly 18446744073709552, the smallest overflowing stake; through a direct call the whole test reverts with Panic(0x11) and reports nothing |
-| stateful (sonatina and native; ERC20 on sonatina) | a bank model with a bug that needs three commands; the ERC20 fixture vs a reference model, with a planted bug that needs two calls | bank bug shrunk to 3 commands, identical on both backends; ERC20 planted bug shrunk to 2 calls (found on case 102; 64 cases no longer find it since the command set has five kinds, so that run uses 128); the unchanged fixture passes 64 cases |
-| std (sonatina and native) | integer wrapping/saturating ops, `mul_div`, `addmod`, `isqrt`, `core::sort`, the std ABI codec round trip | 12 of 12 properties hold; no Fe bug found by them |
 
 ## Architecture
 
@@ -183,11 +202,11 @@ flowchart LR
   wasm --> web
 ```
 
-The core defines the traits, generators, shrinking, `check`, `Index`, `Seq` and the checked helpers. Shims adapt failure reporting to a backend. Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); every public item: [docs/API.md](docs/API.md).
+The repository root has a `fe.toml` workspace of the sonatina (EVM) ingots (see Build and test). The core defines the traits, generators, shrinking, `check`, `Index`, `Seq` and the checked helpers. Shims adapt failure reporting to a backend. Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); every public item: [docs/API.md](docs/API.md).
 
-## Reproduce everything
+## Build and test
 
-Tested on macOS (Apple Silicon) only. You need Fe 26.7.0, Node 20 or newer (tested with 24.15.0), Python 3 (standard library only) and git.
+Tested on macOS (Apple Silicon) only. You need Fe 26.7.0, Node 20 or newer (tested with 24.15.0), Python 3 (standard library only; tested with 3.9.6) and git.
 
 ```bash
 # 1. install Fe 26.7.0 (commit e6e6342)
@@ -195,11 +214,19 @@ curl -fsSL https://raw.githubusercontent.com/argotorg/fe/master/feup/feup.sh | b
 export PATH="$HOME/.fe/bin:$PATH"
 fe --version          # fe 26.7.0 (e6e6342)
 
-# 2. get the code and run everything
-git clone https://github.com/ajkadri/sparktest-fe.git
+# 2. get the code
+git clone https://github.com/AjKadri/sparktest-fe.git
 cd sparktest-fe
-./scripts/test-all.sh   # exit code 0 when every part passes; about a minute on the machine used for this README
+
+# 3. check and test at the repository root
+fe check              # no output, exit code 0
+fe test               # test result: ok. 228 passed; 0 failed
+
+# 4. run every part of the suite
+./scripts/test-all.sh   # exit code 0 when every part passes
 ```
+
+The root `fe.toml` is a workspace of the sonatina (EVM) ingots: the library, its EVM shim, the properties, the ERC20 and CoolCoin suites, and the quickstart. The native test ingot is not a member, because a workspace cannot mix targets (with it, `fe check` fails with `error[8-0153]: unsupported entry effect`); run it with `cd tests-native && fe test`, and the rest with `./scripts/test-all.sh`. `fe build` has no contracts to build in a library, so it is not used here; `fe check` is the compile check.
 
 `test-all.sh` runs these parts and prints `ALL PARTS PASSED` at the end (counts from the last run):
 
@@ -227,8 +254,33 @@ Other commands:
 ./scripts/proof.sh                   # rerun the proof suites and regenerate docs/PROOF.md (--check verifies without writing)
 ./scripts/record-evm.sh              # re-record the sonatina runs shown in the demo's "Recorded on EVM" panel (--check verifies)
 ./scripts/build-demo.sh              # rebuild the demo's wasm and props.json
+./scripts/check-git-dep.sh           # check that the git dependency in the Quickstart resolves (needs the v0.1.0 tag on GitHub)
 cd web && python3 -m http.server 8765   # serve the demo at http://localhost:8765/ (local run)
 ```
+
+## Demo
+
+Live: **https://ajkadri.github.io/sparktest-fe/** (a static page; to serve it locally: `cd web && python3 -m http.server 8765`).
+
+What to click: pick one of the six properties (*Capped mint*, *Buggy sort*, *Pair sum*, *Saturating add*, *Bank sequence*, *Overflow panic*), press **Run**, and watch the counterexample shrink; **Skip** jumps to the end, **Replay** reproduces the failure from the same seed. *Saturating add* holds, and shows a pass. *Bank sequence* shrinks a list of commands.
+
+The panic-recovery property is *Overflow panic*: its code overflows `u64` and traps in WebAssembly. The page catches the trap, bisects the case limit to find the first case that panics (8 steps), and shrinks by replay to exactly 18446744073709552 with the reason "arithmetic overflow".
+
+Two kinds of result are labelled differently on the page. The counterexample and the shrink steps are computed live in your browser, by the compiled Fe running as WebAssembly. The panel "Recorded on EVM" is not computed there: it shows a run on the sonatina EVM backend that `./scripts/record-evm.sh` recorded at a stated commit (`./scripts/record-evm.sh --check` verifies it is current), and the page's build line says which commit and Fe version made it. The demo test (`node web/sparktest.test.mjs`, part of `test-all.sh`) checks that wasm, EVM and native agree on all six properties.
+
+## Proof
+
+[docs/PROOF.md](docs/PROOF.md) is generated by `./scripts/proof.sh`. Expected minimums were written down before running, in [docs/EXPECTATIONS.md](docs/EXPECTATIONS.md) (commits [`95fa0e8`](https://github.com/AjKadri/sparktest-fe/commit/95fa0e8), [`de453d8`](https://github.com/AjKadri/sparktest-fe/commit/de453d8) and [`07bed4d`](https://github.com/AjKadri/sparktest-fe/commit/07bed4d), each before the runs it covers; later sections up to L7d follow the same rule).
+
+| area | what was tested | result |
+|---|---|---|
+| planted bugs (pure code, sonatina and native) | vault rounding, fee overflow, balance underflow, packing shift, bounds off-by-one; each with a fixed version | 5 of 5 bugs found and shrunk (vault to 3 assets, 1 share, deposit 1; withdraw to balance 0, amount 1; pack to a=1, b=0; bounds to i=0, len=0); 5 of 5 fixed versions pass 256 cases; both backends identical |
+| ERC20 through contract calls (sonatina) | the ERC20 test fixture from the Fe compiler repo (`crates/fe/tests/fixtures/fe_test/erc20.fe` at e6e6342), 4 actor contracts, 64 cases per property | 6 of 6 properties hold on the unchanged fixture; a planted self-transfer bug is caught by 2 properties, both shrunk to exactly (0, 0, 1) with `Index<4>` actors (with raw `u8` actors, 1 of the 2 stops at (1, 1, 1); before joint shrinking one `Index<4>` result stopped at (3, 3, 1)) |
+| the Fe Guide's ERC-20 and a mutation test (sonatina) | the "Complete ERC20" example from https://fe-lang.org/examples/erc20/ (vendored unchanged), the 6 ERC20 properties and the stateful model check, then 10 single-change mutants | all 7 checks pass on the unchanged contract (none vacuous); 8 of 10 mutants caught, 2 missed with a probe-backed explanation each (an equivalent mutant, a dropped event); M10 (no MINTER check) was missed until the stateful command set got a Mint from any actor, and is now caught; 7 of 10 matched the pre-registered expectation exactly, 3 partly (M03 and M04 are now caught by P4 only: the stateful check lost power with a fifth command kind; M09 caught by more than the stateful run) |
+| panic recovery (sonatina, native, wasm) | a property that overflows (`u64`), one that divides by zero, and a normal false-returning one, through `check_isolated`, `scripts/find-panic.sh` and the demo page | overflow shrunk to exactly 18446744073709552 and division by zero to (0, 0), each with the panic reason; the false-returning property gives the same result as `check`; first case, shrink steps and shrunk input identical on sonatina and native, and on wasm for the overflow property; one isolated evaluation costs about 1,500 gas |
+| a contract that panics (sonatina) | `examples/rewards`, overflow in `claim` | through `try_call`: found and shrunk to exactly 18446744073709552, the smallest overflowing stake; through a direct call the whole test reverts with Panic(0x11) and reports nothing |
+| stateful (sonatina and native; ERC20 on sonatina) | a bank model with a bug that needs three commands; the ERC20 fixture vs a reference model, with a planted bug that needs two calls | bank bug shrunk to 3 commands, identical on both backends; ERC20 planted bug shrunk to 2 calls (found on case 102; 64 cases no longer find it since the command set has five kinds, so that run uses 128); the unchanged fixture passes 64 cases |
+| std (sonatina and native) | integer wrapping/saturating ops, `mul_div`, `addmod`, `isqrt`, `core::sort`, the std ABI codec round trip | 12 of 12 properties hold; no Fe bug found by them |
 
 ## Limitations
 
@@ -250,7 +302,24 @@ cd web && python3 -m http.server 8765   # serve the demo at http://localhost:876
 
 ## Roadmap
 
-Planned, not implemented: signed integers (they exist in Fe 26.7.0), more std and contract examples, and tagged releases so the git dependency can pin a version.
+Planned, not implemented: signed integers (they exist in Fe 26.7.0) and more std and contract examples.
+
+## Declaration
+
+**Pre-existing work:** None. Development started on 22 November 2026 with the feasibility spikes in `spike/`. The first commit is `2da6e8e` ("Spike 1: checks A-F and report", 2026-11-22).
+
+**Third-party code:**
+
+- The ERC-20 test fixture from the Fe compiler repository (argotorg/fe, `crates/fe/tests/fixtures/fe_test/erc20.fe` at e6e6342, Apache-2.0), vendored unchanged in `examples/erc20`; `examples/erc20-buggy` and `examples/erc20-stateful-bug` are copies with one planted change each (the diffs are checked by `scripts/check-vendored.sh`).
+- The Fe Guide's CoolCoin ERC-20 (https://fe-lang.org/examples/erc20/), vendored unchanged in `examples/coolcoin`; `examples/coolcoin-mutants` are generated single-change copies. The page states no licence; the licence status is recorded in the header of `examples/coolcoin/src/lib.fe` (its only repository links point to argotorg/fe, which is Apache-2.0, but whether the page's code is covered is not stated).
+- The Apache-2.0 licence text from argotorg/fe, in `examples/erc20/LICENSE-APACHE` (and the two copies beside the planted-bug fixtures).
+- The JavaScript keccak-256 in `tools/decode-revert/keccak.mjs` and the 64-bit xorshift generator in `sparktest/src/lib.fe` are our own implementations, written in this repository, of public algorithms (Keccak-f[1600] with Ethereum's 0x01 padding; Marsaglia's xorshift with shifts 13, 7, 17). No third-party source code was copied; the Keccak round constants and rotation offsets are the published values, and `tools/decode-revert/test.mjs` checks the implementation against known vectors and against the selector the Fe compiler computes independently.
+
+**AI assistance:** Built with AI agents under my direction. Claude (Anthropic) wrote most of the Fe library, tests, scripts, web demo and documentation, one bounded task at a time from my specifications, each with acceptance checks. Claude also helped me plan the design and the build, check results and word the docs. It hit the two Fe compiler issues while building and drafted the reports. I chose the idea, made the design decisions, reviewed every result, ran the full test suite myself, filed the issues, and can explain the code. Expected results were committed before each proof run (docs/EXPECTATIONS.md). No one outside the project has reviewed the code.
+
+## Team
+
+AjKadri (AJ Sidemen), solo.
 
 ## License
 

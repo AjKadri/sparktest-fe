@@ -22,6 +22,16 @@ for i, b in enumerate(ex, 1):
         failed = True
 print(f'README: {len(ex)} fe-excerpt blocks checked against examples/quickstart/src/lib.fe')
 
+# ---- README ```fe-excerpt <path> blocks must be verbatim code from that file (the Fe highlight section)
+readme = open(os.path.join(ROOT, 'README.md')).read()
+pex = re.findall(r'```fe-excerpt ([^\n]+)\n(.*?)```', readme, re.S)
+for path, b in pex:
+    src = open(os.path.join(ROOT, path.strip())).read()
+    if b.strip('\n') not in src:
+        print(f'README fe-excerpt block from {path} is not verbatim code from that file:\n{b}')
+        failed = True
+print(f'README: {len(pex)} fe-excerpt blocks checked against their named source files')
+
 # ---- API.md examples
 bl = blocks('docs/API.md')
 evm_header = '''use std::evm::{Evm, Address}

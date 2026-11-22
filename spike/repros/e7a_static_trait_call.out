@@ -1,5 +1,5 @@
 $ fe test repros/e7a_static_trait_call.fe
-Compilation errors in file:///Users/admin/Documents/Hackathons/fe-quickcheck/repros/e7a_static_trait_call.fe
+Compilation errors in file://<project>/repros/e7a_static_trait_call.fe
 
 error[2-0010]: no method named `arbitrary` found for struct `Address`
    ┌─ e7a_static_trait_call.fe:15:22
@@ -8,7 +8,7 @@ error[2-0010]: no method named `arbitrary` found for struct `Address`
    │                      ^^^^^^^^^ method not found in `Address`
 
 
-ERROR [0.1136s] Compilation errors in file:///Users/admin/Documents/Hackathons/fe-quickcheck/repros/e7a_static_trait_call.fe
+ERROR [0.1136s] Compilation errors in file://<project>/repros/e7a_static_trait_call.fe
 
 test result: FAILED. 0 passed; 1 failed
 

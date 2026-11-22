@@ -1,5 +1,5 @@
 $ fe test --backend native repros/e7b_println_untyped_literal.fe
-Compilation errors in file:///Users/admin/Documents/Hackathons/fe-quickcheck/repros/e7b_println_untyped_literal.fe
+Compilation errors in file://<project>/repros/e7b_println_untyped_literal.fe
 
 error[8-0031]: type annotation is needed
   ┌─ e7b_println_untyped_literal.fe:6:21
@@ -11,7 +11,7 @@ error[8-0031]: type annotation is needed
   │                     consider giving `: fn fmt<{integer}>` here
 
 
-ERROR [0.1146s] Compilation errors in file:///Users/admin/Documents/Hackathons/fe-quickcheck/repros/e7b_println_untyped_literal.fe
+ERROR [0.1146s] Compilation errors in file://<project>/repros/e7b_println_untyped_literal.fe
 
 test result: FAILED. 0 passed; 1 failed
 

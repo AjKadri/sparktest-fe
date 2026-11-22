@@ -187,3 +187,29 @@ pub fn check<T: Arbitrary + Shrink + Copy, P: Fn(T) -> bool>(_ cfg: Config, _ pr
     }
     Outcome::Pass { cases: cfg.cases }
 }
+
+// ---- Summary: a flat, comparable view of an Outcome (used for cross-backend checks) ----
+pub struct Summary {
+    pub failed: u256,
+    pub case: u256,
+    pub steps: u256,
+    pub original: [u256; 4],  // first 4 words of Encode::words(original)
+    pub shrunk: [u256; 4],    // first 4 words of Encode::words(shrunk)
+}
+
+fn first4(_ w: DynArray<u256>) -> [u256; 4] {
+    var out: [u256; 4] = [0, 0, 0, 0]
+    var i: usize = 0
+    while i < 4 && i < w.len() {
+        out[i] = w.get(i)
+        i += 1
+    }
+    out
+}
+
+pub fn summarize<T: Encode + Copy>(_ o: Outcome<T>) -> Summary {
+    match o {
+        Outcome::Pass { cases } => Summary { failed: 0, case: cases, steps: 0, original: [0, 0, 0, 0], shrunk: [0, 0, 0, 0] }
+        Outcome::Fail { original, shrunk, case, seed: _, steps } => Summary { failed: 1, case, steps, original: first4(original.words()), shrunk: first4(shrunk.words()) }
+    }
+}

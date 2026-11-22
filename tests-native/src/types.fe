@@ -1,0 +1,299 @@
+// L1 tests: one passing and one failing property per type; every seed is fixed via fixed_seed(salt).
+use std::evm::Address
+use std::io::Stdout
+use std::abi::DynArray
+use qc::{check, Config, Outcome, Arbitrary, Shrink, Encode}
+use qc_native::{assert_holds, fixed_seed, ticks}
+use props::Transfer
+
+fn is_pass<T>(_ o: Outcome<T>) -> bool {
+    match o {
+        Outcome::Pass { cases: _ } => true
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _ } => false
+    }
+}
+
+fn shrunk_of<T: Copy>(_ o: Outcome<T>, _ d: T) -> T {
+    match o {
+        Outcome::Pass { cases: _ } => d
+        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _ } => shrunk
+    }
+}
+
+fn case_of<T>(_ o: Outcome<T>) -> u256 {
+    match o {
+        Outcome::Pass { cases } => cases
+        Outcome::Fail { original: _, shrunk: _, case, seed: _, steps: _ } => case
+    }
+}
+
+// ---- u8 ----
+#[test]
+fn u8_passing_property() {
+    let g0 = ticks()
+    let o = check(Config::new(fixed_seed(20)).with_cases(100000), props::prop_u8_any)
+    assert!(is_pass(o))
+    assert!(case_of(o) == 100000)
+    // proof the cases actually ran: gas used is at least 50 per case
+    assert!(ticks() - g0 > 1000) // proof of work: >1ms CPU for 100k cases
+}
+
+// x < 200 fails; the minimal counterexample is exactly 200
+#[test]
+fn u8_failing_property_shrinks_to_minimum() {
+    let o = check(Config::new(fixed_seed(21)), props::prop_u8_below_lim)
+    assert!(!is_pass(o))
+    assert!((shrunk_of(o, 0) as u256) == 200)
+}
+
+// edge bias: the max value is found within 256 cases
+#[test]
+fn u8_edge_bias_finds_max() {
+    let max: u8 = 255
+    let o = check(Config::new(fixed_seed(22)), props::prop_u8_ne_max)
+    assert!(!is_pass(o))
+    assert!(case_of(o) < 256)
+    assert!(shrunk_of(o, 0) == max)
+}
+
+// ---- u16 ----
+#[test]
+fn u16_passing_property() {
+    let g0 = ticks()
+    let o = check(Config::new(fixed_seed(23)).with_cases(100000), props::prop_u16_any)
+    assert!(is_pass(o))
+    assert!(case_of(o) == 100000)
+    // proof the cases actually ran: gas used is at least 50 per case
+    assert!(ticks() - g0 > 1000) // proof of work: >1ms CPU for 100k cases
+}
+
+// x < 40000 fails; the minimal counterexample is exactly 40000
+#[test]
+fn u16_failing_property_shrinks_to_minimum() {
+    let o = check(Config::new(fixed_seed(24)), props::prop_u16_below_lim)
+    assert!(!is_pass(o))
+    assert!((shrunk_of(o, 0) as u256) == 40000)
+}
+
+// edge bias: the max value is found within 256 cases
+#[test]
+fn u16_edge_bias_finds_max() {
+    let max: u16 = 65535
+    let o = check(Config::new(fixed_seed(25)), props::prop_u16_ne_max)
+    assert!(!is_pass(o))
+    assert!(case_of(o) < 256)
+    assert!(shrunk_of(o, 0) == max)
+}
+
+// ---- u32 ----
+#[test]
+fn u32_passing_property() {
+    let g0 = ticks()
+    let o = check(Config::new(fixed_seed(26)).with_cases(100000), props::prop_u32_any)
+    assert!(is_pass(o))
+    assert!(case_of(o) == 100000)
+    // proof the cases actually ran: gas used is at least 50 per case
+    assert!(ticks() - g0 > 1000) // proof of work: >1ms CPU for 100k cases
+}
+
+// x < 3000000000 fails; the minimal counterexample is exactly 3000000000
+#[test]
+fn u32_failing_property_shrinks_to_minimum() {
+    let o = check(Config::new(fixed_seed(27)), props::prop_u32_below_lim)
+    assert!(!is_pass(o))
+    assert!((shrunk_of(o, 0) as u256) == 3000000000)
+}
+
+// edge bias: the max value is found within 256 cases
+#[test]
+fn u32_edge_bias_finds_max() {
+    let max: u32 = 4294967295
+    let o = check(Config::new(fixed_seed(28)), props::prop_u32_ne_max)
+    assert!(!is_pass(o))
+    assert!(case_of(o) < 256)
+    assert!(shrunk_of(o, 0) == max)
+}
+
+// ---- u64 ----
+#[test]
+fn u64_passing_property() {
+    let g0 = ticks()
+    let o = check(Config::new(fixed_seed(29)).with_cases(100000), props::prop_u64_any)
+    assert!(is_pass(o))
+    assert!(case_of(o) == 100000)
+    // proof the cases actually ran: gas used is at least 50 per case
+    assert!(ticks() - g0 > 1000) // proof of work: >1ms CPU for 100k cases
+}
+
+// x < 1152921504606846976 fails; the minimal counterexample is exactly 2^60
+#[test]
+fn u64_failing_property_shrinks_to_minimum() {
+    let o = check(Config::new(fixed_seed(30)), props::prop_u64_below_lim)
+    assert!(!is_pass(o))
+    assert!((shrunk_of(o, 0) as u256) == 1152921504606846976)
+}
+
+// edge bias: the max value is found within 256 cases
+#[test]
+fn u64_edge_bias_finds_max() {
+    let max: u64 = 18446744073709551615
+    let o = check(Config::new(fixed_seed(31)), props::prop_u64_ne_max)
+    assert!(!is_pass(o))
+    assert!(case_of(o) < 256)
+    assert!(shrunk_of(o, 0) == max)
+}
+
+// ---- u128 ----
+#[test]
+fn u128_passing_property() {
+    let g0 = ticks()
+    let o = check(Config::new(fixed_seed(32)).with_cases(100000), props::prop_u128_any)
+    assert!(is_pass(o))
+    assert!(case_of(o) == 100000)
+    // proof the cases actually ran: gas used is at least 50 per case
+    assert!(ticks() - g0 > 1000) // proof of work: >1ms CPU for 100k cases
+}
+
+// x < 1267650600228229401496703205376 fails; the minimal counterexample is exactly 2^100
+#[test]
+fn u128_failing_property_shrinks_to_minimum() {
+    let o = check(Config::new(fixed_seed(33)), props::prop_u128_below_lim)
+    assert!(!is_pass(o))
+    assert!((shrunk_of(o, 0) as u256) == 1267650600228229401496703205376)
+}
+
+// edge bias: the max value is found within 256 cases
+#[test]
+fn u128_edge_bias_finds_max() {
+    let max: u128 = 340282366920938463463374607431768211455
+    let o = check(Config::new(fixed_seed(34)), props::prop_u128_ne_max)
+    assert!(!is_pass(o))
+    assert!(case_of(o) < 256)
+    assert!(shrunk_of(o, 0) == max)
+}
+
+// ---- Address ----
+#[test]
+fn address_passing_property() {
+    let g0 = ticks()
+    let o = check(Config::new(fixed_seed(40)).with_cases(100000), props::prop_addr_any)
+    assert!(is_pass(o))
+    assert!(ticks() - g0 > 1000) // proof of work: >1ms CPU for 100k cases
+}
+
+// word(a) < 0x1000 fails; minimal counterexample is the address 0x1000
+#[test]
+fn address_failing_property_shrinks_to_minimum() {
+    let o = check(Config::new(fixed_seed(41)), props::prop_addr_below_0x1000)
+    assert!(!is_pass(o))
+    assert!(shrunk_of(o, Address::zero()).word() == 0x1000)
+}
+
+// edge bias: the max address (2^160 - 1) and the zero address are found
+#[test]
+fn address_edge_bias_finds_max_and_zero() {
+    let max = Address::from_word_truncate(1461501637330902918203684832716283019655932542975)
+    let o = check(Config::new(fixed_seed(42)), props::prop_addr_ne_max)
+    assert!(!is_pass(o))
+    assert!(case_of(o) < 256)
+    let z = check(Config::new(fixed_seed(43)), props::prop_addr_ne_zero)
+    assert!(!is_pass(z))
+    assert!(case_of(z) < 256)
+}
+
+// ---- tuples ----
+// (u8, u8): a + b < 10 fails; shrinks to a sum of exactly 10
+#[test]
+fn tuple2_u8_failing_property_sum_is_10() {
+    let o = check(Config::new(fixed_seed(50)), props::prop_pair_u8_sum_lt_10)
+    assert!(!is_pass(o))
+    let m = shrunk_of(o, (0, 0))
+    assert!((m.0 as u256) + (m.1 as u256) == 10)
+}
+
+#[test]
+fn tuple2_passing_property() {
+    let g0 = ticks()
+    let o = check(Config::new(fixed_seed(51)).with_cases(100000), props::prop_pair_u8_sum_lt_511)
+    assert!(is_pass(o))
+    assert!(ticks() - g0 > 1000) // proof of work: >1ms CPU for 100k cases
+}
+
+#[test]
+fn tuple3_failing_property_sum_is_10() {
+    let o = check(Config::new(fixed_seed(52)), props::prop_triple_sum_lt_10)
+    assert!(!is_pass(o))
+    let m = shrunk_of(o, (0, 0, 0))
+    assert!((m.0 as u256) + (m.1 as u256) + (m.2 as u256) == 10)
+}
+
+#[test]
+fn tuple4_failing_property_sum_is_10() {
+    let o = check(Config::new(fixed_seed(53)), props::prop_quad_u8_sum_lt_10)
+    assert!(!is_pass(o))
+    let m = shrunk_of(o, (0, 0, 0, 0))
+    assert!((m.0 as u256) + (m.1 as u256) + (m.2 as u256) + (m.3 as u256) == 10)
+}
+
+#[test]
+fn tuple3_passing_property() {
+    let g0 = ticks()
+    let o = check(Config::new(fixed_seed(54)).with_cases(100000), props::prop_mixed_any)
+    assert!(is_pass(o))
+    assert!(ticks() - g0 > 1000) // proof of work: >1ms CPU for 100k cases
+}
+
+// ---- arrays ----
+// [u64; 4]: sum < 10 fails. The shrinker tries element 0's candidates first, then 1's, ...;
+// observed minimal shape (logged in `Shape`): [0, 0, 0, 10], i.e. the whole 10 sits in the last element.
+#[test]
+fn array_u64x4_failing_property_sum_is_10() {
+    let o = check(Config::new(fixed_seed(60)), props::prop_arr_u64x4_sum_lt_10)
+    assert!(!is_pass(o))
+    let m = shrunk_of(o, [0, 0, 0, 0])
+    assert!((m[0] as u256) + (m[1] as u256) + (m[2] as u256) + (m[3] as u256) == 10)
+}
+
+#[test]
+fn array_passing_property() {
+    let g0 = ticks()
+    let o = check(Config::new(fixed_seed(61)).with_cases(100000), props::prop_arr_u8x3_sum_lt_766)
+    assert!(is_pass(o))
+    assert!(ticks() - g0 > 1000) // proof of work: >1ms CPU for 100k cases
+}
+
+// amount <= 500 fails for amount 501; `to` is irrelevant so it shrinks to the zero address
+#[test]
+fn transfer_failing_property_shrinks_to_501_and_zero_address() {
+    let o = check(Config::new(fixed_seed(70)), props::prop_transfer_amount_le_500)
+    assert!(!is_pass(o))
+    let m = shrunk_of(o, Transfer { to: Address::zero(), amount: 0 })
+    assert!(m.amount == 501)
+    assert!(m.to.word() == 0)
+}
+
+#[test]
+fn transfer_passing_property() {
+    let g0 = ticks()
+    let o = check(Config::new(fixed_seed(71)).with_cases(100000), props::prop_transfer_to_any)
+    assert!(is_pass(o))
+    assert!(ticks() - g0 > 1000) // proof of work: >1ms CPU for 100k cases
+}
+
+// ---- Encode: composites report in full (no truncation at 4 words) ----
+#[test]
+fn encode_composites_report_all_words() {
+    let a: [u64; 6] = [1, 2, 3, 4, 5, 6]
+    let w = a.words()
+    assert!(w.len() == 6)
+    assert!(w.get(5) == 6)
+    let w2 = (7 as u8, true, Address::from_word_truncate(9), 10 as u256).words()
+    assert!(w2.len() == 4)
+    assert!(w2.get(0) == 7 && w2.get(1) == 1 && w2.get(2) == 9 && w2.get(3) == 10)
+}
+
+// PropertyFailed carries all 6 words of an array counterexample
+#[test(should_revert)]
+fn revert_reports_array_counterexample() uses (out: mut Stdout) {
+    assert_holds(check(Config::new(fixed_seed(72)), props::prop_arr_u64x6_ends_lt_10))
+}

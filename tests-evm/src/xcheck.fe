@@ -1,0 +1,27 @@
+// Cross-backend scenarios: the same numeric seeds (1001..1005 + opaque zero) as xcheck-native.
+// Each scenario's Summary is emitted as an event on a passing test; scripts/cross-check.sh compares it with native.
+use std::evm::Evm
+use qc::Summary
+
+#[event]
+struct Xc { id: u256, failed: u256, case: u256, steps: u256, o0: u256, o1: u256, o2: u256, o3: u256, s0: u256, s1: u256, s2: u256, s3: u256 }
+
+fn zero() -> u256 uses (evm: mut Evm) {
+    if evm.chainid() == 0x1234567890abcdef { 1 } else { 0 }
+}
+
+fn emit_summary(_ id: u256, _ s: Summary) uses (evm: mut Evm) {
+    evm.emit(Xc { id, failed: s.failed, case: s.case, steps: s.steps,
+        o0: s.original[0], o1: s.original[1], o2: s.original[2], o3: s.original[3],
+        s0: s.shrunk[0], s1: s.shrunk[1], s2: s.shrunk[2], s3: s.shrunk[3] })
+}
+
+#[test]
+fn xcheck_emit_all_scenarios() uses (evm: mut Evm) {
+    let z = zero()
+    emit_summary(1, props::scenario_u256_below_1000(1001 + z))
+    emit_summary(2, props::scenario_pair_u8_sum(1002 + z))
+    emit_summary(3, props::scenario_arr_u64x4_sum(1003 + z))
+    emit_summary(4, props::scenario_addr_below_0x1000(1004 + z))
+    emit_summary(5, props::scenario_transfer_amount(1005 + z))
+}

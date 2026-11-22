@@ -2,7 +2,7 @@
 // A property returns true when it HOLDS. Planted bugs fail on a known minimal input (stated per fn).
 use std::evm::Address
 use std::abi::DynArray
-use qc::{Arbitrary, Shrink, Encode, Rng, Checked, Outcome, Config, check}
+use qc::{Arbitrary, Shrink, Encode, Rng, Checked, Outcome, Config, check, Summary, summarize}
 
 // ---- u256 / bool ----
 pub fn prop_below_1000(_ x: u256) -> bool { x < 1000 }               // fails; minimal counterexample 1000
@@ -133,3 +133,10 @@ pub fn checked_boundaries(_ z: u256) -> u256 {
 
 // planted bug: overflows (panics) when x is the max value; used to probe "overflow inside a property"
 pub fn prop_overflows_at_max(_ x: u256) -> bool { x + 1 > 0 }
+
+// ---- cross-backend scenarios: the same numeric seed must give identical Summaries on every backend ----
+pub fn scenario_u256_below_1000(_ seed: u256) -> Summary { summarize(check(Config::new(seed), prop_below_1000)) }
+pub fn scenario_pair_u8_sum(_ seed: u256) -> Summary { summarize(check(Config::new(seed), prop_pair_u8_sum_lt_10)) }
+pub fn scenario_arr_u64x4_sum(_ seed: u256) -> Summary { summarize(check(Config::new(seed), prop_arr_u64x4_sum_lt_10)) }
+pub fn scenario_addr_below_0x1000(_ seed: u256) -> Summary { summarize(check(Config::new(seed), prop_addr_below_0x1000)) }
+pub fn scenario_transfer_amount(_ seed: u256) -> Summary { summarize(check(Config::new(seed), prop_transfer_amount_le_500)) }

@@ -1,0 +1,9 @@
+// E7b workarounds: all PASS on native.
+use std::io::Stdout
+
+#[test]
+fn ok() uses (out: mut Stdout) {
+    let x: u256 = 51
+    println!("x =", x)
+    println!("y =", 51 as u256)
+}

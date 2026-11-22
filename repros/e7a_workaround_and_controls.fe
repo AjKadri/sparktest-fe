@@ -1,0 +1,17 @@
+// E7a controls: all of these PASS.
+use std::evm::Address
+trait Arbitrary { fn arbitrary(_ seed: u256) -> Self }
+impl Arbitrary for Address { fn arbitrary(_ seed: u256) -> Self { Address::from_word_truncate(seed) } }
+impl Arbitrary for u256 { fn arbitrary(_ seed: u256) -> Self { seed } }
+impl Arbitrary for bool { fn arbitrary(_ seed: u256) -> Self { seed > 0 } }
+struct Local { x: u256 }
+impl Local { fn zero() -> Self { Local { x: 0 } } }
+impl Arbitrary for Local { fn arbitrary(_ seed: u256) -> Self { Local { x: seed } } }
+
+#[test]
+fn controls() {
+    let _a = <Address as Arbitrary>::arbitrary(5) // qualified path: ok
+    let _b = u256::arbitrary(5)                   // primitive: ok
+    let _c = bool::arbitrary(5)                   // primitive: ok
+    let _d = Local::arbitrary(5)                  // local struct, even with an inherent impl: ok
+}

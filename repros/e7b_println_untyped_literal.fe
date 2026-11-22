@@ -1,0 +1,7 @@
+// E7b: println! with an untyped integer literal argument.
+use std::io::Stdout
+
+#[test]
+fn fails() uses (out: mut Stdout) {
+    println!("x =", 51)
+}

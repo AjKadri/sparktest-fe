@@ -1,0 +1,4 @@
+$ fe test --backend native repros/e7b_workaround.fe
+PASS  [0.4679s] ok
+
+test result: ok. 1 passed; 0 failed

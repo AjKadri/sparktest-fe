@@ -1,0 +1,16 @@
+// E7a: associated (non-self) trait fn called via `Type::f` on a type from ANOTHER ingot (std's Address).
+// Works for primitives (u256, bool) and for local structs; fails for Address / Option<T>.
+// Workaround: <Address as Arbitrary>::arbitrary(5)  (or a generic T::arbitrary).
+use std::evm::Address
+
+trait Arbitrary {
+    fn arbitrary(_ seed: u256) -> Self
+}
+impl Arbitrary for Address {
+    fn arbitrary(_ seed: u256) -> Self { Address::from_word_truncate(seed) }
+}
+
+#[test]
+fn fails() {
+    let a = Address::arbitrary(5)
+}

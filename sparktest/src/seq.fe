@@ -1,0 +1,83 @@
+// Seq<C, N>: a sequence of up to N commands (for stateful testing). The length is generated too (0..=N, edge-biased);
+// the commands live in a fixed array of N, and only the first `len` are used.
+// Shrink candidates, in this order: (1) halve the length (drop the tail), (2) drop one command, (3) shrink a single command.
+use std::abi::DynArray
+use core::ptr::MemVec
+use ingot::{Rng, Arbitrary, Shrink, Encode, append_words}
+use ingot::composite::count_candidates
+
+pub struct Seq<C, const N: usize> {
+    pub len: usize,
+    pub items: [C; N],
+}
+
+impl<C: Copy, const N: usize> Copy for Seq<C, N> {}
+
+impl<C: Arbitrary + Copy, const N: usize> Arbitrary for Seq<C, N> {
+    fn arbitrary<R: Rng>(_ rng: mut R) -> Self {
+        var len: usize = 0
+        if rng.next() % 4 == 0 {
+            // about 1 draw in 4 is an edge: the empty sequence or a full one
+            if rng.next() % 2 == 0 { len = 0 } else { len = N }
+        } else {
+            len = (rng.next() % ((N + 1) as u256)).downcast_truncate()
+        }
+        let items = <[C; N] as Arbitrary>::arbitrary(mut rng)
+        Seq { len, items }
+    }
+}
+
+impl<C: Shrink + Copy, const N: usize> Shrink for Seq<C, N> {
+    fn shrink_step(self, _ i: u256) -> Option<Self> {
+        var rest = i
+        // (1) drop the whole tail: halve the length
+        if self.len > 0 {
+            if rest == 0 { return Option::Some(Seq { len: self.len / 2, items: self.items }) }
+            rest -= 1
+        }
+        // (2) drop one command (the commands after it move up)
+        if rest < (self.len as u256) {
+            let j: usize = rest.downcast_truncate()
+            var out = self.items
+            var k: usize = j
+            while k + 1 < N {
+                out[k] = out[k + 1]
+                k += 1
+            }
+            return Option::Some(Seq { len: self.len - 1, items: out })
+        }
+        rest -= self.len as u256
+        // (3) shrink a single command
+        var j: usize = 0
+        while j < self.len {
+            let n = count_candidates(self.items[j])
+            if rest < n {
+                match self.items[j].shrink_step(rest) {
+                    Option::Some(c) => {
+                        var out = self.items
+                        out[j] = c
+                        return Option::Some(Seq { len: self.len, items: out })
+                    }
+                    Option::None => { return Option::None }
+                }
+            }
+            rest -= n
+            j += 1
+        }
+        Option::None
+    }
+}
+
+// words: [len, words of command 0, words of command 1, ...] (only the first `len` commands)
+impl<C: Encode + Copy, const N: usize> Encode for Seq<C, N> {
+    fn words(self) -> DynArray<u256> {
+        var out: MemVec<u256> = MemVec::new()
+        out.push(self.len as u256)
+        var i: usize = 0
+        while i < self.len {
+            append_words(mut out, self.items[i].words())
+            i += 1
+        }
+        DynArray::from_mem_vec(out)
+    }
+}

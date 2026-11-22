@@ -1,0 +1,67 @@
+// Seq<C, N> tests (native).
+use sparktest::{check, Config, Outcome, Seq, Index, Arbitrary, Shrink, Encode, Xorshift}
+use sparktest_native::fixed_seed
+
+#[test]
+fn seq_lengths_stay_within_n_and_hit_both_edges() {
+    var rng = Xorshift::seeded(fixed_seed(950))
+    var saw0 = false
+    var sawn = false
+    var n: u256 = 0
+    while n < 256 {
+        let s = <Seq<u8, 8> as Arbitrary>::arbitrary(mut rng)
+        assert!(s.len <= 8)
+        if s.len == 0 { saw0 = true }
+        if s.len == 8 { sawn = true }
+        n += 1
+    }
+    assert!(saw0 && sawn)
+}
+
+// no two adjacent equal commands: the minimal failing sequence has length exactly 2 and two equal commands
+#[test]
+fn seq_adjacent_equal_shrinks_to_length_2() {
+    match check(Config::new(fixed_seed(951)), props::prop_seq_no_adjacent_equal) {
+        Outcome::Pass { cases: _ } => { assert!(false) }
+        Outcome::Fail { original, shrunk, case: _, seed: _, steps: _ } => {
+            assert!(original.len >= 2)
+            assert!(shrunk.len == 2)
+            assert!(shrunk.items[0].value == shrunk.items[1].value)
+        }
+    }
+}
+
+// candidate order: (1) halve the length, (2) drop one command each, (3) shrink single commands
+#[test]
+fn seq_shrink_candidates_come_in_the_documented_order() {
+    let s: Seq<u8, 6> = Seq { len: 4, items: [10, 20, 30, 40, 99, 99] }
+    match s.shrink_step(0) {   // halve the length: 4 -> 2
+        Option::Some(c) => { assert!(c.len == 2 && c.items[0] == 10 && c.items[1] == 20) }
+        Option::None => { assert!(false) }
+    }
+    match s.shrink_step(1) {   // drop command 0
+        Option::Some(c) => { assert!(c.len == 3 && c.items[0] == 20 && c.items[1] == 30 && c.items[2] == 40) }
+        Option::None => { assert!(false) }
+    }
+    match s.shrink_step(4) {   // drop command 3 (the last)
+        Option::Some(c) => { assert!(c.len == 3 && c.items[0] == 10 && c.items[1] == 20 && c.items[2] == 30) }
+        Option::None => { assert!(false) }
+    }
+    match s.shrink_step(5) {   // first single-command shrink: command 0 becomes 0, length unchanged
+        Option::Some(c) => { assert!(c.len == 4 && c.items[0] == 0 && c.items[1] == 20) }
+        Option::None => { assert!(false) }
+    }
+    let empty: Seq<u8, 6> = Seq { len: 0, items: [1, 2, 3, 4, 5, 6] }
+    match empty.shrink_step(0) {
+        Option::Some(_) => { assert!(false) }
+        Option::None => {}
+    }
+}
+
+#[test]
+fn seq_encodes_length_then_the_commands() {
+    let s: Seq<(u8, u16), 3> = Seq { len: 2, items: [(1, 2), (3, 4), (9, 9)] }
+    let w = s.words()
+    assert!(w.len() == 5)    // len + 2 commands of 2 words; the third command is not part of the sequence
+    assert!(w.get(0) == 2 && w.get(1) == 1 && w.get(2) == 2 && w.get(3) == 3 && w.get(4) == 4)
+}

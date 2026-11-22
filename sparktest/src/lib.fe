@@ -3,6 +3,7 @@ use std::abi::{DynArray, dyn_array_from}
 use core::ptr::MemVec
 pub use checked::Checked
 pub use index::Index
+pub use seq::Seq
 pub const MAX: u256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 const MASK64: u256 = 0xffffffffffffffff
 

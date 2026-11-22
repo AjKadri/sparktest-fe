@@ -1,0 +1,13 @@
+// Stateful properties: sequences of commands, invariants checked after every command. Pure; run on every backend.
+use sparktest::{Seq, Index}
+
+// ---- Seq unit-test property ----
+// "no two adjacent commands are equal" over Seq<Index<3>, 8>: false for most sequences; the minimum is two equal commands
+pub fn prop_seq_no_adjacent_equal(_ s: Seq<Index<3>, 8>) -> bool {
+    var i: usize = 1
+    while i < s.len {
+        if s.items[i - 1].value == s.items[i].value { return false }
+        i += 1
+    }
+    true
+}

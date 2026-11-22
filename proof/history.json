@@ -1,5 +1,14 @@
 {
-  "erc20_original": {"date": "2026-11-22", "commit": "c7004ad"},
-  "erc20_index_amendment": {"date": "2026-11-22", "commit": "pending"},
-  "rewards": {"date": "2026-11-22", "commit": "pending"}
+  "erc20_original": {
+    "date": "2026-11-22",
+    "commit": "c7004ad"
+  },
+  "erc20_index_amendment": {
+    "date": "2026-11-22",
+    "commit": "c601b87"
+  },
+  "rewards": {
+    "date": "2026-11-22",
+    "commit": "pending"
+  }
 }

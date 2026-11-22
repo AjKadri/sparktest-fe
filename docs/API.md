@@ -24,8 +24,18 @@ assert!(c.seed == 7 && c.cases == 10 && c.max_shrinks == 5)
 assert!(Config::new(7).cases == 256 && Config::new(7).max_shrinks == 1000)
 ```
 
+### `check_with(cfg, prop, stop) -> Outcome<T>`
+`check` with a third closure `stop: Fn() -> bool`, polled before every shrink evaluation; when it returns `true`, shrinking ends at once and the best input so far comes back with `early = true`. The core has no effects, so what "stop" means is the caller's: `sparktest_evm::check_gas` passes "remaining gas is below a margin". `check` is `check_with` with a `stop` that is never true.
+```fe
+let o = check_with(Config::new(fixed_seed(1)), |x: u64| x < 1000, || true)
+match o {
+    Outcome::Pass { cases: _ } => { assert!(false) }
+    Outcome::Fail { original, shrunk, case: _, seed: _, steps, early } => { assert!(early && steps == 0 && shrunk == original) }
+}
+```
+
 ### `Outcome<T>`
-`Pass { cases }`, or `Fail { original, shrunk, case, seed, steps }`: the first failing input, the shrunk input, the 0-based index of the failing case, the seed (pass it to `Config::new` to replay) and the number of accepted shrink steps.
+`Pass { cases }`, or `Fail { original, shrunk, case, seed, steps, early }`: the first failing input, the shrunk input, the 0-based index of the failing case, the seed (pass it to `Config::new` to replay), the number of accepted shrink steps, and `early`: `true` when shrinking was stopped before it finished (see `check_with` and `check_gas`), in which case `shrunk` is the best input found so far (it still fails, but may not be minimal). `Summary` and `Full` carry it as `early` (0 or 1).
 ```fe
 match check(Config::new(fixed_seed(1)), |x: u8| x != 255) {
     Outcome::Pass { cases } => { assert!(cases == 256) }
@@ -87,8 +97,8 @@ let a = <Address as Arbitrary>::arbitrary(mut rng)
 assert!(a.word() < 1461501637330902918203684832716283019655932542976)
 ```
 
-### `trait Shrink { fn shrink_step(self, _ i: u256) -> Option<Self> }`
-The `i`-th simpler candidate (`i = 0, 1, 2, ...`), or `None` when candidates run out. For integers: `0`, then `x - x/2`, `x - x/4`, ..., then `x - 1`.
+### `trait Shrink { fn shrink_step(self, _ i: u256) -> Option<Self>; fn joint_step(self, _ i: u256) -> Option<Self> }`
+The `i`-th simpler candidate (`i = 0, 1, 2, ...`), or `None` when candidates run out. For integers: `0`, then `x - x/2`, `x - x/4`, ..., then `x - 1`. `joint_step` (default: none) offers joint candidates that move several components together (tuples, arrays and `Seq` implement it, at the top level only). `check` tries the `shrink_step` candidates until none fails (a fixed point), then the `joint_step` candidates as a finishing pass, and repeats while anything improves.
 ```fe
 let x: u256 = 1000
 match x.shrink_step(0) {
@@ -330,6 +340,21 @@ Returns on `Pass`; on `Fail` reverts with `PropertyFailed { seed, case, steps, i
 
 ### `PropertyFailed`
 The `#[error]` struct above: `seed`, `case` (0-based), `steps`, `input`.
+
+### `check_gas(cfg, prop) -> Outcome<T>`, `check_gas_with_margin(cfg, prop, margin)` and `GAS_MARGIN`
+`check` for the EVM that cannot lose its report to the gas cap while shrinking: before every shrink evaluation it compares the remaining gas with the margin (`GAS_MARGIN` = 50,000,000, about 33 evaluations of the most expensive property in this repository) and, below it, stops and returns the best input found so far with `early = true`. Only shrinking is guarded; generating cases is not. Native has no gas, so `early` is always `false` there.
+```fe
+let o = check_gas(Config::new(fixed_seed(1)), |x: u64| x < 1000)
+match o {
+    Outcome::Pass { cases: _ } => { assert!(false) }
+    Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _, early } => { assert!(shrunk == 1000 && !early) }
+}
+assert!(GAS_MARGIN == 50000000)
+```
+With a margin above the gas available it stops before the first shrink evaluation (`check_gas_with_margin(cfg, prop, margin)` chooses the margin).
+
+### `PropertyFailedEarly`
+Same fields as `PropertyFailed`; `assert_holds` reverts with it instead (selector `0x52e195ec`) when `early` is true, so the input is the best found so far, not necessarily a minimum. `tools/decode-revert` decodes it and prints "shrink stopped early (gas)".
 
 ### `runtime_seed() -> u256` and `fixed_seed(salt) -> u256`
 `runtime_seed()` mixes the remaining gas and `prevrandao`, so each run differs (a seed the optimizer cannot fold). `fixed_seed(salt)` mixes `salt` with the chain id: the same value on every run in a fresh test EVM, but opaque to the optimizer.

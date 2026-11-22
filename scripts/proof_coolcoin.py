@@ -48,13 +48,13 @@ def parse(out):
         if m and status == 'PASS':
             for w in logs:
                 # the token's own events (one word) are in the same list; the stateful result has 15 head words (14 before L7c's kind 4)
-                if len(w) > 14 and w[4] in (14 * 32, 15 * 32):
+                if len(w) > 14 and w[4] in (14 * 32, 15 * 32, 16 * 32):
                     head = w[4] // 32
                     def arr(off):
                         i = off // 32
                         return w[i + 1:i + 1 + w[i]]
                     res.setdefault(m.group(1), {})[7] = dict(failed=w[1], case=w[2], steps=w[3], original=arr(w[4]), shrunk=arr(w[5]), gas=w[6],
-                                                               attempted=w[7], accepted=w[8], vacuous=w[9], kinds=w[10:head])
+                                                               attempted=w[7], accepted=w[8], vacuous=w[9], kinds=w[10:15] if head >= 15 else w[10:head], early=w[15] if head >= 16 else 0)
     return res
 
 def counterexample(pid, r):
@@ -89,6 +89,9 @@ def section(run, problems):
          'Setup per case: the test contract is the owner (it holds MINTER) with supply 13; it sends 3 to each of 4 actor contracts and keeps 1 (the conservation checks include the owner). 64 cases per property; stateful runs use 8-command sequences',
          'over Transfer, Approve, TransferFrom, Mint by the owner and Mint by an actor that is not the owner (the token must refuse it) with `Index<4>` actors, an `Index<5>` command kind and an `Index<9>` amount. Every row shows calls accepted / attempted: the vacuity guard fails a passing run that never succeeded or never ran a command kind.', '',
          '### Unchanged CoolCoin', '', '| property | result | calls accepted / attempted | vacuous? | gas | rerun |', '|---|---|---|---|---|---|']
+    for _name, _r in res.items():
+        if _r.get(7, {}).get('early'):
+            problems.append(f'{_name}: shrinking of the stateful run was stopped early (gas)')
     g = res.get('guide', {})
     for pid in range(1, 8):
         r = g.get(pid)

@@ -27,11 +27,11 @@ bl = blocks('docs/API.md')
 evm_header = '''use std::evm::{Evm, Address}
 use std::abi::DynArray
 use core::ptr::MemVec
-use sparktest::{Rng, Xorshift, Arbitrary, Shrink, Encode, Checked, Config, Outcome, check, Summary, summarize, Full, full, shrink_input, Index, Seq, MAX, one_word, append_words}
+use sparktest::{Rng, Xorshift, Arbitrary, Shrink, Encode, Checked, Config, Outcome, check, check_with, Summary, summarize, Full, full, shrink_input, Index, Seq, MAX, one_word, append_words}
 use sparktest::{Tally, Verdict, guard, vacuity, VACUOUS_NO_CALLS, VACUOUS_NONE_SUCCEEDED, VACUOUS_KIND_BASE}
 use sparktest::widths::bits_value
 use sparktest::composite::count_candidates
-use sparktest_evm::{assert_holds, runtime_seed, fixed_seed}
+use sparktest_evm::{assert_holds, runtime_seed, fixed_seed, check_gas, check_gas_with_margin, GAS_MARGIN}
 use sparktest_evm::{Isolated, run_prop, check_isolated, eval_isolated, IsoOutcome, reason_text, REASON_HELD, REASON_FALSE, REASON_PANIC_BASE}
 use sparktest::Decode
 '''

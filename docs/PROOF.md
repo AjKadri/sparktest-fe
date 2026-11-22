@@ -157,7 +157,7 @@ unshrunk (for example 407994619, which is 4 mod 9), so the amount became an `Ind
 | scenario | expected | found (shrunk) sequence | length | as expected | case | shrink steps | calls accepted / attempted | commands executed (Transfer, Approve, TransferFrom, owner Mint, adversarial Mint) | vacuous? | gas | backend | rerun |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | unchanged fixture | passes 64 cases | passed 64 cases | - | yes | - | - | 183 / 248 | 64, 39, 51, 29, 65 | no | 24,293,042 | sonatina | `cd tests-erc20 && fe test --filter stateful_orig --show-logs` |
-| examples/erc20-stateful-bug (PLANTED: after a transfer takes a holder to 0, the next transfer into it credits twice) | length 2: Transfer(a -> b, 4), Transfer(c -> a, 1), b != a, c != a | Transfer(actor 0 -> actor 1, 4) ; Transfer(actor 1 -> actor 0, 1) | 2 | yes: length 2, amounts exactly 4 and 1, all indices minimal (a = 0) | 102 | 9 | 444 / 547 | 256, 67, 62, 54, 108 | no | 75,990,384 | sonatina | `cd tests-erc20 && fe test --filter stateful_bug --show-logs` |
+| examples/erc20-stateful-bug (PLANTED: after a transfer takes a holder to 0, the next transfer into it credits twice) | length 2: Transfer(a -> b, 4), Transfer(c -> a, 1), b != a, c != a | Transfer(actor 0 -> actor 1, 4) ; Transfer(actor 1 -> actor 0, 1) | 2 | yes: length 2, amounts exactly 4 and 1, all indices minimal (a = 0) | 102 | 9 | 444 / 547 | 256, 67, 62, 54, 108 | no | 75,992,616 | sonatina | `cd tests-erc20 && fe test --filter stateful_bug --show-logs` |
 
 
 ## The Fe Guide ERC-20 (CoolCoin) and a mutation test (sonatina only)

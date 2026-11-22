@@ -45,6 +45,8 @@ def rows(run, problems):
         else:
             if r['failed'] != 1:
                 problems.append(f'planted ERC20 stateful bug not found: {r}'); continue
+            if r.get('early'):
+                problems.append('planted ERC20 stateful bug: shrinking was stopped early (gas), the sequence is not a minimum')
             w = r['shrunk']
             c = [w[1 + 5 * i:6 + 5 * i] for i in range(w[0])]
             shape = (w[0] == 2 and c[0][0] == 0 and c[1][0] == 0 and c[0][4] == 4 and c[1][4] == 1

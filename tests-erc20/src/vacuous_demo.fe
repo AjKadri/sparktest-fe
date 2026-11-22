@@ -2,7 +2,7 @@
 use std::evm::{Evm, Address}
 use std::abi::DynArray
 use sparktest::{check, Config, Summary, summarize, Full, Seq, Index, full, Tally, vacuity, guard, Verdict}
-use sparktest_evm::fixed_seed
+use sparktest_evm::{fixed_seed, check_gas}
 use erc20_example::CoolCoin
 use erc20_actors::actor::Actor
 use erc20_actors::client::{total_supply, balance_of, allowance, actor_transfer, actor_approve, actor_transfer_from, mint, direct_transfer, actor_mint}
@@ -22,9 +22,9 @@ fn emit_pr(_ id: u256, _ s: Summary, _ f: Full, _ gas: u256, _ t: Tally, _ vac: 
         attempted: t.attempted, accepted: t.accepted, vacuous: vac })
 }
 
-// first 4 head words, then the dynamic arrays: id, failed, case, steps, original, shrunk, gas, attempted, accepted, vacuous, then commands executed of kind 0..4
+// first 4 head words, then the dynamic arrays: id, failed, case, steps, original, shrunk, gas, attempted, accepted, vacuous, then commands executed of kind 0..4, then 1 if shrinking was stopped early because gas ran low (check_gas), else 0
 #[event]
-struct Pw { id: u256, failed: u256, case: u256, steps: u256, original: DynArray<u256>, shrunk: DynArray<u256>, gas: u256, attempted: u256, accepted: u256, vacuous: u256, k0: u256, k1: u256, k2: u256, k3: u256, k4: u256 }
+struct Pw { id: u256, failed: u256, case: u256, steps: u256, original: DynArray<u256>, shrunk: DynArray<u256>, gas: u256, attempted: u256, accepted: u256, vacuous: u256, k0: u256, k1: u256, k2: u256, k3: u256, k4: u256, early: u256 }
 
 // four actor proxies (distinct msg.senders)
 fn deploy_actors() -> [Address; 4] uses (evm: mut Evm) {

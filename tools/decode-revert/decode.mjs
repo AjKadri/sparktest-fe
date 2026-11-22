@@ -37,9 +37,13 @@ export function format(d) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const arg = process.argv[2] ?? fs.readFileSync(0, 'utf8');
+  const args = process.argv.slice(2);
+  const json = args.includes('--json');
+  const arg = args.find((a) => a !== '--json') ?? fs.readFileSync(0, 'utf8');
   try {
-    console.log(format(decode(arg)));
+    const d = decode(arg);
+    if (json) console.log(JSON.stringify(d, (k, v) => (typeof v === 'bigint' ? v.toString() : v)));
+    else console.log(format(d));
   } catch (e) {
     console.error('decode-revert: ' + e.message);
     process.exit(1);

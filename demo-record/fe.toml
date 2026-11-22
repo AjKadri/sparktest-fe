@@ -1,0 +1,8 @@
+[ingot]
+name = "demo_record"
+version = "0.1.0"
+
+[dependencies]
+sparktest = { path = "../sparktest" }
+sparktest_evm = { path = "../sparktest-evm" }
+props = { path = "../props" }

@@ -194,7 +194,7 @@ fe --version          # fe 26.7.0 (e6e6342)
 # 2. get the code and run everything
 git clone https://github.com/ajkadri/sparktest-fe.git
 cd sparktest-fe
-./scripts/test-all.sh   # exit code 0 when every part passes
+./scripts/test-all.sh   # exit code 0 when every part passes; about a minute on the machine used for this README
 ```
 
 `test-all.sh` runs these parts and prints `ALL PARTS PASSED` at the end (counts from the last run):

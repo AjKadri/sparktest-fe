@@ -14,3 +14,8 @@ echo "examples/erc20-buggy differs from upstream by exactly the one planted chan
 changed2=$(diff <(body examples/erc20/src/lib.fe) <(body examples/erc20-stateful-bug/src/lib.fe) | grep -c '^[<>]' || true)
 [ "$changed2" = 12 ] || { echo "examples/erc20-stateful-bug should differ from upstream only by the planted lines ($changed2 diff lines, want 12)"; exit 1; }
 echo "examples/erc20-stateful-bug differs from upstream only by the planted change (12 diff lines)"
+
+guide=16dd64484717dff0a225998176ff66a24e4704dfc903d8901b8d1ec1f1c57e4b   # the Fe Guide's "Complete ERC20" listing (https://fe-lang.org/examples/erc20/, fetched 2026-11-22)
+gotg=$(body examples/coolcoin/src/lib.fe | shasum -a 256 | cut -d' ' -f1)
+[ "$gotg" = "$guide" ] || { echo "examples/coolcoin differs from the Guide listing (sha256 $gotg, want $guide)"; exit 1; }
+echo "examples/coolcoin body is byte-identical to the Fe Guide listing ($guide)"

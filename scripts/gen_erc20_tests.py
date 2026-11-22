@@ -141,6 +141,7 @@ fn p6(_ actors: [Address; 4], _ p: (@IDX@, @IDX@, u16)) -> bool uses (evm: mut E
 
 # the conserved total: the fixture gives everything to actor 0 so the actors hold all the supply; the Guide's CoolCoin does too (owner = test contract, but it sends all 12 to the actors)
 SUM6 = 'sum_balances(token, actors) == total_supply(token)'
+SUM6_GUIDE = 'sum_balances(token, actors) + balance_of(token, evm.address()) == total_supply(token)'
 
 FRESH_FIXTURE = '''// a fresh token per case: supply 1000 to actor 0, which sends 250 to each other actor (every actor holds 250)
 fn fresh_token(_ actors: [Address; 4]) -> Address uses (evm: mut Evm) {
@@ -152,13 +153,14 @@ fn fresh_token(_ actors: [Address; 4]) -> Address uses (evm: mut Evm) {
 }
 '''
 
-FRESH_GUIDE = '''// a fresh token per case. The owner (who holds the MINTER role) is the test contract: supply 12, which it sends to the actors (every actor holds 3)
+FRESH_GUIDE = '''// a fresh token per case. The owner (who holds the MINTER role) is the test contract: supply 13, of which it sends 3 to each actor and keeps 1
+// (so the setup never takes the owner's balance to exactly 0). A failing setup call reverts the whole test, which is visible, not a property result.
 fn fresh_token(_ actors: [Address; 4]) -> Address uses (evm: mut Evm) {
-    let token = evm.create<@CONTRACT@>(value: Wei::zero(), args: (12 as u256, evm.address()))
-    let _ = direct_transfer(token, actors[0], 3)
-    let _ = direct_transfer(token, actors[1], 3)
-    let _ = direct_transfer(token, actors[2], 3)
-    let _ = direct_transfer(token, actors[3], 3)
+    let token = evm.create<@CONTRACT@>(value: Wei::zero(), args: (13 as u256, evm.address()))
+    assert!(direct_transfer(token, actors[0], 3))
+    assert!(direct_transfer(token, actors[1], 3))
+    assert!(direct_transfer(token, actors[2], 3))
+    assert!(direct_transfer(token, actors[3], 3))
     token
 }
 '''
@@ -177,8 +179,8 @@ PROPS = [
 def common(t, mod_import, contract, actors, what, family, idx):
     t = t.replace('@WHAT@', what).replace('@IMPORT@', mod_import).replace('@ACTORS@', actors)
     t = t.replace('@FRESH@', (FRESH_GUIDE if family == 'guide' else FRESH_FIXTURE).replace('@CONTRACT@', contract))
-    t = t.replace('@SUPPLY@', '12' if family == 'guide' else '1000')
-    t = t.replace('@SUM6@', SUM6)
+    t = t.replace('@SUPPLY@', '13' if family == 'guide' else '1000')
+    t = t.replace('@SUM6@', SUM6_GUIDE if family == 'guide' else SUM6)
     if idx:
         t = (t.replace('@IDX@', 'Index<4>').replace('@IDXV@', 'i.value').replace('@SAME01@', 'p.0.value == p.1.value').replace('@SAME02@', 'p.0.value == p.2.value'))
     else:
@@ -289,6 +291,7 @@ fn run_sequence(_ actors: [Address; 4], _ s: Seq<((Index<4>, Index<4>, Index<4>)
             sum += onchain
             k += 1
         }
+        @OWNERSUM@
         if total_supply(token) != supply { return false }
         if sum != supply { return false }
         if allowance(token, actors[touched_o], actors[touched_s]) != allow[touched_o * 4 + touched_s] { return false }
@@ -332,9 +335,9 @@ def gen_stateful(mod_import, contract, actors, name, what, seed, sid, checks, fa
     # drop the property functions: a stateful file only needs the shared helpers (header up to P1)
     t = t[:t.index('// P1:')]
     bal = '[3, 3, 3, 3]' if family == 'guide' else '[4, 4, 4, 4]'
-    sup = '12' if family == 'guide' else '16'
+    sup = '13' if family == 'guide' else '16'
     body = (STATEFUL.replace('@NAME@', name).replace('@SEED@', str(seed)).replace('@ID@', str(sid)).replace('@CHECKS@', checks)
-            .replace('@BAL@', bal).replace('@SUPPLY@', sup))
+            .replace('@BAL@', bal).replace('@SUPPLY@', sup).replace('@OWNERSUM@', 'sum += balance_of(token, evm.address())' if family == 'guide' else ''))
     return t + body
 
 # the stateful fixture family keeps the original supply-16 setup (actor 0 owns everything, sends 4 to each other actor)
@@ -367,7 +370,7 @@ def stateful_fixture(imp, contract, name, what, seed, sid, checks):
     t = t.replace(FRESH_FIXTURE.replace('@CONTRACT@', contract), FRESH_FIXTURE_STATEFUL.replace('@CONTRACT@', contract))
     t = t[:t.index('// P1:')]
     return t + (STATEFUL.replace('@NAME@', name).replace('@SEED@', str(seed)).replace('@ID@', str(sid)).replace('@CHECKS@', checks)
-                .replace('@BAL@', '[4, 4, 4, 4]').replace('@SUPPLY@', '16'))
+                .replace('@BAL@', '[4, 4, 4, 4]').replace('@SUPPLY@', '16').replace('@OWNERSUM@', ''))
 
 w('tests-erc20/src/stateful_orig.fe', stateful_fixture(FX[0], 'CoolCoin', 'orig', 'Stateful: the UNCHANGED ERC20 test fixture against a pure reference model (expected to pass).', 9001, 601, STATEFUL_PASS))
 w('tests-erc20/src/stateful_bug.fe', stateful_fixture(SB[0], 'CoolCoin', 'bug', 'Stateful: examples/erc20-stateful-bug (PLANTED two-call bug) against the same reference model, 64 cases.', 9002, 602, STATEFUL_BUG))

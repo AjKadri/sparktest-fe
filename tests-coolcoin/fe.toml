@@ -1,0 +1,10 @@
+[ingot]
+name = "tests_coolcoin"
+version = "0.1.0"
+
+[dependencies]
+sparktest = { path = "../sparktest" }
+sparktest_evm = { path = "../sparktest-evm" }
+erc20_actors = { path = "../erc20-actors" }
+coolcoin = { path = "../examples/coolcoin" }
+coolcoin_mutants = { path = "../examples/coolcoin-mutants" }

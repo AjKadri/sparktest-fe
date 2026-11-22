@@ -142,3 +142,9 @@ Rows above are unchanged.
 | M10 | `mint` no longer requires the MINTER role | MISSED: only the owner (who holds MINTER) ever calls `mint`; detecting it needs a non-owner caller | none |
 
 Not covered by any command, so no mutant of them is claimed: `burn`, `burnFrom`, `increaseAllowance`, `decreaseAllowance`, `name`, `symbol`, `decimals`.
+
+### L7a erratum (written before any mutant result was interpreted)
+The mutation-test setup sentence above ("supply 12, each of 4 actors holds 4") was inconsistent (4 x 4 is 16). The first implementation used supply 12 with 3 per actor, which drains the owner's
+balance to exactly 0 in the last setup transfer; mutant M06 (balance check `>=` becomes `>`) then reverted INSIDE THE SETUP and every M06 test died there, so M06 would have been "caught" by the setup instead
+of by a property. Only pass/fail counts of that first run were looked at. The setup is now: supply 13 minted to the owner (the test contract, which holds MINTER), 3 sent to each of 4 actors, the owner keeps 1,
+and the conservation property and the stateful sum include the owner's balance. The mutant table above is unchanged.

@@ -1,0 +1,55 @@
+// Probes that back the explanations of the three mutants the properties are expected to MISS (docs/EXPECTATIONS.md, L7a).
+use std::evm::{Evm, Address}
+use erc20_actors::actor::Actor
+use erc20_actors::client::{direct_transfer, actor_mint, balance_of}
+use coolcoin::CoolCoin
+use coolcoin_mutants::m02::CoolCoinM02
+use coolcoin_mutants::m08::CoolCoinM08
+use coolcoin_mutants::m10::CoolCoinM10
+
+// ---- M02: removing the explicit balance assert changes only the revert REASON ----
+// the Guide's contract reverts with Error(string): selector 0x08c379a0
+#[test(should_revert, selector = 0x08c379a0)]
+fn probe_m02_original_over_balance_reverts_with_an_error_string() uses (evm: mut Evm) {
+    let token = evm.create<CoolCoin>(value: Wei::zero(), args: (13 as u256, evm.address()))
+    let _ = direct_transfer(token, Address::new(42), 14)
+}
+
+// the mutant still reverts (checked subtraction), but with Panic(0x11): same observable "does not succeed", different reason
+#[test(should_revert, panic = 0x11)]
+fn probe_m02_mutant_over_balance_reverts_with_panic_0x11() uses (evm: mut Evm) {
+    let token = evm.create<CoolCoinM02>(value: Wei::zero(), args: (13 as u256, evm.address()))
+    let _ = direct_transfer(token, Address::new(42), 14)
+}
+
+// ---- M08: the event is gone, the state is identical. Run both with --show-logs and count the `log` lines of each test ----
+#[test]
+fn probe_log_original_one_transfer() uses (evm: mut Evm) {
+    let token = evm.create<CoolCoin>(value: Wei::zero(), args: (13 as u256, evm.address()))
+    assert!(direct_transfer(token, Address::new(42), 5))
+    assert!(balance_of(token, Address::new(42)) == 5)
+}
+
+#[test]
+fn probe_log_m08_one_transfer() uses (evm: mut Evm) {
+    let token = evm.create<CoolCoinM08>(value: Wei::zero(), args: (13 as u256, evm.address()))
+    assert!(direct_transfer(token, Address::new(42), 5))
+    assert!(balance_of(token, Address::new(42)) == 5)
+}
+
+// ---- M10: a NON-owner can mint on the mutant, not on the original ----
+#[test]
+fn probe_nonowner_mint_is_rejected_by_the_original() uses (evm: mut Evm) {
+    let a = evm.create<Actor>(value: Wei::zero(), args: ())
+    let token = evm.create<CoolCoin>(value: Wei::zero(), args: (13 as u256, evm.address()))
+    assert!(actor_mint(a, token, a, 5) == 0)
+    assert!(balance_of(token, a) == 0)
+}
+
+#[test]
+fn probe_nonowner_mint_is_accepted_by_mutant_m10() uses (evm: mut Evm) {
+    let a = evm.create<Actor>(value: Wei::zero(), args: ())
+    let token = evm.create<CoolCoinM10>(value: Wei::zero(), args: (13 as u256, evm.address()))
+    assert!(actor_mint(a, token, a, 5) == 1)
+    assert!(balance_of(token, a) == 5)
+}

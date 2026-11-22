@@ -1,3 +1,15 @@
+// ====================================================================================================
+// VENDORED, UNCHANGED. The "Complete ERC20" example (contract CoolCoin) from the Fe Guide:
+//   source:   https://fe-lang.org/examples/erc20/
+//   fetched:  2026-11-22 (page title "Complete ERC20 | The Fe Guide"; the page is server-rendered by Astro Starlight)
+//   how:      the code was taken from the page's own code-copy data (`data-code` of the first code block, which is the complete listing)
+// Licence status, exactly: the page states no licence for its content. Its only repository links are to https://github.com/argotorg/fe,
+// whose licence is Apache-2.0 (GitHub reports "Apache-2.0"; the repository's LICENSE-APACHE applies to that repository). The repository that
+// holds the website's source was not found (it is not in argotorg/fe master and not among the argotorg organisation's public repositories).
+// So whether the page's code is covered by the Fe repository's Apache-2.0 licence is not stated; it is vendored here unchanged, with attribution, for testing only.
+// Everything below the next marker line is byte-for-byte the page's listing (sha256 of that text: 16dd64484717dff0a225998176ff66a24e4704dfc903d8901b8d1ec1f1c57e4b);
+// scripts/check-vendored.sh verifies that. It compiled and passed its own 3 tests unchanged on Fe 26.7.0 (e6e6342), so no fix was needed.
+// ----- BEGIN UPSTREAM FILE -----
 // roles
 const MINTER: u256 = 1
 

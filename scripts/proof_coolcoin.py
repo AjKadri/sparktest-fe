@@ -1,0 +1,167 @@
+"""CoolCoin (the Fe Guide ERC-20) section of docs/PROOF.md: the unchanged contract and the 10-mutant mutation test (sonatina only). Imported by proof.py."""
+import re
+
+PROP_NAMES = {1: 'P1 transfer moves exactly amount', 2: 'P2 transfer over balance changes nothing', 3: 'P3 transfer keeps totalSupply',
+              4: 'P4 transferFrom lowers the allowance exactly', 5: 'P5 transferFrom over allowance fails', 6: 'P6 balances sum to totalSupply', 7: 'stateful model check'}
+SHORT = {1: 'P1', 2: 'P2', 3: 'P3', 4: 'P4', 5: 'P5', 6: 'P6', 7: 'stateful'}
+
+# (mutant, single change, expected caught?, expected catching properties, explanation shown for a miss), mirroring docs/EXPECTATIONS.md (L7a), written before the runs
+MUTANTS = [
+ ('M01', '`transfer` credits the receiver `amount + 1`', True, ['P1', 'P6', 'stateful'], ''),
+ ('M02', 'the `from_balance >= amount` assert in `transfer` is removed', False, [], 'm02'),
+ ('M03', '`transferFrom` swaps `from` and `to` in the inner transfer', True, ['P4', 'stateful'], ''),
+ ('M04', '`spend_allowance` no longer lowers the allowance', True, ['P4', 'stateful'], ''),
+ ('M05', '`transfer` credits the receiver first, then debits from the stale sender balance (a self-transfer destroys `amount`)', True, ['P1', 'P6', 'stateful'], ''),
+ ('M06', 'balance check `>=` becomes `>` (the full balance cannot be sent)', True, ['P1', 'stateful'], ''),
+ ('M07', 'allowance check `>=` becomes `>` (the full allowance cannot be spent)', True, ['P4', 'stateful'], ''),
+ ('M08', 'the Transfer event is no longer emitted in `transfer`', False, [], 'm08'),
+ ('M09', '`mint` no longer increases `total_supply`', True, ['stateful'], 'only'),
+ ('M10', '`mint` no longer requires the MINTER role', False, [], 'm10'),
+]
+
+def blocks(out):
+    """[(test name, status, [log data words...])] from `fe test --show-logs` output"""
+    res, cur = [], None
+    for line in out.splitlines():
+        m = re.match(r'(PASS|FAIL)\s+\[[^\]]*\]\s+(\S+)', line)
+        if m:
+            cur = [m.group(2), m.group(1), []]
+            res.append(cur)
+            continue
+        m = re.search(r'data: (0x[0-9a-f]*) \}', line)
+        if m and cur is not None:
+            h = m.group(1)[2:]
+            cur[2].append([int(h[i:i + 64], 16) for i in range(0, len(h), 64)])
+    return res
+
+def parse(out):
+    """prefix ('guide', 'm01', ..) -> {1..7: result}"""
+    res = {}
+    for name, status, logs in blocks(out):
+        m = re.match(r'(guide|m\d\d)_p(\d)_', name)
+        if m and status == 'PASS':
+            for w in logs:
+                if len(w) == 16:
+                    res.setdefault(m.group(1), {})[int(m.group(2))] = dict(failed=w[1], case=w[2], steps=w[3], shrunk=w[8:12], original=w[4:8], gas=w[12], attempted=w[13], accepted=w[14], vacuous=w[15])
+            continue
+        m = re.match(r'stateful_(guide|m\d\d)_stateful$', name)
+        if m and status == 'PASS':
+            for w in logs:
+                # the token's own events (one word) are in the same list; the stateful result has 14 head words
+                if len(w) > 14 and w[4] == 14 * 32:
+                    head = 14
+                    def arr(off):
+                        i = off // 32
+                        return w[i + 1:i + 1 + w[i]]
+                    res.setdefault(m.group(1), {})[7] = dict(failed=w[1], case=w[2], steps=w[3], original=arr(w[4]), shrunk=arr(w[5]), gas=w[6],
+                                                               attempted=w[7], accepted=w[8], vacuous=w[9], kinds=w[10:14])
+    return res
+
+def counterexample(pid, r):
+    w = r['shrunk']
+    if pid in (1, 6):
+        return f"(sender {w[0]}, receiver {w[1]}, amount input {w[2]}: amount = input % (balance + 1) = {w[2] % 4}, as every actor starts with 3)"
+    if pid == 2:
+        return f"(sender {w[0]}, receiver {w[1]}, amount input {w[2]}: amount = balance + 1 + input = {4 + w[2]})"
+    if pid == 3:
+        return f"(sender {w[0]}, receiver {w[1]}, amount {w[2]})"
+    if pid in (4, 5):
+        return f"(owner {w[0]}, spender {w[1]}, to {w[2]}, packed {w[3]}: allowance {w[3] % 65536}, amount input {w[3] // 65536})"
+    n = w[0]
+    cmds = []
+    for i in range(n):
+        k, a, b, c, amt = w[1 + 5 * i:6 + 5 * i]
+        cmds.append([f'Transfer(actor {a} -> actor {b}, {amt})', f'Approve(owner {a}, spender {b}, {amt})', f'TransferFrom(spender {a}, owner {b}, to {c}, {amt})', f'Mint(to {a}, {amt})'][k])
+    return f'{n} command(s): ' + ' ; '.join(cmds)
+
+def section(run, problems):
+    out = run(['fe', 'test', '--show-logs'], cwd='tests-coolcoin').stdout
+    if 'test result: ok' not in out:
+        problems.append('tests-coolcoin did not pass:\n' + out[-1500:])
+    res = parse(out)
+    bl = {n: (st, logs) for n, st, logs in blocks(out)}
+    s = ['## The Fe Guide ERC-20 (CoolCoin) and a mutation test (sonatina only)', '',
+         'Contract: the "Complete ERC20" example from the Fe Guide, https://fe-lang.org/examples/erc20/ (fetched 2026-11-22), vendored unchanged in `examples/coolcoin`. It compiled and passed its own 3 tests unchanged on Fe 26.7.0.',
+         'The page states no licence; its repository links point to github.com/argotorg/fe (Apache-2.0); see the header of `examples/coolcoin/src/lib.fe` for the exact status. Differences from the compiler-repo ERC20 test fixture:',
+         '`transfer`/`transferFrom` revert on a shortfall (the fixture returns `false`), and `mint` needs the MINTER role.',
+         'Setup per case: the test contract is the owner (it holds MINTER) with supply 13; it sends 3 to each of 4 actor contracts and keeps 1 (the conservation checks include the owner). 64 cases per property; stateful runs use 8-command sequences',
+         'over Transfer, Approve, TransferFrom and Mint with `Index<4>` actors and an `Index<9>` amount. Every row shows calls accepted / attempted: the vacuity guard fails a passing run that never succeeded or never ran a command kind.', '',
+         '### Unchanged CoolCoin', '', '| property | result | calls accepted / attempted | vacuous? | gas | rerun |', '|---|---|---|---|---|---|']
+    g = res.get('guide', {})
+    for pid in range(1, 8):
+        r = g.get(pid)
+        if r is None:
+            problems.append(f'CoolCoin: no result for property {pid}'); continue
+        ok = r['failed'] == 0 and r['vacuous'] == 0
+        if not ok:
+            problems.append(f'CoolCoin (unchanged) {SHORT[pid]}: failed or vacuous: {r}')
+        s.append(f"| {PROP_NAMES[pid]} | {'passed ' + str(r['case']) + ' cases' if r['failed'] == 0 else 'FAILED, shrunk ' + counterexample(pid, r)} | {r['accepted']} / {r['attempted']} | {'no' if r['vacuous'] == 0 else 'VACUOUS (reason ' + str(r['vacuous']) + ')'} | {r['gas']:,} | `cd tests-coolcoin && fe test --filter guide_ --show-logs` |")
+    if 7 in g and 'kinds' in g[7]:
+        s += ['', f"Stateful run, commands executed (Transfer, Approve, TransferFrom, Mint): {', '.join(str(x) for x in g[7]['kinds'])}.", '']
+
+    s += ['### Mutation test: 10 single-change mutants (`examples/coolcoin-mutants`, generated by `scripts/gen_mutants.py`)', '',
+          'Expected results were written before the runs (docs/EXPECTATIONS.md, section "L7a"). A mutant is CAUGHT when any of P1 to P6 or the stateful check fails. "Shrunk counterexample" is the first failing property in the order P1 to P6, then stateful.', '',
+          '| mutant | single change | expected | by | actual | caught by | shrunk counterexample | as expected | calls accepted / attempted (first failing run) |', '|---|---|---|---|---|---|---|---|---|']
+    caught_n = missed_n = matched = 0
+    notes = []
+    for mid, change, exp_caught, exp_by, why in MUTANTS:
+        r = res.get(mid.lower(), {})
+        failing = [p for p in range(1, 8) if p in r and r[p]['failed'] == 1]
+        by = [SHORT[p] for p in failing]
+        vac = [SHORT[p] for p in range(1, 8) if p in r and r[p]['vacuous'] not in (0,) and r[p]['failed'] == 0]
+        if len(r) != 7:
+            problems.append(f'{mid}: results for {sorted(r)} only'); continue
+        caught = bool(failing)
+        caught_n += caught
+        missed_n += (not caught)
+        if exp_caught:
+            if caught and why == 'only' and any(b not in exp_by for b in by):
+                extra = ', '.join(b for b in by if b not in exp_by)
+                ok = f'partly: caught, but NOT only by {", ".join(exp_by)}: also by {extra}'
+            elif caught and all(e in by for e in exp_by):
+                ok = 'yes' + (f' (also caught by {", ".join(b for b in by if b not in exp_by)})' if any(b not in exp_by for b in by) else '')
+            elif caught:
+                ok = f'partly: caught, but not by {", ".join(e for e in exp_by if e not in by)}'
+            else:
+                ok = '**NO: missed**'
+        else:
+            ok = 'yes (missed, as predicted)' if not caught else f'**NO: caught by {", ".join(by)}**'
+        matched += ok.startswith('yes')
+        if ok.startswith('**NO'):
+            problems.append(f'{mid}: expectation not met: expected caught={exp_caught} by {exp_by}; actual by {by}')
+        first = failing[0] if failing else None
+        ce = counterexample(first, r[first]) if first else '-'
+        cnt = f"{r[first]['accepted']} / {r[first]['attempted']}" if first else '-'
+        s.append(f"| {mid} | {change} | {'caught' if exp_caught else 'missed'} | {', '.join(exp_by) if exp_by else '-'} | {'**caught**' if caught else '**missed**'} | {', '.join(by) if by else '-'} | {ce} | {ok} | {cnt} |")
+        if vac:
+            notes.append(f'{mid}: passing properties flagged vacuous: {", ".join(vac)}')
+
+    def logs_of(name):
+        return len(bl.get(name, (None, []))[1]) if name in bl else None
+    probe = lambda n: bl.get(n, ('MISSING', []))[0] == 'PASS'
+    partly = [m[0] for m in MUTANTS if any(('partly' in line) and line.startswith(f'| {m[0]} ') for line in s)]
+    s += ['', f'Caught {caught_n} of 10, missed {missed_n} of 10; {matched} of 10 matched the pre-registered expectation' + (f' exactly and {len(partly)} partly ({", ".join(partly)})' if partly else '') + '.', '', '#### Why the misses are misses (each backed by a probe test in `tests-coolcoin/src/probes.fe`)', '']
+    l1, l2 = logs_of('probe_log_original_one_transfer'), logs_of('probe_log_m08_one_transfer')
+    for mid, change, exp_caught, exp_by, why in MUTANTS:
+        r = res.get(mid.lower(), {})
+        if any(p in r and r[p]['failed'] == 1 for p in range(1, 8)):
+            continue
+        if why == 'm02':
+            ok = probe('probe_m02_original_over_balance_reverts_with_an_error_string') and probe('probe_m02_mutant_over_balance_reverts_with_panic_0x11')
+            s.append(f"- **M02 (equivalent mutant).** Fe's checked subtraction still reverts when the balance is too small, so removing the explicit assert changes only the revert reason: the original reverts with `Error(string)` (selector 0x08c379a0), the mutant with `Panic(0x11)`. Properties see only whether a call succeeded, which is identical. Probes: {'both pass' if ok else '**FAILED**'}.")
+            if not ok: problems.append('M02 probes failed')
+        elif why == 'm08':
+            s.append(f"- **M08 (invisible to state properties).** The mutant keeps balances, allowances and supply identical and only drops a log. In the probe, one `transfer` emits {l1} log(s) on the original and {l2} on the mutant (`--show-logs`). The properties read balances, allowances and supply, so they cannot see a missing event. Catching it needs an event assertion.")
+            if not (l1 is not None and l2 is not None and l2 == l1 - 1): problems.append(f'M08 log probe: original {l1}, mutant {l2}')
+        elif why == 'm10':
+            ok = probe('probe_nonowner_mint_is_rejected_by_the_original') and probe('probe_nonowner_mint_is_accepted_by_mutant_m10')
+            s.append(f"- **M10 (needs a non-owner caller).** In every property and stateful run only the owner calls `mint`, and the owner holds MINTER, so the missing access check never matters. A non-owner actor's `mint` is rejected by the original and accepted by the mutant (two probes: {'both pass' if ok else '**FAILED**'}). Adding an adversarial caller to the Mint command would catch it.")
+            if not ok: problems.append('M10 probes failed')
+    m9 = res.get('m09', {})
+    if any(p in m9 and m9[p]['failed'] == 1 for p in (1, 2, 3, 4, 5, 6)):
+        s += ['#### An expectation that was only partly right', '',
+              '- **M09** was pre-registered as caught only by the stateful run (P1 to P6 never call `mint`). It is also caught by P2 and P6 because I overlooked that the constructor mints the initial supply through the same `mint` function, so `total_supply` is already wrong (0 instead of 13) at deployment. The stateful run is still the only one that catches it through the `Mint` command.', '']
+    if notes:
+        s += [''] + [f'- {n}' for n in notes]
+    s += ['', 'Not exercised by any command, so no claim is made about them: `burn`, `burnFrom`, `increaseAllowance`, `decreaseAllowance`, `name`, `symbol`, `decimals`. The mutants are a hand-picked sample of single changes, not a measured mutation score. Rerun: `./scripts/proof.sh`.', '']
+    return s

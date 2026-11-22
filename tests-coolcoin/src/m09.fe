@@ -31,13 +31,14 @@ fn deploy_actors() -> [Address; 4] uses (evm: mut Evm) {
     [a0, a1, a2, a3]
 }
 
-// a fresh token per case. The owner (who holds the MINTER role) is the test contract: supply 12, which it sends to the actors (every actor holds 3)
+// a fresh token per case. The owner (who holds the MINTER role) is the test contract: supply 13, of which it sends 3 to each actor and keeps 1
+// (so the setup never takes the owner's balance to exactly 0). A failing setup call reverts the whole test, which is visible, not a property result.
 fn fresh_token(_ actors: [Address; 4]) -> Address uses (evm: mut Evm) {
-    let token = evm.create<CoolCoinM09>(value: Wei::zero(), args: (12 as u256, evm.address()))
-    let _ = direct_transfer(token, actors[0], 3)
-    let _ = direct_transfer(token, actors[1], 3)
-    let _ = direct_transfer(token, actors[2], 3)
-    let _ = direct_transfer(token, actors[3], 3)
+    let token = evm.create<CoolCoinM09>(value: Wei::zero(), args: (13 as u256, evm.address()))
+    assert!(direct_transfer(token, actors[0], 3))
+    assert!(direct_transfer(token, actors[1], 3))
+    assert!(direct_transfer(token, actors[2], 3))
+    assert!(direct_transfer(token, actors[3], 3))
     token
 }
 
@@ -75,7 +76,7 @@ fn p2(_ actors: [Address; 4], _ p: (Index<4>, Index<4>, u16)) -> bool uses (evm:
     let got = actor_transfer(from, token, to, amount)
     tally.call(got == 1)
     if got != 0 { return false }
-    balance_of(token, from) == bf && balance_of(token, to) == bt && total_supply(token) == 12
+    balance_of(token, from) == bf && balance_of(token, to) == bt && total_supply(token) == 13
 }
 
 // P3: transfers never change totalSupply (whether or not they succeed)
@@ -134,7 +135,7 @@ fn p6(_ actors: [Address; 4], _ p: (Index<4>, Index<4>, u16)) -> bool uses (evm:
     let amount = (p.2 as u256) % (balance_of(token, from) + 1)
     let got = actor_transfer(from, token, who(actors, p.1), amount)
     tally.call(got == 1)
-    sum_balances(token, actors) == total_supply(token)
+    sum_balances(token, actors) + balance_of(token, evm.address()) == total_supply(token)
 }
 
 #[test]
@@ -219,7 +220,7 @@ fn run_sequence(_ actors: [Address; 4], _ s: Seq<((Index<4>, Index<4>, Index<4>)
     let token = fresh_token(actors)
     var bal: [u256; 4] = [3, 3, 3, 3]
     var allow: [u256; 16] = [0; 16]
-    var supply: u256 = 12
+    var supply: u256 = 13
     var i: usize = 0
     while i < s.len {
         let cmd = s.items[i]
@@ -276,6 +277,7 @@ fn run_sequence(_ actors: [Address; 4], _ s: Seq<((Index<4>, Index<4>, Index<4>)
             sum += onchain
             k += 1
         }
+        sum += balance_of(token, evm.address())
         if total_supply(token) != supply { return false }
         if sum != supply { return false }
         if allowance(token, actors[touched_o], actors[touched_s]) != allow[touched_o * 4 + touched_s] { return false }

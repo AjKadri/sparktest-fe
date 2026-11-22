@@ -21,6 +21,9 @@ recordings() {
 erc20() {
   ./scripts/check-vendored.sh && fe_suite examples/erc20 && fe_suite tests-erc20
 }
+coolcoin() {
+  fe_suite examples/coolcoin && fe_suite tests-coolcoin
+}
 rewards() {
   fe_suite tests-rewards
 }
@@ -28,8 +31,8 @@ proof() {
   ./scripts/proof.sh --check
 }
 freshness() {
-  python3 scripts/gen_widths.py && python3 scripts/gen_composite.py && python3 scripts/gen_checked.py && python3 scripts/gen_proof.py && python3 scripts/gen_erc20_tests.py \
-    && git diff --exit-code -- sparktest/src/widths.fe sparktest/src/composite.fe sparktest/src/checked.fe props/src/proof_scenarios.fe tests-evm/src/proof.fe proof-native/src/lib.fe tests-erc20/src/original.fe tests-erc20/src/buggy.fe tests-erc20/src/original_idx.fe tests-erc20/src/buggy_idx.fe tests-erc20/src/stateful_orig.fe tests-erc20/src/stateful_bug.fe \
+  python3 scripts/gen_widths.py && python3 scripts/gen_composite.py && python3 scripts/gen_checked.py && python3 scripts/gen_proof.py && python3 scripts/gen_erc20_tests.py && python3 scripts/gen_mutants.py \
+    && git diff --exit-code -- sparktest/src/widths.fe sparktest/src/composite.fe sparktest/src/checked.fe props/src/proof_scenarios.fe tests-evm/src/proof.fe proof-native/src/lib.fe tests-erc20/src/original.fe tests-erc20/src/buggy.fe tests-erc20/src/original_idx.fe tests-erc20/src/buggy_idx.fe tests-erc20/src/stateful_orig.fe tests-erc20/src/stateful_bug.fe tests-erc20/src/vacuous_demo.fe tests-coolcoin/src examples/coolcoin-mutants \
     && echo "generated files are up to date"
 }
 
@@ -38,6 +41,7 @@ part "tests-native (native)"     fe_suite tests-native
 part "decode-revert (node)"      node tools/decode-revert/test.mjs
 part "cross-check (sonatina vs native)" ./scripts/cross-check.sh
 part "erc20 (sonatina only): vendored example + properties + planted bug" erc20
+part "coolcoin (sonatina only): the Fe Guide ERC-20 unchanged + 10 mutants (results recorded; the proof part checks them)" coolcoin
 part "rewards (sonatina only): contract panic via try_call vs direct call" rewards
 part "quickstart example (a separate ingot using sparktest as the README says)" fe_suite examples/quickstart
 part "docs (README excerpts verbatim from the quickstart; every API.md example compiles and passes)" ./scripts/check-docs.py

@@ -114,6 +114,7 @@ fn run_sequence(_ actors: [Address; 4], _ s: Seq<((Index<4>, Index<4>, Index<4>)
             sum += onchain
             k += 1
         }
+        
         if total_supply(token) != supply { return false }
         if sum != supply { return false }
         if allowance(token, actors[touched_o], actors[touched_s]) != allow[touched_o * 4 + touched_s] { return false }

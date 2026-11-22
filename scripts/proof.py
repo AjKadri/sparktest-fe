@@ -104,6 +104,8 @@ try:
     sections.append(proof_erc20.section(run, problems))
     import proof_stateful
     sections.append(proof_stateful.section(run, problems))
+    import proof_coolcoin
+    sections.append(proof_coolcoin.section(run, problems))
     import proof_rewards
     sections.append(proof_rewards.section(run, problems))
 except ImportError:

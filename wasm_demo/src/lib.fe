@@ -1,0 +1,41 @@
+const MASK64: u256 = 0xffffffffffffffff
+
+extern {
+    // JS-provided callback: called once with the first failing input
+    fn qc_fail(_ input: u64, _ case: u32)
+}
+
+struct XorShift { state: u256 }
+impl XorShift {
+    fn new(_ seed: u256) -> Self { XorShift { state: (seed & MASK64) | 1 } }
+    fn next(mut self) -> u256 {
+        var x = self.state
+        x = x ^ ((x << 13) & MASK64)
+        x = x ^ (x >> 7)
+        x = x ^ ((x << 17) & MASK64)
+        self.state = x
+        x
+    }
+}
+
+fn check<P: Fn(u256) -> bool>(_ prop: P, _ seed: u256, _ cases: u32) -> u32 uses P::E {
+    var rng = XorShift::new(seed)
+    var i: u32 = 0
+    var failures: u32 = 0
+    while i < cases {
+        let x = rng.next() % 100000
+        if !prop(x) {
+            if failures == 0 { unsafe { qc_fail(x.downcast_truncate(), i) } }
+            failures += 1
+        }
+        i += 1
+    }
+    failures
+}
+
+// property: x < limit. Returns number of failing cases.
+#[unsafe(export)]
+pub fn run_below(seed: u64, cases: u32, limit: u64) -> u32 {
+    let lim = limit as u256
+    check(|x: u256| x < lim, seed as u256, cases)
+}

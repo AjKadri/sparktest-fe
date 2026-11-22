@@ -1,0 +1,4 @@
+[ingot]
+name = "qc_wasm"
+version = "0.1.0"
+target = "wasm"

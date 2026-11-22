@@ -1,0 +1,71 @@
+target = "wasm32-unknown-native"
+
+type @layout_0 = {i256};
+
+global private const [i8; 36] $const_bytes_0 = [78, 72, 123, 113, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 65];
+global private const [i8; 36] $const_bytes_1 = [78, 72, 123, 113, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18];
+global private const [i8; 36] $const_bytes_2 = [78, 72, 123, 113, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 17];
+
+declare external %__fe_revert(*i8, i32);
+declare external %qc_fail(i64, i32);
+
+func cold private %host_revert(v0.*i8, v1.i32) {
+    block0:
+        call %__fe_revert v0 v1;
+        unreachable;
+}
+
+func public %run_below(v0.i64, v1.i32, v2.i64) -> i32 {
+    block0:
+        v4.i256 = zext v2 i256;
+        v9.i256 = zext v0 i256;
+        v16.i256 = or v9 1.i256;
+        v100.i1 = is_zero v1;
+        br v100 block2 block11;
+
+    block11:
+        v93.i256 = phi (v16 block0) (v37 block16);
+        v92.i32 = phi (0.i32 block0) (v66 block16);
+        v91.i32 = phi (0.i32 block0) (v90 block16);
+        v28.i256 = shl 13.i256 v93;
+        v29.i256 = and v28 18446744073709551615.i256;
+        v30.i256 = xor v93 v29;
+        v32.i256 = shr 7.i256 v30;
+        v33.i256 = xor v30 v32;
+        v35.i256 = shl 17.i256 v33;
+        v36.i256 = and v35 18446744073709551615.i256;
+        v37.i256 = xor v33 v36;
+        v45.i256 = umod v37 100000.i256;
+        v47.i1 = lt v45 v4;
+        br v47 block16 block14;
+
+    block14:
+        v73.i1 = is_zero v92;
+        br v73 block33 block40;
+
+    block16:
+        v66.i32 = phi (v92 block11) (v64 block40);
+        v90.i32 = add v91 1.i32;
+        v95.i1 = lt v90 v1;
+        br v95 block11 block2;
+
+    block33:
+        v61.i64 = trunc v45 i64;
+        call %qc_fail v61 v91;
+        jump block40;
+
+    block40:
+        (v64.i32, v65.i1) = uaddo v92 1.i32;
+        br v65 block46 block16;
+
+    block46:
+        v69.i32 = sym_addr $const_bytes_2;
+        v70.*i8 = int_to_ptr v69 *i8;
+        call %host_revert v70 36.i32;
+        unreachable;
+
+    block2:
+        v96.i32 = phi (0.i32 block0) (v66 block16);
+        return v96;
+}
+

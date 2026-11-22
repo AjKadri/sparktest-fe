@@ -1,0 +1,63 @@
+{
+  "manifest_version": 1,
+  "module": {
+    "file": "qc_wasm.wasm",
+    "sha256": "d4d5afcaf7c44340aa2584e9af9dc237317b4e66761ca566043ae3d1b6cb8fde",
+    "size": 3379,
+    "initial_memory_pages": 17
+  },
+  "contract_version": 3,
+  "optimization": "1",
+  "compiler": "fe 26.7.0 (e6e6342)",
+  "imports": [
+    {
+      "module": "env",
+      "name": "__fe_revert",
+      "kind": "function",
+      "type": {
+        "params": ["i32", "i32"],
+        "results": []
+      }
+    },
+    {
+      "module": "env",
+      "name": "qc_fail",
+      "kind": "function",
+      "type": {
+        "params": ["i64", "i32"],
+        "results": []
+      }
+    }
+  ],
+  "exports": [
+    {
+      "name": "memory",
+      "kind": "memory"
+    },
+    {
+      "name": "run_below",
+      "kind": "function",
+      "params": [
+        {
+          "name": "seed",
+          "type": "u64",
+          "wasm": ["i64"]
+        },
+        {
+          "name": "cases",
+          "type": "u32",
+          "wasm": ["i32"]
+        },
+        {
+          "name": "limit",
+          "type": "u64",
+          "wasm": ["i64"]
+        }
+      ],
+      "result": {
+        "type": "u32",
+        "wasm": ["i32"]
+      }
+    }
+  ]
+}

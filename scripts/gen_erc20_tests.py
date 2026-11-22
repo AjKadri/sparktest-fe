@@ -132,11 +132,24 @@ PROPS = [
     (6, 'p6_balances_sum_to_total_supply', 'p6', '(u8, u8, u16)'),
 ]
 
-def gen(mod, base, prefix, what, expect_fail):
-    s = TEMPLATE.replace('@MOD@', mod).replace('@WHAT@', what)
+def gen(mod, base, prefix, what, expect_fail, idx=False):
+    t = TEMPLATE
+    if idx:
+        # actors chosen with Index<4> (bounded, shrinks inside 0..3) instead of a raw u8 taken % 4
+        t = t.replace('use sparktest::{check, Config, Summary, summarize}', 'use sparktest::{check, Config, Summary, summarize, Index}')
+        t = t.replace('fn who(_ actors: [Address; 4], _ i: u8) -> Address { actors[(i % 4) as usize] }', 'fn who(_ actors: [Address; 4], _ i: Index<4>) -> Address { actors[i.value] }')
+        t = t.replace('p.0 % 4 == p.1 % 4', 'p.0.value == p.1.value').replace('p.0 % 4 == p.2 % 4', 'p.0.value == p.2.value')
+        t = t.replace('(u8, u8, u16)', '(Index<4>, Index<4>, u16)').replace('(u8, u8, u32)', '(Index<4>, Index<4>, u32)').replace('(u8, u8, u8, u32)', '(Index<4>, Index<4>, Index<4>, u32)')
+    s = t.replace('@MOD@', mod).replace('@WHAT@', what)
     for pid, name, fn, ty in PROPS:
         tid = base + pid
-        if pid in expect_fail:
+        if idx:
+            ty = ty.replace('(u8, u8, u16)', '(Index<4>, Index<4>, u16)').replace('(u8, u8, u32)', '(Index<4>, Index<4>, u32)').replace('(u8, u8, u8, u32)', '(Index<4>, Index<4>, Index<4>, u32)')
+        if idx and pid in expect_fail:
+            check = ('    // planted bug: must FAIL. Pre-registered minimum (original): (0, 0, 1); honest prediction (L4.1 amendment): (a, a, 1).\n'
+                     '    // Asserted: a self-transfer (same actor) of amount 1. The exact indices are recorded in the event and in PROOF.md, not asserted.\n'
+                     '    assert!(s.failed == 1)\n    assert!(s.shrunk[0] == s.shrunk[1])\n    assert!(s.shrunk[2] == 1)\n')
+        elif pid in expect_fail:
             check = ('    // planted bug: must FAIL. Pre-registered minimum: (0, 0, 1). Found: a self-transfer (both raw indices map to the same\n'
                      '    // actor via % 4, e.g. 21 and 125 -> actor 1) of amount 1. Raw indices do not shrink to 0 because 0 would change the\n'
                      '    // actor class, so only the structure (self-transfer, amount 1) is asserted.\n'
@@ -160,3 +173,8 @@ open(os.path.join(ROOT, 'tests-erc20/src/original.fe'), 'w').write(
     gen('erc20_example', 100, 'orig', 'Properties on the UNCHANGED vendored ERC20 (examples/erc20): all expected to pass.', set()))
 open(os.path.join(ROOT, 'tests-erc20/src/buggy.fe'), 'w').write(
     gen('erc20_buggy', 200, 'buggy', 'Properties on examples/erc20-buggy (PLANTED self-transfer bug): P1 and P6 must fail (self-transfer, amount 1).', {1, 6}))
+
+open(os.path.join(ROOT, 'tests-erc20/src/original_idx.fe'), 'w').write(
+    gen('erc20_example', 300, 'origidx', 'Properties on the UNCHANGED ERC20 test fixture, actors chosen with Index<4> (L4.1): all expected to pass.', set(), idx=True))
+open(os.path.join(ROOT, 'tests-erc20/src/buggy_idx.fe'), 'w').write(
+    gen('erc20_buggy', 400, 'buggyidx', 'Properties on examples/erc20-buggy (PLANTED self-transfer bug), actors chosen with Index<4> (L4.1): P1 and P6 must fail.', {1, 6}, idx=True))

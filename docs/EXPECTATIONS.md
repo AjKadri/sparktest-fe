@@ -148,3 +148,27 @@ The mutation-test setup sentence above ("supply 12, each of 4 actors holds 4") w
 balance to exactly 0 in the last setup transfer; mutant M06 (balance check `>=` becomes `>`) then reverted INSIDE THE SETUP and every M06 test died there, so M06 would have been "caught" by the setup instead
 of by a property. Only pass/fail counts of that first run were looked at. The setup is now: supply 13 minted to the owner (the test contract, which holds MINTER), 3 sent to each of 4 actors, the owner keeps 1,
 and the conservation property and the stateful sum include the owner's balance. The mutant table above is unchanged.
+
+## L7b panic recovery (2026-11-22, written BEFORE the runs of this step)
+
+Rows above are unchanged. Goal: a property whose code panics is reported and shrunk like any other failure, through NEW APIs only (`check` keeps its behaviour and results).
+
+### Planted properties (same two on every path)
+- **overflow**: input `x: u64`; the property computes `x * 1000` in `u64` (checked arithmetic) and returns `x * 1000 / 1000 == x`. It panics with `Panic(0x11)` (arithmetic overflow) exactly when
+  `x * 1000 >= 2^64`. The failure set is every `x >= 18446744073709552` (`18446744073709552 * 1000 >= 2^64`, `18446744073709551 * 1000 < 2^64`; computed independently). The set is monotone and the last
+  integer shrink candidate is `x - 1`, so the expected minimum is exactly **18446744073709552**, reason "panicked: arithmetic overflow (0x11)".
+- **divzero**: input `(a: u32, b: u32)`; the property returns `a / b * b <= a`. It panics with `Panic(0x12)` (division by zero) exactly when `b == 0`, whatever `a` is. Expected minimum: **(a = 0, b = 0)**
+  (`a` shrinks to 0 independently; `b` is already 0), reason "panicked: division by zero (0x12)".
+- **a normal false-returning property** (the existing `x < 1000` over `u256`) must give the same result through the isolated path as through `check` (shrunk to exactly 1000), reason "returned false".
+
+### Backends and agreement
+- Same seed on every path gives the same input stream, so the first failing CASE INDEX, the shrunk input and the NUMBER of shrink steps are expected to be identical on sonatina (isolated through `try_call`),
+  native (a replay driver script that bisects the case limit to the first aborting case and shrinks by replaying single-case runs) and wasm (the page, which catches the trap and replays).
+  The reason (panicked 0x11 / 0x12, or returned false) must agree wherever the platform exposes it: sonatina reads the revert data, wasm reads the `__fe_revert` payload; native only learns that the process aborted
+  (stderr text `panicked: arithmetic overflow` / `division by zero` is expected, to be checked).
+- Expected costs: one isolated evaluation costs a contract call (hundreds to a few thousand gas); the whole isolated run stays well below the 1e9 per-test cap.
+
+### What is expected NOT to be covered by the new paths (stated before the runs)
+- Properties that loop forever or run out of gas (a call that runs out of gas is a failed call on sonatina, reported as a failure of unknown reason).
+- A panic in the generator or the shrinker (they run in the test, not in the harness).
+- Pure-code properties on sonatina need a harness contract (user-written, one `recv` arm per property); native and wasm need no harness.

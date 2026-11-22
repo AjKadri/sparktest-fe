@@ -3,4 +3,4 @@ name = "props"
 version = "0.1.0"
 
 [dependencies]
-qc = { path = "../qc" }
+sparktest = { path = "../sparktest" }

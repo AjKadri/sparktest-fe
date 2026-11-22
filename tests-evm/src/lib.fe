@@ -1,6 +1,6 @@
 use std::evm::Evm
-use qc::{check, Config, Outcome, Checked, MAX}
-use qc_evm::{assert_holds, fixed_seed}
+use sparktest::{check, Config, Outcome, Checked, MAX}
+use sparktest_evm::{assert_holds, fixed_seed}
 
 struct Info { failed: bool, original: u256, shrunk: u256, case: u256, steps: u256, cases: u256, seed: u256 }
 

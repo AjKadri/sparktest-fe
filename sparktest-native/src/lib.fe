@@ -1,7 +1,7 @@
-// Native shim for fe-quickcheck: prints failures with println! and then fails the test.
+// Native shim for Sparktest: prints failures with println! and then fails the test.
 use std::io::Stdout
 use std::native::cpu_clock_ticks
-use qc::{Outcome, Encode, Summary}
+use sparktest::{Outcome, Encode, Summary}
 
 // An optimizer-opaque zero: the CPU clock is an extern host call, so the compiler cannot know its value,
 // and it is never this magic number (an unavailable clock reads -1).

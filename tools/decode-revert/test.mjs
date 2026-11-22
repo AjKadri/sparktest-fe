@@ -13,7 +13,7 @@ assert.equal(selector('transfer(address,uint256)'), 'a9059cbb');
 console.log('selector(transfer(address,uint256)) = 0xa9059cbb  OK');
 assert.equal(keccak256('abc'), '4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45');
 console.log('keccak256("abc") = 4e03657a...6c45  OK');
-// the PropertyFailed selector used by qc-evm (the compiler computed 0x4c350703 independently)
+// the PropertyFailed selector used by sparktest-evm (the compiler computed 0x4c350703 independently)
 assert.equal(selector(SIGNATURE), '4c350703');
 console.log(`selector(${SIGNATURE}) = 0x4c350703  OK`);
 

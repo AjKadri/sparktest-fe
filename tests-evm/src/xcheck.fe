@@ -1,7 +1,7 @@
 // Cross-backend scenarios: the same numeric seeds (1001..1005 + opaque zero) as xcheck-native.
 // Each scenario's Summary is emitted as an event on a passing test; scripts/cross-check.sh compares it with native.
 use std::evm::Evm
-use qc::Summary
+use sparktest::Summary
 
 #[event]
 struct Xc { id: u256, failed: u256, case: u256, steps: u256, o0: u256, o1: u256, o2: u256, o3: u256, s0: u256, s1: u256, s2: u256, s3: u256 }

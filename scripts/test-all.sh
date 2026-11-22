@@ -14,7 +14,7 @@ part() { # part <name> <command...>
 fe_suite()  { (cd "$1" && shift && fe test "$@"); }
 freshness() {
   python3 scripts/gen_widths.py && python3 scripts/gen_composite.py && python3 scripts/gen_checked.py \
-    && git diff --exit-code -- qc/src/widths.fe qc/src/composite.fe qc/src/checked.fe \
+    && git diff --exit-code -- sparktest/src/widths.fe sparktest/src/composite.fe sparktest/src/checked.fe \
     && echo "generated files are up to date"
 }
 

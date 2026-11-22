@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// decode-revert: decodes fe-quickcheck's PropertyFailed revert data.
+// decode-revert: decodes Sparktest's PropertyFailed revert data.
 //   node decode.mjs 0x4c350703...      (or: node decode.mjs < file.hex)
 import fs from 'node:fs';
 import { selector } from './keccak.mjs';

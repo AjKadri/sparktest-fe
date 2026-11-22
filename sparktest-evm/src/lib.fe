@@ -1,7 +1,7 @@
-// EVM shim for fe-quickcheck: turns an Outcome into a revert, and provides an opaque runtime seed.
+// EVM shim for Sparktest: turns an Outcome into a revert, and provides an opaque runtime seed.
 use std::evm::{Evm, revert_error}
 use std::abi::DynArray
-use qc::{Outcome, Encode}
+use sparktest::{Outcome, Encode}
 
 #[error]
 pub struct PropertyFailed {

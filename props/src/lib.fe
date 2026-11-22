@@ -2,7 +2,7 @@
 // A property returns true when it HOLDS. Planted bugs fail on a known minimal input (stated per fn).
 use std::evm::Address
 use std::abi::DynArray
-use qc::{Arbitrary, Shrink, Encode, Rng, Checked, Outcome, Config, check, Summary, summarize}
+use sparktest::{Arbitrary, Shrink, Encode, Rng, Checked, Outcome, Config, check, Summary, summarize}
 
 // ---- u256 / bool ----
 pub fn prop_below_1000(_ x: u256) -> bool { x < 1000 }               // fails; minimal counterexample 1000

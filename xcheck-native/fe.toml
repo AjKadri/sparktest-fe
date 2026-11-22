@@ -4,6 +4,6 @@ version = "0.1.0"
 target = "native"
 
 [dependencies]
-qc = { path = "../qc" }
-qc_native = { path = "../qc-native" }
+sparktest = { path = "../sparktest" }
+sparktest_native = { path = "../sparktest-native" }
 props = { path = "../props" }

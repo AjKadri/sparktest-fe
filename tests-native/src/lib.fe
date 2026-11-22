@@ -1,6 +1,6 @@
 use std::io::Stdout
-use qc::{check, Config, Outcome, Checked, MAX}
-use qc_native::{assert_holds, fixed_seed, ticks, opaque_zero}
+use sparktest::{check, Config, Outcome, Checked, MAX}
+use sparktest_native::{assert_holds, fixed_seed, ticks, opaque_zero}
 
 struct Info { failed: bool, original: u256, shrunk: u256, case: u256, steps: u256, cases: u256, seed: u256 }
 

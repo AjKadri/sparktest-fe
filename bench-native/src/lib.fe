@@ -1,7 +1,7 @@
 // Native benchmark executable: 1,000,000 cases, prints failures and CPU ticks (macOS: 1,000,000 ticks = 1 s).
 use std::io::Stdout
-use qc::{check, Config, Outcome}
-use qc_native::{fixed_seed, ticks}
+use sparktest::{check, Config, Outcome}
+use sparktest_native::{fixed_seed, ticks}
 
 pub fn main() -> i32 uses (out: mut Stdout) {
     let s = fixed_seed(99)

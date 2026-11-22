@@ -2,8 +2,8 @@
 use std::evm::Address
 use std::io::Stdout
 use std::abi::DynArray
-use qc::{check, Config, Outcome, Arbitrary, Shrink, Encode}
-use qc_native::{assert_holds, fixed_seed, ticks}
+use sparktest::{check, Config, Outcome, Arbitrary, Shrink, Encode}
+use sparktest_native::{assert_holds, fixed_seed, ticks}
 use props::Transfer
 
 fn is_pass<T>(_ o: Outcome<T>) -> bool {

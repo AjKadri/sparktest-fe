@@ -1,4 +1,4 @@
-// fe-quickcheck core: pure, effect-free. No `uses (evm ...)` anywhere in this ingot.
+// Sparktest core: pure, effect-free. No `uses (evm ...)` anywhere in this ingot.
 use std::abi::{DynArray, dyn_array_from}
 use core::ptr::MemVec
 pub use checked::Checked

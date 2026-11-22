@@ -2,8 +2,8 @@
 // and can check() shrink a counterexample found through a contract call?
 use std::abi::sol
 use std::evm::{Evm, Call, Address}
-use qc::{check, Config, Outcome}
-use qc_evm::fixed_seed
+use sparktest::{check, Config, Outcome}
+use sparktest_evm::fixed_seed
 
 msg AdderMsg {
     #[selector = sol("addU8(uint8,uint8)")]

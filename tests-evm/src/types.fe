@@ -1,8 +1,8 @@
 // L1 tests: one passing and one failing property per type; every seed is fixed via fixed_seed(salt).
 use std::evm::{Evm, Address}
 use std::abi::DynArray
-use qc::{check, Config, Outcome, Arbitrary, Shrink, Encode}
-use qc_evm::{assert_holds, fixed_seed}
+use sparktest::{check, Config, Outcome, Arbitrary, Shrink, Encode}
+use sparktest_evm::{assert_holds, fixed_seed}
 use props::Transfer
 
 fn is_pass<T>(_ o: Outcome<T>) -> bool {

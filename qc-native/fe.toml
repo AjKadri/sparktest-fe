@@ -1,6 +1,0 @@
-[ingot]
-name = "qc_native"
-version = "0.1.0"
-
-[dependencies]
-qc = { path = "../qc" }

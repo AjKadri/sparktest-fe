@@ -30,7 +30,7 @@ flowchart LR
 3. The property runs. On the first `false`, shrinking starts: `shrink_step(cur, 0), shrink_step(cur, 1), ...` until a candidate still fails; that candidate becomes `cur`; repeat until no candidate fails or `cfg.max_shrinks` steps were accepted.
 4. The result is `Outcome::Pass { cases }` or `Outcome::Fail { original, shrunk, case, seed, steps }`.
 
-Composite shrinkers shrink one component at a time, which is why coupled components can stop at a local minimum. `Seq<C, N>` tries halving the length, then dropping one command, then shrinking single commands.
+Composite shrinkers first shrink one component at a time. After those candidates they offer joint candidates (`sparktest/src/joint.fe`) over the flattened `Encode` words: (a) every component together (all halved, all nonzero lowered by 1), (b) groups of equal nonzero components moved together so equal values stay equal, (c) redistribution: lower an earlier component and raise a later one by the same amount. A joint candidate is offered only when it is strictly simpler than the current value: a smaller saturating sum of words first, then a lexicographically smaller word list. That strict order is what makes shrinking terminate (a test runs adversarial properties with `max_shrinks = 1_000_000`). To avoid allocating a candidate per try (sonatina never frees memory), candidates are enumerated in place, validated with `Decode::fits`, and only the chosen one is decoded; at most 400 are considered per step. `Seq<C, N>` tries halving the length, then dropping one command, then shrinking single commands, then the joint candidates over the whole sequence (groups and same-column groups; no redistribution).
 
 ## Properties and tests
 

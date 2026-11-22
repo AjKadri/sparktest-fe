@@ -212,3 +212,37 @@ so the generated sequences change (cases and shrink steps of the stateful runs a
 Amounts taken modulo a balance become `Index<N>` (P1 and P6: N = every actor's balance + 1, that is 251 for the fixture and 4 for CoolCoin; P4: the allowance is a plain `u16` and the amount an `Index<N>` clamped to
 min(allowance, balance)). Predicted counterexamples show the real amount: M06 via P1: **amount 3** (was "input 15099"); M01 via P1: amount 0; M05 via P1: amount 1; M03 and M04 via P4: owner 0, spender 0, allowance 1, amount 1
 (M03: to 1); M07 via P4: allowance 0, amount 0. Which properties catch which mutants is predicted unchanged apart from M10.
+
+### L7c results (amendment rows, 2026-11-22; measured at commit a99f06d, after the pre-registration commit 965cb2a)
+Rows above are not edited. "expected" is the prediction written above; "found" is the measured value.
+
+| result | before | expected | found | as expected |
+|---|---|---|---|---|
+| cross-check `arr_u64x4_sum` | 0,0,10,0 in 14 steps | 0,0,0,10 in 15 steps, identical on both backends | 0,0,0,10 in 15 steps; CROSS-CHECK IDENTICAL (11/11) | yes |
+| ERC20 fixture bug, `Index<4>`, P1 | (3, 3, 1), 16 steps | (0, 0, 1) | (0, 0, 1), 9 steps | yes |
+| ERC20 fixture bug, `Index<4>`, P6 | (0, 0, 1), 16 steps | unchanged shape | (0, 0, 1), 8 steps | yes |
+| ERC20 fixture bug, raw `u8`, P1 | (21, 125, 1), 13 steps | same actor class, amount 1, indices at most (21, 125) | (1, 1, 1), 40 steps | yes (criterion met; not (0, 0, 1)) |
+| ERC20 fixture bug, raw `u8`, P6 | (26, 190, 1), 20 steps | same actor class, amount 1, indices at most (26, 190) | (0, 0, 1), 22 steps | yes |
+| `fee_buggy`, seed 5003 | (145249953336295683, 127), 32 steps | (1844674407370956, 10000) | (1844674407370956, 10000), 187 steps | yes (steps not predicted) |
+| `bank_buggy`, seed 8002 | account 1, case 137, 48 steps | accounts 0, case 137, 49 steps | accounts 0, case 137, 49 steps | yes |
+| demo `bank_sequence`, seed 55 | account 2, case 76, 43 steps | accounts 0, case 76, 44 steps | accounts 0, case 76, 44 steps; wasm = native = EVM for all 6 demo properties | yes |
+| quickstart vault, seeds 1 to 12 | 10 reach (3, 1, 1); seeds 1, 12 stop at (18, 1, 271), (8, 1, 41) | at least 10 of 12 | exactly 10; seeds 1 and 12 still stop at (18, 1, 271) and (8, 1, 41) | yes (no improvement either) |
+| `buggy_sort`, every single-integer result, `pair_sum`, `capped_mint`, rewards, isolated, passing runs | as before | unchanged | unchanged | yes |
+| gas of PASSING runs | as before | unchanged | **not unchanged**: +129 gas on most (code of `check` grew), up to +2.2% (`std_abi_tuple` 274,897 to 281,073; `std_int_u32` 323,629 to 329,783) | **no** |
+| gas of FAILING runs | as before | at most about 2x | vault 1.6x, withdraw 1.4x, bounds 1.9x, pack 1.02x; **`fee_buggy` 6.6x (17.6M to 116.1M), `bank_buggy` 20.8x (17.7M to 369.5M, 37% of the 1e9 cap), ERC20 raw P1 2.4x**; ERC20 `Index<4>` P1 and P6 about 0.6x (cheaper) | **no** (prediction too low) |
+| demo wasm size | 46,157 bytes | not predicted | 73,481 bytes (+59%) | n/a |
+
+Step 2 (adversarial Mint):
+
+| result | expected | found | as expected |
+|---|---|---|---|
+| M10 | caught by the stateful run | caught: `Mint(actor 0 -> to 0, 0, NOT the owner)`, 1 command, calls accepted / attempted 51 / 66 | yes |
+| mutation score | 8 of 10 (M02, M08 missed) | 8 of 10 caught, 2 missed (M02, M08) | yes |
+| unchanged CoolCoin and fixture pass the stateful check, not vacuous, all five kinds executed | yes | CoolCoin 64 cases, kinds 61, 38, 37, 34, 69, accepted / attempted 115 / 239 (was 165 / 239: refused adversarial mints count as attempted, not accepted); fixture 64 cases, kinds 64, 39, 51, 29, 65, 183 / 248; none vacuous | yes |
+| every other mutant outcome unchanged | yes | **M03 and M04 are no longer caught by the stateful run in 64 cases** (still caught by P4, so the score is unchanged); recorded as "partly" | **no** |
+| (not predicted) the planted ERC20 stateful bug | found within 64 cases as before (case 21) | **64 cases found nothing**; with 128 cases found at case 102, shrunk to the same 2-call shape `Transfer(0 -> 1, 4); Transfer(1 -> 0, 1)` in 9 steps. The suite uses 128 cases for that run. | **no** |
+
+Step 3 (bounded amounts), the counterexamples as predicted: M06 via P1 amount 3, M01 amount 0, M05 amount 1, M03 (owner 0, spender 0, to 1, allowance 1, amount 1), M04 (owner 0, spender 0, to 0, allowance 1, amount 1),
+M07 (allowance 0, amount 0): all **yes**. The Pr event now carries 5 shrunk words and 3 original words (an event holds at most 16 fields).
+
+Joint shrink termination test (`shrinking_terminates_with_a_huge_step_budget`, max_shrinks 1,000,000): passes on sonatina and native; every run ended in under 10,000 steps.

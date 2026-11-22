@@ -1,8 +1,8 @@
 {
   "wasm": {
     "file": "demo_wasm.wasm",
-    "bytes": 46157,
-    "sha256": "bc71390eae9d4d4667289858d053bd92b0e6740aa01d2151ab846d5de59c39f9",
+    "bytes": 73481,
+    "sha256": "051623d79d89159fe6f4ccd6cdf1a141b49979710e7f67390ca956d5e61984df",
     "imports": [
       "env.__fe_revert",
       "env.st_fail",
@@ -146,19 +146,19 @@
       "native": {
         "failed": 1,
         "case_index": 75,
-        "steps": 43,
+        "steps": 44,
         "shrunk": [
           3,
           0,
-          2,
+          0,
           0,
           1,
           1,
-          2,
+          0,
           0,
           1,
           0,
-          2,
+          0,
           0,
           1
         ]

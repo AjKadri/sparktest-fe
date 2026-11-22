@@ -152,11 +152,11 @@ Each claim below is backed by a check in this repository; the spike reports reco
 | area | what was tested | result |
 |---|---|---|
 | planted bugs (pure code, sonatina and native) | vault rounding, fee overflow, balance underflow, packing shift, bounds off-by-one; each with a fixed version | 5 of 5 bugs found and shrunk (vault to 3 assets, 1 share, deposit 1; withdraw to balance 0, amount 1; pack to a=1, b=0; bounds to i=0, len=0); 5 of 5 fixed versions pass 256 cases; both backends identical |
-| ERC20 through contract calls (sonatina) | the ERC20 test fixture from the Fe compiler repo (`crates/fe/tests/fixtures/fe_test/erc20.fe` at e6e6342), 4 actor contracts, 64 cases per property | 6 of 6 properties hold on the unchanged fixture; a planted self-transfer bug is caught by 2 properties (one shrinks to (0, 0, 1), the other to (3, 3, 1), a local minimum) |
-| the Fe Guide's ERC-20 and a mutation test (sonatina) | the "Complete ERC20" example from https://fe-lang.org/examples/erc20/ (vendored unchanged), the 6 ERC20 properties and the stateful model check, then 10 single-change mutants | all 7 checks pass on the unchanged contract (none vacuous); 7 of 10 mutants caught, 3 missed with a probe-backed explanation each (an equivalent mutant, a dropped event, a missing access check no command exercises); 9 of 10 matched the pre-registered expectation exactly, 1 partly (M09) |
+| ERC20 through contract calls (sonatina) | the ERC20 test fixture from the Fe compiler repo (`crates/fe/tests/fixtures/fe_test/erc20.fe` at e6e6342), 4 actor contracts, 64 cases per property | 6 of 6 properties hold on the unchanged fixture; a planted self-transfer bug is caught by 2 properties, both shrunk to exactly (0, 0, 1) with `Index<4>` actors (with raw `u8` actors, 1 of the 2 stops at (1, 1, 1); before joint shrinking one `Index<4>` result stopped at (3, 3, 1)) |
+| the Fe Guide's ERC-20 and a mutation test (sonatina) | the "Complete ERC20" example from https://fe-lang.org/examples/erc20/ (vendored unchanged), the 6 ERC20 properties and the stateful model check, then 10 single-change mutants | all 7 checks pass on the unchanged contract (none vacuous); 8 of 10 mutants caught, 2 missed with a probe-backed explanation each (an equivalent mutant, a dropped event); M10 (no MINTER check) was missed until the stateful command set got a Mint from any actor, and is now caught; 7 of 10 matched the pre-registered expectation exactly, 3 partly (M03 and M04 are now caught by P4 only: the stateful check lost power with a fifth command kind; M09 caught by more than the stateful run) |
 | panic recovery (sonatina, native, wasm) | a property that overflows (`u64`), one that divides by zero, and a normal false-returning one, through `check_isolated`, `scripts/find-panic.sh` and the demo page | overflow shrunk to exactly 18446744073709552 and division by zero to (0, 0), each with the panic reason; the false-returning property gives the same result as `check`; first case, shrink steps and shrunk input identical on sonatina and native, and on wasm for the overflow property; one isolated evaluation costs about 1,500 gas |
 | a contract that panics (sonatina) | `examples/rewards`, overflow in `claim` | through `try_call`: found and shrunk to exactly 18446744073709552, the smallest overflowing stake; through a direct call the whole test reverts with Panic(0x11) and reports nothing |
-| stateful (sonatina and native; ERC20 on sonatina) | a bank model with a bug that needs three commands; the ERC20 fixture vs a reference model, with a planted bug that needs two calls | bank bug shrunk to 3 commands, identical on both backends; ERC20 planted bug shrunk to 2 calls (found on case 21); the unchanged fixture passes 64 cases |
+| stateful (sonatina and native; ERC20 on sonatina) | a bank model with a bug that needs three commands; the ERC20 fixture vs a reference model, with a planted bug that needs two calls | bank bug shrunk to 3 commands, identical on both backends; ERC20 planted bug shrunk to 2 calls (found on case 102; 64 cases no longer find it since the command set has five kinds, so that run uses 128); the unchanged fixture passes 64 cases |
 | std (sonatina and native) | integer wrapping/saturating ops, `mul_div`, `addmod`, `isqrt`, `core::sort`, the std ABI codec round trip | 12 of 12 properties hold; no Fe bug found by them |
 
 ## Architecture
@@ -204,15 +204,15 @@ cd sparktest-fe
 `test-all.sh` runs these parts and prints `ALL PARTS PASSED` at the end (counts from the last run):
 
 ```
-tests-evm (sonatina)                    88 passed
-tests-native (native)                   60 passed
+tests-evm (sonatina)                    93 passed
+tests-native (native)                   65 passed
 decode-revert (node)                    all decode-revert tests passed
 cross-check (sonatina vs native)        CROSS-CHECK: IDENTICAL (11/11)
 erc20 (sonatina only)                   vendored bodies byte-identical to upstream; 1 + 28 passed
 coolcoin (sonatina only)                3 + 83 passed (the Guide ERC-20 and 10 mutants)
 rewards (sonatina only)                 3 passed
 quickstart example                      8 passed
-docs                                    README excerpts verbatim; 23 + 1 API examples compiled and passed
+docs                                    README excerpts verbatim; 24 + 1 API examples compiled and passed
 proof suites                            proof: all expectations met and docs/PROOF.md is current
 isolated (sonatina)                     5 passed (panic recovery through a harness contract)
 web demo                                all 6 demo properties agree across wasm, sonatina (EVM) and native
@@ -232,7 +232,7 @@ cd web && python3 -m http.server 8765   # serve the demo at http://localhost:876
 
 ## Limitations
 
-- Shrinking is greedy and finds a local minimum, not always the smallest input. A tuple shrinks one component at a time, so coupled components stop early: the ERC20 self-transfer bug shrinks to (3, 3, 1) for one property, not (0, 0, 1).
+- Shrinking is greedy and finds a local minimum, not always the smallest input. After the one-component moves a tuple, array or sequence also tries three joint moves (all components together, groups of equal components together, moving an amount from an earlier slot to a later one), each only if it is strictly simpler; coupled components that none of these moves reaches still stop early. Example: the ERC20 self-transfer bug with raw `u8` actors stops at (1, 1, 1), because equal values are grouped by value and the amount 1 is in the same group as the two indices. Joint candidates are capped at 400 per step, and joint shrinking multiplies the gas of a failing run (the planted bank bug costs about 20 times more gas to shrink).
 - With plain `check`, a property must not panic: a panic inside it ends the whole test with no report (use the checked helpers for arithmetic). Panics are recovered by new paths instead: on sonatina `check_isolated` runs each evaluation inside a harness contract through `try_call` (you write the harness: one contract, one line per property, because Fe contracts cannot be generic); on native `scripts/find-panic.sh` bisects to the first aborting case and shrinks by replay; the demo page does the same for a wasm trap. Not covered: properties that loop forever or run out of gas, panics in the generator or shrinker, `Seq` inputs on the isolated path (no `Decode` for `Seq`), and native recovery inside a test (it is a script around a separate executable). Details: [docs/DESIGN-panic-recovery.md](docs/DESIGN-panic-recovery.md).
 - Contract testing needs the EVM test backend (sonatina); native and wasm test pure code.
 - A guard only knows what a property records: calls and command kinds must be reported to the `Tally`, and the vacuity check does not judge whether a premise is strong enough (for example 7 of 64 transfers succeed in one ERC20 property; that is reported, not flagged).
@@ -250,7 +250,7 @@ cd web && python3 -m http.server 8765   # serve the demo at http://localhost:876
 
 ## Roadmap
 
-Planned, not implemented: signed integers (they exist in Fe 26.7.0), joint shrinking of coupled components, more std and contract examples, and tagged releases so the git dependency can pin a version.
+Planned, not implemented: signed integers (they exist in Fe 26.7.0), more std and contract examples, and tagged releases so the git dependency can pin a version.
 
 ## License
 

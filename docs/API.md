@@ -47,6 +47,13 @@ let f = full(check(Config::new(fixed_seed(1)), |x: u256| x < 1000))
 assert!(f.failed == 1 && f.shrunk.len() == 1 && f.shrunk.get(0) == 1000)
 ```
 
+### `shrink_input(start, prop, max_shrinks) -> (T, u256)`
+Shrinks an input that is already known to fail, with the same greedy rule as `check` (first candidate that still fails, repeat; at most `max_shrinks` accepted steps). Returns the shrunk input and the number of accepted steps. Useful for replaying a reported counterexample.
+```fe
+let (m, steps) = shrink_input(1000000 as u256, |x: u256| x < 1000, 1000)
+assert!(m == 1000 && steps > 0)
+```
+
 ## Randomness
 
 ### `trait Rng { fn next(mut self) -> u256 }`
@@ -118,10 +125,10 @@ assert!(out.len() == 2)
 | `u8`, `u16`, `u32`, `u64`, `u128` | the same edge set within the width | 0 |
 | `bool` | either | `false` |
 | `Address` | 160 random bits with edge values (zero address, `0x...01`, max address) | the zero address |
-| tuples of 2, 3 and 4 | each component | one component at a time |
-| `[T; N]` | each element | one element at a time |
+| tuples of 2, 3 and 4 | each component | one component at a time, then joint moves (all together, equal components together, redistribution) |
+| `[T; N]` | each element | one element at a time, then the same joint moves |
 | `Index<N>` | 0..N-1, edge bias to 0 and N-1 | 0 |
-| `Seq<C, N>` | a length 0..=N and N commands | shorter sequences, then simpler commands |
+| `Seq<C, N>` | a length 0..=N and N commands | shorter sequences, then simpler commands, then joint moves over the commands (groups of equal values) |
 
 ### `MAX: u256`
 The largest `u256`.
@@ -230,7 +237,7 @@ match guard(o, t, true, 0) {
 ## Decode (the inverse of Encode)
 
 ### `trait Decode { fn decode(_ w: DynArray<u256>, _ pos: usize) -> (Self, usize) }`
-Rebuilds a value from the words `Encode` produced: it reads one value starting at word `pos` and returns it with the position after it, so composites decode their parts in order. Implemented for `u8` to `u256`, `bool`, `Address`, `Index<N>`, tuples of 2 to 4 and `[T; N]` (not for `Seq`).
+Rebuilds a value from the words `Encode` produced: it reads one value starting at word `pos` and returns it with the position after it, so composites decode their parts in order. Implemented for `u8` to `u256`, `bool`, `Address`, `Index<N>`, tuples of 2 to 4 and `[T; N]` (not for `Seq`). Since L7c the trait also has `fn fits(_ w: [u256; 64], _ pos: usize) -> usize`: it checks, without allocating, that the words at `pos` form a valid value (an `Index<N>` word is below `N`, a `u8` is at most 255) and returns the position after it, or 0 if not. Joint shrinking uses it to reject invalid candidates before decoding.
 ```fe
 let w = (7 as u8, 500 as u32).words()
 let (back, next) = <(u8, u32) as Decode>::decode(w, 0)

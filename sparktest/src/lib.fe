@@ -50,6 +50,12 @@ pub trait Encode {
     fn words(self) -> DynArray<u256>
 }
 
+// The inverse of Encode: rebuilds a value from the words Encode produced. `decode` reads one value starting at word `pos`
+// and returns it with the position after it (so composites can decode their parts in order). Not implemented for `Seq`.
+pub trait Decode {
+    fn decode(_ w: DynArray<u256>, _ pos: usize) -> (Self, usize)
+}
+
 pub fn one_word(_ w: u256) -> DynArray<u256> {
     dyn_array_from([w])
 }
@@ -113,6 +119,10 @@ impl Encode for u256 {
     fn words(self) -> DynArray<u256> { one_word(self) }
 }
 
+impl Decode for u256 {
+    fn decode(_ w: DynArray<u256>, _ pos: usize) -> (Self, usize) { (w.get(pos), pos + 1) }
+}
+
 // ---- bool ----
 impl Arbitrary for bool {
     fn arbitrary<R: Rng>(_ rng: mut R) -> Self { rng.next() % 2 == 1 }
@@ -127,6 +137,10 @@ impl Shrink for bool {
 
 impl Encode for bool {
     fn words(self) -> DynArray<u256> { one_word(if self { 1 } else { 0 }) }
+}
+
+impl Decode for bool {
+    fn decode(_ w: DynArray<u256>, _ pos: usize) -> (Self, usize) { (w.get(pos) == 1, pos + 1) }
 }
 
 // ---- runner ----

@@ -1,7 +1,7 @@
 // Arbitrary / Shrink / Encode for std::evm::Address (a plain value type; no effects used).
 use std::evm::Address
 use std::abi::DynArray
-use ingot::{Rng, Arbitrary, Shrink, Encode, one_word}
+use ingot::{Rng, Arbitrary, Shrink, Encode, Decode, one_word}
 use ingot::widths::bits_value
 
 impl Arbitrary for Address {
@@ -23,4 +23,8 @@ impl Shrink for Address {
 
 impl Encode for Address {
     fn words(self) -> DynArray<u256> { one_word(self.word()) }
+}
+
+impl Decode for Address {
+    fn decode(_ w: DynArray<u256>, _ pos: usize) -> (Self, usize) { (Address::from_word_truncate(w.get(pos)), pos + 1) }
 }

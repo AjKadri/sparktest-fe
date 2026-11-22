@@ -1,7 +1,7 @@
 // Index<N>: a value in 0..N-1 (N >= 1). Uniform, with edge bias toward 0 and N-1; shrinks toward 0.
 // Use it to pick from a small fixed set (actors, array slots, enum variants) so shrinking stays inside the set.
 use std::abi::DynArray
-use ingot::{Rng, Arbitrary, Shrink, Encode, one_word}
+use ingot::{Rng, Arbitrary, Shrink, Encode, Decode, one_word}
 
 pub struct Index<const N: usize> { pub value: usize }
 
@@ -31,4 +31,11 @@ impl<const N: usize> Shrink for Index<N> {
 
 impl<const N: usize> Encode for Index<N> {
     fn words(self) -> DynArray<u256> { one_word(self.value as u256) }
+}
+
+impl<const N: usize> Decode for Index<N> {
+    fn decode(_ w: DynArray<u256>, _ pos: usize) -> (Self, usize) {
+        let v: usize = w.get(pos).downcast_truncate()
+        (Index { value: v }, pos + 1)
+    }
 }

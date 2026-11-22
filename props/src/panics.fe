@@ -1,0 +1,8 @@
+// Properties whose CODE panics (checked arithmetic), used to test panic recovery on every backend.
+// A property returns true when it holds; these also panic: Panic(0x11) arithmetic overflow, Panic(0x12) division by zero.
+
+// x * 1000 overflows u64 when x >= 18446744073709552
+pub fn prop_panic_overflow(_ x: u64) -> bool { x * 1000 / 1000 == x }
+
+// a / b panics when b == 0, whatever a is
+pub fn prop_panic_divzero(_ p: (u32, u32)) -> bool { p.0 / p.1 * p.1 <= p.0 }

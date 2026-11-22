@@ -1,6 +1,7 @@
 // EVM shim for Sparktest: turns an Outcome into a revert, and provides an opaque runtime seed.
 use std::evm::{Evm, revert_error}
 use std::abi::DynArray
+pub use isolated::{Isolated, run_prop, eval_isolated, check_isolated, IsoOutcome, reason_text, ISOLATED_GAS, REASON_HELD, REASON_FALSE, REASON_OTHER_REVERT, REASON_NO_DATA, REASON_PANIC_BASE}
 use sparktest::{Outcome, Encode}
 
 #[error]

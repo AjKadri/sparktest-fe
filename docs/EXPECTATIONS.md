@@ -246,3 +246,37 @@ Step 3 (bounded amounts), the counterexamples as predicted: M06 via P1 amount 3,
 M07 (allowance 0, amount 0): all **yes**. The Pr event now carries 5 shrunk words and 3 original words (an event holds at most 16 fields).
 
 Joint shrink termination test (`shrinking_terminates_with_a_huge_step_budget`, max_shrinks 1,000,000): passes on sonatina and native; every run ended in under 10,000 steps.
+
+## L7d gas-safe shrinking (2026-11-22, written BEFORE any run of this step)
+
+Rows above are unchanged. Results that change become dated amendment rows with the commit.
+
+Cause (read from the code, not yet measured): in L7c every nested tuple, array and `Seq` shrinker appends its own joint candidates, and `count_candidates` (called by every composite
+`shrink_step`) walks all of them again, so a `Seq` of tuples pays a quadratic enumeration cost per call. The greedy loop already tries every component candidate before any joint
+candidate and returns to the components after each joint step, so the ORDER of exploration is the order the brief asks for; what changes in step 1 is WHERE joint candidates live:
+only at the top level (a separate `joint_step` method, default none), tried as a finishing pass after the component candidates reach a fixed point, repeating while anything improves.
+
+### Step 1 predictions
+| case | L7c gas | predicted after | why |
+|---|---|---|---|
+| `bank_buggy` seed 8002 (`Seq` of tuples) | 369,471,853 | **at most 60,000,000** (at least 6x cheaper; pre-L7c was 17.7M) | nested joint enumeration disappears |
+| `fee_buggy` seed 5003 (a flat `(u64, u64)`) | 116,137,403 | **within +-15% of 116M** (no real change) | a flat tuple has no nested joint candidates; its cost is the 187 accepted steps, which stay |
+| ERC20 raw `u8` P1 (a flat 3-tuple) | 159,818,273 | **within +-15% of 160M** (no real change) | same |
+| ERC20 stateful planted bug (128 cases) | 563,967,611 | at most 300,000,000 | nested tuples inside `Seq` |
+| minima | as in the L7c table | **unchanged for every result** (the top-level joint candidates cover the words of nested groups; `bank_buggy` accounts all 0, 49 steps may differ by a few) | |
+| step counts | as in L7c | unchanged for flat tuples and arrays (same candidate sequence); may differ for `Seq`-based runs (not predicted) | |
+Cross-check stays IDENTICAL on both backends.
+
+### Step 2 design (stated before the code)
+Core stays effect-free. A new `check_with(cfg, prop, stop)` takes a second closure `stop: Fn() -> bool`, polled before EVERY shrink evaluation (`uses (P::E, B::E)`); `check` is `check_with` with a stop that is never true, so its behaviour
+and gas are unchanged apart from the polling call. `sparktest_evm::check_gas(cfg, prop)` passes `|| evm.gas() < margin` (default margin 50,000,000; `check_gas_with_margin` to choose). On a stop, the loop returns the best input so far and
+`Outcome::Fail` carries a new field `early: bool` (true = shrink stopped early because gas ran low). `assert_holds` reverts with a new error `PropertyFailedEarly` (same fields), so the old selector still decodes; the decoder prints "shrink stopped early (gas)".
+Native has no gas: `early` is always false there. Choice against an effect like `Tally`: an effect would have to be provided by every caller of `check`; a closure is provided only by the shim that knows about gas.
+`Summary` and `Full` get an `early` field.
+
+### Step 3 prediction
+A failing property that burns about 1.5M gas per evaluation, over a `u64` that needs thousands of shrink evaluations, exceeds the 1e9 cap with plain `check` (test halts with `OutOfGas`, no report); with `check_gas`
+it returns `failed == 1`, `early == 1`, a shrunk input that still fails the property, strictly smaller than the original but not minimal (above the true minimum 1000), and at least the margin of gas is left.
+
+### Step 4 prediction
+Only the runs listed in Step 1 change gas; every other proof row keeps its minimum and moves by under 1% in gas (the per-evaluation stop poll costs a few gas, only in suites that switch to `check_gas`).

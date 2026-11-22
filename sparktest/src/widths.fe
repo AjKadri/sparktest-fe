@@ -52,6 +52,7 @@ impl Decode for u8 {
         let v: u256 = w.get(pos)
         (v.downcast_truncate(), pos + 1)
     }
+    fn fits(_ w: [u256; 64], _ pos: usize) -> usize { if pos < 64 && w[pos] <= 255 { pos + 1 } else { 0 } }
 }
 
 impl Encode for u8 {
@@ -79,6 +80,7 @@ impl Decode for u16 {
         let v: u256 = w.get(pos)
         (v.downcast_truncate(), pos + 1)
     }
+    fn fits(_ w: [u256; 64], _ pos: usize) -> usize { if pos < 64 && w[pos] <= 65535 { pos + 1 } else { 0 } }
 }
 
 impl Encode for u16 {
@@ -106,6 +108,7 @@ impl Decode for u32 {
         let v: u256 = w.get(pos)
         (v.downcast_truncate(), pos + 1)
     }
+    fn fits(_ w: [u256; 64], _ pos: usize) -> usize { if pos < 64 && w[pos] <= 4294967295 { pos + 1 } else { 0 } }
 }
 
 impl Encode for u32 {
@@ -133,6 +136,7 @@ impl Decode for u64 {
         let v: u256 = w.get(pos)
         (v.downcast_truncate(), pos + 1)
     }
+    fn fits(_ w: [u256; 64], _ pos: usize) -> usize { if pos < 64 && w[pos] <= 18446744073709551615 { pos + 1 } else { 0 } }
 }
 
 impl Encode for u64 {
@@ -160,6 +164,7 @@ impl Decode for u128 {
         let v: u256 = w.get(pos)
         (v.downcast_truncate(), pos + 1)
     }
+    fn fits(_ w: [u256; 64], _ pos: usize) -> usize { if pos < 64 && w[pos] <= 340282366920938463463374607431768211455 { pos + 1 } else { 0 } }
 }
 
 impl Encode for u128 {

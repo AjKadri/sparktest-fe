@@ -1,9 +1,10 @@
 // Seq<C, N>: a sequence of up to N commands (for stateful testing). The length is generated too (0..=N, edge-biased);
 // the commands live in a fixed array of N, and only the first `len` are used.
-// Shrink candidates, in this order: (1) halve the length (drop the tail), (2) drop one command, (3) shrink a single command.
+// Shrink candidates, in this order: (1) halve the length (drop the tail), (2) drop one command, (3) shrink a single command, (4) joint candidates across commands.
 use std::abi::DynArray
 use core::ptr::MemVec
-use ingot::{Rng, Arbitrary, Shrink, Encode, append_words}
+use ingot::{Rng, Arbitrary, Shrink, Encode, Decode, append_words}
+use ingot::joint::{joint_nth, to_dyn}
 use ingot::composite::count_candidates
 
 pub struct Seq<C, const N: usize> {
@@ -27,7 +28,33 @@ impl<C: Arbitrary + Copy, const N: usize> Arbitrary for Seq<C, N> {
     }
 }
 
-impl<C: Shrink + Copy, const N: usize> Shrink for Seq<C, N> {
+// every command of the candidate words is a valid encoding, and together they use exactly the `n` words
+fn seq_fits<C: Decode>(_ c: [u256; 64], _ len: usize, _ n: usize) -> bool {
+    var p: usize = 1
+    var k: usize = 0
+    while k < len {
+        p = <C as Decode>::fits(c, p)
+        if p == 0 { return false }
+        k += 1
+    }
+    p == n
+}
+
+// rebuilds the sequence from joint-candidate words: the length is unchanged (the joint step leaves word 0 alone), the commands are decoded
+fn seq_rebuild<C: Decode + Copy, const N: usize>(_ orig: Seq<C, N>, _ w: DynArray<u256>) -> Option<Seq<C, N>> {
+    var items = orig.items
+    var pos: usize = 1
+    var k: usize = 0
+    while k < orig.len {
+        let (c, next) = <C as Decode>::decode(w, pos)
+        items[k] = c
+        pos = next
+        k += 1
+    }
+    Option::Some(Seq { len: orig.len, items })
+}
+
+impl<C: Shrink + Encode + Decode + Copy, const N: usize> Shrink for Seq<C, N> {
     fn shrink_step(self, _ i: u256) -> Option<Self> {
         var rest = i
         // (1) drop the whole tail: halve the length
@@ -64,7 +91,16 @@ impl<C: Shrink + Copy, const N: usize> Shrink for Seq<C, N> {
             rest -= n
             j += 1
         }
-        Option::None
+        // (4) joint candidates across the commands (see joint.fe): equal words together, the same column together, redistribution
+        if self.len == 0 { return Option::None }
+        let xw = self.words()
+        let n = xw.len()
+        let width: usize = self.items[0].words().len()
+        let orig = self
+        match joint_nth(xw, 1, width, rest, false, |c: [u256; 64]| seq_fits<C>(c, orig.len, n)) {
+            Option::Some(c) => { seq_rebuild(orig, to_dyn(c, n)) }
+            Option::None => Option::None
+        }
     }
 }
 

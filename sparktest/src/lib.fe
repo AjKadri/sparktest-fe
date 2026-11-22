@@ -4,6 +4,7 @@ use core::ptr::MemVec
 pub use checked::Checked
 pub use index::Index
 pub use seq::Seq
+pub use joint::joint_candidate
 pub use tally::{Tally, Verdict, guard, vacuity, VACUOUS_NO_CALLS, VACUOUS_NONE_SUCCEEDED, VACUOUS_KIND_BASE}
 pub const MAX: u256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 const MASK64: u256 = 0xffffffffffffffff
@@ -54,6 +55,10 @@ pub trait Encode {
 // and returns it with the position after it (so composites can decode their parts in order). Not implemented for `Seq`.
 pub trait Decode {
     fn decode(_ w: DynArray<u256>, _ pos: usize) -> (Self, usize)
+    // Without allocating: if the words of `w` starting at `pos` are a valid encoding of one value (every word within the type's range),
+    // returns the position after it, else 0. Joint shrinking uses it to test thousands of candidates without touching the heap
+    // (sonatina never reclaims memory).
+    fn fits(_ w: [u256; 64], _ pos: usize) -> usize
 }
 
 pub fn one_word(_ w: u256) -> DynArray<u256> {
@@ -121,6 +126,7 @@ impl Encode for u256 {
 
 impl Decode for u256 {
     fn decode(_ w: DynArray<u256>, _ pos: usize) -> (Self, usize) { (w.get(pos), pos + 1) }
+    fn fits(_ w: [u256; 64], _ pos: usize) -> usize { if pos < 64 { pos + 1 } else { 0 } }
 }
 
 // ---- bool ----
@@ -141,6 +147,7 @@ impl Encode for bool {
 
 impl Decode for bool {
     fn decode(_ w: DynArray<u256>, _ pos: usize) -> (Self, usize) { (w.get(pos) == 1, pos + 1) }
+    fn fits(_ w: [u256; 64], _ pos: usize) -> usize { if pos < 64 && w[pos] <= 1 { pos + 1 } else { 0 } }
 }
 
 // ---- runner ----
@@ -245,4 +252,33 @@ pub fn full<T: Encode + Copy>(_ o: Outcome<T>) -> Full {
         Outcome::Pass { cases } => Full { failed: 0, case: cases, steps: 0, original: DynArray::empty(), shrunk: DynArray::empty() }
         Outcome::Fail { original, shrunk, case, seed: _, steps } => Full { failed: 1, case, steps, original: original.words(), shrunk: shrunk.words() }
     }
+}
+
+// Shrinks a KNOWN failing input with the same greedy rule as `check` (first candidate that still fails, repeat; at most `max_shrinks` accepted steps).
+// Returns the shrunk input and the number of accepted steps. Useful for tests and for replaying a reported counterexample.
+pub fn shrink_input<T: Shrink + Copy, P: Fn(T) -> bool>(_ start: T, _ prop: P, _ max_shrinks: u256) -> (T, u256) uses P::E {
+    var cur = start
+    var steps: u256 = 0
+    var progressed = true
+    while progressed && steps < max_shrinks {
+        progressed = false
+        var k: u256 = 0
+        var more = true
+        while more {
+            match cur.shrink_step(k) {
+                Option::None => { more = false }
+                Option::Some(c) => {
+                    if !prop(c) {
+                        cur = c
+                        steps += 1
+                        progressed = true
+                        more = false
+                    } else {
+                        k += 1
+                    }
+                }
+            }
+        }
+    }
+    (cur, steps)
 }

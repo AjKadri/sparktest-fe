@@ -1,0 +1,244 @@
+// Joint shrinking: candidates that change SEVERAL components at once, for tuples, arrays and sequences. Component-wise shrinking gets stuck
+// when components are coupled (an equal pair (3, 3), a sum that must stay put, an account index shared by several commands).
+//
+// Work on the flattened Encode words `w` (the first `skip` words, such as a sequence's length, are left alone). A candidate must be
+// STRICTLY SIMPLER than the input, where `a` is simpler than `b` when sum(a) < sum(b) (saturating) or the sums are equal and `a` is
+// lexicographically smaller. It must also decode back to the same words (so it fits every component's width) and differ from the input.
+// The order is well-founded, so a shrinking run always terminates. Candidates, in this order:
+//   (a) every word halved; every nonzero word minus 1;
+//   (b) every group of equal nonzero words set to 0, to half, to minus 1 (keeping them equal); with `width > 0` (sequences)
+//       also every group of equal words in the same column of the commands;
+//   (c) redistribution: for i < j with w_i > 0, move d from w_i to w_j (sum preserved, lexicographically smaller) for d = w_i, w_i/2, ..., 1.
+use std::abi::DynArray
+use core::ptr::MemVec
+use ingot::{Encode, Decode, MAX}
+
+struct Cursor { count: u256, target: u256 }
+
+fn sat_add(_ a: u256, _ b: u256) -> u256 {
+    let s = a.wrapping_add(b)
+    if s < a { MAX } else { s }
+}
+
+// is `cand` strictly simpler than `orig` over the words from `s` on?
+fn simpler(_ cand: [u256; 64], _ orig: [u256; 64], _ n: usize, _ s: usize) -> bool {
+    var sc: u256 = 0
+    var so: u256 = 0
+    var i: usize = s
+    while i < n {
+        sc = sat_add(sc, cand[i])
+        so = sat_add(so, orig[i])
+        i += 1
+    }
+    if sc < so { return true }
+    if sc > so { return false }
+    i = s
+    while i < n {
+        if cand[i] < orig[i] { return true }
+        if cand[i] > orig[i] { return false }
+        i += 1
+    }
+    false
+}
+
+pub fn to_dyn(_ a: [u256; 64], _ n: usize) -> DynArray<u256> {
+    var v: MemVec<u256> = MemVec::new()
+    var i: usize = 0
+    while i < n {
+        v.push(a[i])
+        i += 1
+    }
+    DynArray::from_mem_vec(v)
+}
+
+// at most this many valid candidates are ever produced (bounds the work of one shrinking pass)
+const MAX_JOINT: u256 = 400
+
+// one candidate: Some(words) when it is valid and is the `target`-th valid candidate
+fn offer<F: Fn([u256; 64]) -> bool>(_ cur: mut Cursor, _ orig: [u256; 64], _ cand: [u256; 64], _ n: usize, _ s: usize, _ valid: F) -> Option<[u256; 64]> uses F::E {
+    if cur.count >= MAX_JOINT { return Option::None }
+    if !simpler(cand, orig, n, s) { return Option::None }
+    if !valid(cand) { return Option::None }
+    if cur.count == cur.target {
+        cur.count += 1
+        return Option::Some(cand)
+    }
+    cur.count += 1
+    Option::None
+}
+
+// the `target`-th valid joint candidate of `x` (0, 1, 2, ...), or None when there are no more
+pub fn joint_nth<F: Fn([u256; 64]) -> bool>(_ xw: DynArray<u256>, _ skip: usize, _ width: usize, _ target: u256, _ redistribute: bool, _ valid: F) -> Option<[u256; 64]> uses F::E {
+    let n = xw.len()
+    if n > 64 { return Option::None }
+    var w: [u256; 64] = [0; 64]
+    var i: usize = 0
+    while i < n {
+        w[i] = xw.get(i)
+        i += 1
+    }
+    var cur = Cursor { count: 0, target }
+
+    // (a) every word halved, then every nonzero word minus 1
+    var c = w
+    i = skip
+    while i < n {
+        c[i] = w[i] / 2
+        i += 1
+    }
+    match offer(mut cur, w, c, n, skip, valid) {
+        Option::Some(t) => { return Option::Some(t) }
+        Option::None => {}
+    }
+    c = w
+    i = skip
+    while i < n {
+        if w[i] > 0 { c[i] = w[i] - 1 }
+        i += 1
+    }
+    match offer(mut cur, w, c, n, skip, valid) {
+        Option::Some(t) => { return Option::Some(t) }
+        Option::None => {}
+    }
+
+    // (b) groups of equal nonzero words, kept equal: to 0, to half, to minus 1
+    i = skip
+    while i < n {
+        let v = w[i]
+        var first = true
+        var cnt: usize = 0
+        var j: usize = skip
+        while j < n {
+            if w[j] == v {
+                cnt += 1
+                if j < i { first = false }
+            }
+            j += 1
+        }
+        if v > 0 && first && cnt >= 2 {
+            var mode: usize = 0
+            while mode < 3 {
+                var nv: u256 = 0
+                var skip_mode = false
+                if mode == 1 {
+                    nv = v / 2
+                    if nv == 0 { skip_mode = true }
+                }
+                if mode == 2 {
+                    nv = v - 1
+                    if nv == 0 || nv == v / 2 { skip_mode = true }
+                }
+                if !skip_mode {
+                    c = w
+                    var k: usize = skip
+                    while k < n {
+                        if w[k] == v { c[k] = nv }
+                        k += 1
+                    }
+                    match offer(mut cur, w, c, n, skip, valid) {
+                        Option::Some(t) => { return Option::Some(t) }
+                        Option::None => {}
+                    }
+                }
+                mode += 1
+            }
+        }
+        i += 1
+    }
+    // (b') for sequences: groups of equal words in the same column of the commands
+    if width > 0 {
+        var col: usize = 0
+        while col < width {
+            var p: usize = skip + col
+            while p < n {
+                let v = w[p]
+                var first = true
+                var cnt: usize = 0
+                var q: usize = skip + col
+                while q < n {
+                    if w[q] == v {
+                        cnt += 1
+                        if q < p { first = false }
+                    }
+                    q += width
+                }
+                if v > 0 && first && cnt >= 2 {
+                    var mode: usize = 0
+                    while mode < 3 {
+                        var nv: u256 = 0
+                        var skip_mode = false
+                        if mode == 1 {
+                            nv = v / 2
+                            if nv == 0 { skip_mode = true }
+                        }
+                        if mode == 2 {
+                            nv = v - 1
+                            if nv == 0 || nv == v / 2 { skip_mode = true }
+                        }
+                        if !skip_mode {
+                            c = w
+                            var k: usize = skip + col
+                            while k < n {
+                                if w[k] == v { c[k] = nv }
+                                k += width
+                            }
+                            match offer(mut cur, w, c, n, skip, valid) {
+                                Option::Some(t) => { return Option::Some(t) }
+                                Option::None => {}
+                            }
+                        }
+                        mode += 1
+                    }
+                }
+                p += width
+            }
+            col += 1
+        }
+    }
+
+    // (c) redistribution: lower an earlier word, raise a later one by the same amount. d = w_i, then the powers of two up to w_i, largest first
+    if redistribute {
+        i = skip
+        while i < n {
+            if w[i] > 0 {
+                var j: usize = i + 1
+                while j < n {
+                    var p: u256 = 1
+                    while p <= w[i] / 2 { p = p * 2 }          // the largest power of two <= w[i]
+                    var d = w[i]
+                    while d > 0 {
+                        let raised = w[j].wrapping_add(d)
+                        if raised >= w[j] {
+                            c = w
+                            c[i] = w[i] - d
+                            c[j] = raised
+                            match offer(mut cur, w, c, n, skip, valid) {
+                                Option::Some(t) => { return Option::Some(t) }
+                                Option::None => {}
+                            }
+                        }
+                        // next d: the powers of two below the current one (w[i] first, then p, p/2, ..., 1)
+                        if d == w[i] { d = p } else { d = d / 2 }
+                        if d == w[i] { d = d / 2 }
+                    }
+                    j += 1
+                }
+            }
+            i += 1
+        }
+    }
+    Option::None
+}
+
+// for tuples and arrays: joint candidates over all their words
+pub fn joint_candidate<T: Encode + Decode + Copy>(_ x: T, _ target: u256) -> Option<T> {
+    let xw = x.words()
+    let n = xw.len()
+    match joint_nth(xw, 0, 0, target, true, |c: [u256; 64]| <T as Decode>::fits(c, 0) == n) {
+        Option::Some(c) => {
+            let (v, _) = <T as Decode>::decode(to_dyn(c, n), 0)
+            Option::Some(v)
+        }
+        Option::None => Option::None
+    }
+}

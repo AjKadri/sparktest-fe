@@ -27,4 +27,5 @@ impl Encode for Address {
 
 impl Decode for Address {
     fn decode(_ w: DynArray<u256>, _ pos: usize) -> (Self, usize) { (Address::from_word_truncate(w.get(pos)), pos + 1) }
+    fn fits(_ w: [u256; 64], _ pos: usize) -> usize { if pos < 64 && w[pos] < 1461501637330902918203684832716283019655932542976 { pos + 1 } else { 0 } }
 }

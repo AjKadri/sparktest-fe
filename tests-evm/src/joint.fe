@@ -1,0 +1,74 @@
+// Joint shrinking tests (sonatina): coupled inputs reach their real minimum, and shrinking always terminates.
+use std::evm::Evm
+use sparktest::{shrink_input, Index, Seq}
+
+// (b) equal components shrink together: the failure needs two equal indices, so (3, 3, 1) cannot move one at a time
+#[test]
+fn equal_components_shrink_together() uses (evm: mut Evm) {
+    let start: (Index<4>, Index<4>, u16) = (Index { value: 3 }, Index { value: 3 }, 1)
+    let (m, steps) = shrink_input(start, |p: (Index<4>, Index<4>, u16)| !(p.0.value == p.1.value && p.2 == 1), 1000)
+    assert!(m.0.value == 0 && m.1.value == 0 && m.2 == 1)
+    assert!(steps == 1)
+}
+
+// (c) redistribution: the sum is what matters, so [0, 0, 10, 0] moves its 10 to the last slot
+#[test]
+fn redistribution_moves_the_sum_to_a_later_slot() uses (evm: mut Evm) {
+    let start: [u64; 4] = [0, 0, 10, 0]
+    let (m, steps) = shrink_input(start, |a: [u64; 4]| a[0] + a[1] + a[2] + a[3] < 10, 1000)
+    assert!(m[0] == 0 && m[1] == 0 && m[2] == 0 && m[3] == 10)
+    assert!(steps == 1)
+}
+
+// (c) again, with a bounded later component: bps is only meaningful up to 10000, so the amount can drop only a little per move,
+// and then shrinks by itself to the exact boundary
+fn fee_overflows(_ p: (u64, u16)) -> bool {
+    let bps = p.1 as u64
+    if bps > 10000 { return true }
+    match props::fee_mul_first(p.0, bps) {
+        Option::Some(fee) => fee <= p.0
+        Option::None => false
+    }
+}
+
+#[test]
+fn fee_example_reaches_the_global_boundary() uses (evm: mut Evm) {
+    let (m, _) = shrink_input((145249953336295683 as u64, 127 as u16), fee_overflows, 1000)
+    assert!(m.0 == 1844674407370956 && m.1 == 10000)
+}
+
+// (b') a sequence: the same account in a column of three commands shrinks together (account 1 collides with the kind and amount 1, so the plain
+// equal-value group does not apply; the column group does)
+#[test]
+fn a_shared_account_in_a_sequence_shrinks_to_account_zero() uses (evm: mut Evm) {
+    let dep: (Index<3>, Index<3>, Index<3>, u16) = (Index { value: 0 }, Index { value: 1 }, Index { value: 0 }, 1)
+    let wd: (Index<3>, Index<3>, Index<3>, u16) = (Index { value: 1 }, Index { value: 1 }, Index { value: 0 }, 1)
+    let s: Seq<(Index<3>, Index<3>, Index<3>, u16), 8> = Seq { len: 3, items: [dep, wd, dep, dep, dep, dep, dep, dep] }
+    assert!(!props::prop_bank_sequence(s))
+    let (m, _) = shrink_input(s, props::prop_bank_sequence, 1000)
+    assert!(m.len == 3)
+    assert!(m.items[0].1.value == 0 && m.items[1].1.value == 0 && m.items[2].1.value == 0)
+    assert!(!props::prop_bank_sequence(m))
+}
+
+// Termination: every joint candidate is strictly simpler, so shrinking ends even with max_shrinks = 1,000,000.
+#[test]
+fn shrinking_terminates_with_a_huge_step_budget() uses (evm: mut Evm) {
+    // always false: shrinks all the way down
+    let (a, sa) = shrink_input((18446744073709551615 as u64, 4294967295 as u64, 65535 as u64, 7 as u64), |p: (u64, u64, u64, u64)| false, 1000000)
+    assert!(a.0 == 0 && a.1 == 0 && a.2 == 0 && a.3 == 0)
+    assert!(sa < 10000)
+    // fails while the sum is at least 1000: stops at a sum of exactly 1000, moved to the last slot
+    let (b, sb) = shrink_input([400000 as u64, 300000, 200000, 100000], |x: [u64; 4]| x[0] + x[1] + x[2] + x[3] < 1000, 1000000)
+    assert!(b[0] + b[1] + b[2] + b[3] == 1000 && b[3] == 1000)
+    assert!(sb < 10000)
+    // fails when two components are equal and odd: adversarial for equal-group moves
+    let (c, sc) = shrink_input((99 as u64, 99 as u64, 5 as u64), |p: (u64, u64, u64)| !(p.0 == p.1 && p.0 % 2 == 1), 1000000)
+    assert!(c.0 == p_odd(c.0) && c.0 == c.1)
+    assert!(sc < 10000)
+    // a property that fails on exactly one value: no candidate fails, so zero steps
+    let (d, sd) = shrink_input(12345 as u64, |x: u64| x != 12345, 1000000)
+    assert!(d == 12345 && sd == 0)
+}
+
+fn p_odd(_ x: u64) -> u64 { if x % 2 == 1 { x } else { 1 } }

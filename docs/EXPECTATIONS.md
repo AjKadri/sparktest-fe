@@ -44,3 +44,37 @@ Case count 64 per property.
 Expected to PASS, as std is widely used: integer saturating/wrapping/checked helpers vs a widened-u256 model;
 sort (core::sort) output sorted and a permutation of the input; ABI round trip decode(encode(x)) == x for integers and
 tuples. If any fails and the property is right, it is reduced to a repro and reported as a candidate Fe bug (not filed).
+
+## L4.1 amendments (2026-11-22, written BEFORE steps 2 and 3 were run)
+
+The rows above are unchanged. These expectations cover the L4.1 gaps.
+
+### Step 2: `Index<N>` (a value in 0..N-1) and the ERC20 self-transfer bug
+
+- `Index<N>` values are always `< N`; about 1 draw in 4 is an edge (0 or N-1); the rest are uniform. Within 256 cases both 0 and N-1 appear
+  for N = 4, and shrinking `Index<10>` against the false property `i < 3` ends at exactly 3.
+- ERC20 planted self-transfer bug, actors chosen with `Index<4>` for sender and receiver, amount `u16`:
+  - **Original pre-registered minimum (unchanged): sender 0, receiver 0, amount 1.**
+  - **Honest prediction, from reading the shrinker:** the failure needs sender == receiver, and a tuple shrinks one component at a time,
+    so a pair of equal non-zero indices such as (3, 3) is a local minimum (changing either index alone makes the transfer a normal one,
+    which passes). I therefore predict the result is `(a, a, 1)` with `a` in 0..3 and the amount exactly 1, and that it is exactly
+    (0, 0, 1) only if the first failing case already has sender = receiver = 0. Either outcome will be recorded as found, with no re-fitting.
+    Properties P1 and P6 are expected to fail; P2 to P5 to pass.
+
+### Step 3: `examples/rewards` (a contract that panics), checked through `try_call`
+
+- Contract: `claim` computes `stake * RATE / SCALE` in `u64` with `RATE = 1000`, `SCALE = 10000`. The multiplication overflows (Panic 0x11,
+  the call reverts) as soon as `stake * 1000 >= 2^64`. Smallest overflowing stake (computed independently): **18446744073709552**
+  (`18446744073709552 * 1000 >= 2^64` and `18446744073709551 * 1000 < 2^64`).
+- Property: for every `stake <= MAX_STAKE` (`MAX_STAKE = 2^63`), staking then claiming through `evm.try_call` succeeds. The failure set is
+  monotone (every stake from 18446744073709552 up to MAX_STAKE fails), and the last shrink candidate is `x - 1`, so the expected shrunk
+  value is exactly **18446744073709552**. Fixed version (divide first, split the multiply): passes all cases.
+- Direct vs `try_call`: the same property written with the plain `evm.call` is expected to make the whole test revert with Panic(0x11)
+  (no Outcome, no shrink, no seed), as the existing probe `probe_overflow_in_property_reverts_whole_run` already shows for a pure overflow; through `try_call`
+  the failure is a value that is found, shrunk and reported with its seed.
+
+### Step 4: other ERC20 sources
+
+- Prediction: the Fe v26.7.0 docs sources (`docs/`, `docs/language/*.md`) contain no ERC20 or token example contract; the ERC20s in the clone are test fixtures
+  (`crates/fe/tests/fixtures/fe_test/erc20.fe`, `crates/codegen/tests/fixtures/erc20.fe`, `crates/fe/tests/fixtures/build_foundry/erc20.fe`) and the std helper
+  `ingots/std/src/evm/erc20.fe` (a client library, not a token). If the search proves this wrong, the found example is vendored unchanged and gets the same 6 properties.

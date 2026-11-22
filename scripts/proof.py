@@ -119,11 +119,12 @@ doc += ['## Summary', '',
         f"- Planted bugs: {sum(1 for x in bugs if x[1]['failed'] == 1)}/{len(bugs)} found and shrunk; {sum(1 for x in bugs if x[3])}/{len(bugs)} minimums as pre-registered. Fixed versions passing: {sum(1 for x in fixed if x[1]['failed'] == 0)}/{len(fixed)}.",
         f"- Sonatina and native agree exactly (case, steps, original, shrunk) on {sum(1 for x in rows if x[4])}/{len(rows)} pure properties.",
         f"- std: {sum(1 for x in std if x[1]['failed'] == 0)}/{len(std)} properties hold (no Fe bug found).",
-        '- ERC20 (see below): all 5 required properties plus a conservation property hold on the unchanged contract; the planted self-transfer bug is caught and shrunk by 2 properties.',
+        '- ERC20 test fixture from the Fe compiler repo (see below): all 5 required properties plus a conservation property hold on the unchanged fixture; the planted self-transfer bug is caught and shrunk by 2 properties, with raw `u8` actors and again with `Index<4>` actors.',
+        '- A contract that really panics (`examples/rewards`): found through `try_call` and shrunk to the exact boundary stake; the same property through a direct `evm.call` reverts the whole test with no report.',
         '', 'Honest notes:',
         '- `fee_buggy` shrinks to a LOCAL minimum (bps=127, amount ~1.45e17); the global smallest overflow is amount=1,844,674,407,370,956 at bps=10000. The pre-registered criterion (a boundary case: amount*bps >= 2^64 and (amount-1)*bps < 2^64) is met.',
-        '- ERC20 buggy copy: the pre-registered minimum (0, 0, 1) was only partly reached: the structure (a self-transfer of amount 1) is exact, but the actor indices are raw u8 values taken `% 4`, and shrinking them to 0 would change the actor, so they stop at e.g. (21, 125). A bounded-index type (`Choice<N>`) would shrink these properly.',
-        '- The shipped ERC20 returns `false` on insufficient balance/allowance instead of reverting; "reverts" in the brief is checked as "does not succeed".', '']
+        '- ERC20 buggy copy: the pre-registered minimum (0, 0, 1) was only partly reached: the structure (a self-transfer of amount 1) is exact, but the actor indices are raw u8 values taken `% 4`, and shrinking them to 0 would change the actor, so they stop at e.g. (21, 125). `Index<N>` (added in L4.1, amendment tables below) keeps the indices inside the set, but two coupled equal indices still stop at a local minimum such as (3, 3), because a tuple shrinks one component at a time.',
+        '- Observations about the ERC20 test fixture (not bugs): `transfer`/`transferFrom` return `false` instead of reverting on a shortfall, so "reverts" in the brief is checked as "does not succeed"; `mint` is open to anyone.', '']
 doc += md_pure(rows, 'planted', 'Planted bugs (pure functions, sonatina and native)',
                'Five realistic contract bug classes, each with a buggy and a fixed version. Rerun: `./scripts/proof.sh`. Sources: `props/src/bugs.fe`; scenarios: `proof/registry.json`.')
 if any(r['group'] == 'std' for r, *_ in rows):

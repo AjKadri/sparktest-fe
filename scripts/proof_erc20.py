@@ -23,11 +23,17 @@ def section(run, problems):
             if len(w) == 13:
                 res[w[0]] = dict(failed=w[1], case=w[2], steps=w[3], original=w[4:8], shrunk=w[8:12], gas=w[12])
     s = ['## ERC20 through contract calls (sonatina only)', '',
-         'Contract: `crates/fe/tests/fixtures/fe_test/erc20.fe` of Fe v26.7.0, vendored unchanged in `examples/erc20` (Apache-2.0). Four actor proxy contracts',
-         'make the calls, so the token sees four different senders; each case deploys a fresh token (supply 1000 to actor 0, which sends 250 to each other actor).',
-         'Actor indices are taken `% 4`, so self-transfers and repeated actors are common. 64 cases per property. Views are read with the plain typed `evm.call`;',
-         'state-changing calls go through the actors using the non-reverting `try_*` helpers (`CallOutcome::decode` also returns view data from `try_call`).',
-         'The contract returns `false` instead of reverting on insufficient balance/allowance, so "reverts" is checked as "does not succeed".', '']
+         'Contract: the ERC20 test fixture from the Fe compiler repo (`crates/fe/tests/fixtures/fe_test/erc20.fe` at e6e6342), vendored unchanged in `examples/erc20` (Apache-2.0).',
+         'It is a compiler test fixture, not a documented or audited token example. Observations about it (not bugs): `transfer` and `transferFrom` return `false` instead of reverting',
+         'on insufficient balance/allowance, so "reverts" is checked as "does not succeed"; and `mint` is open to anyone.',
+         'Four actor proxy contracts make the calls, so the token sees four different senders; each case deploys a fresh token (supply 1000 to actor 0, which sends 250 to each other actor).',
+         '64 cases per property. Views are read with the plain typed `evm.call`; state-changing calls go through the actors using the non-reverting `try_*` helpers',
+         '(`CallOutcome::decode` also returns view data from `try_call`).', '',
+         '**Other ERC20 or token sources in Fe v26.7.0 (searched 2026-11-22):** the documentation sources (`docs/`, `docs/language/*.md`, `docs/architecture/*.md`, `examples/`) contain no ERC20 or token',
+         'example contract. The only match is a four-field storage-layout illustration (`pub contract Token { mut owner: Address, ... }` in `docs/language/contract-storage.md`), which has no behaviour to test, so',
+         'nothing was vendored as `examples/erc20-docs/`. The other ERC20-like files in the clone are compiler test fixtures (for example `crates/codegen/tests/fixtures/erc20.fe`,',
+         '`crates/fe/tests/fixtures/build_foundry/erc20.fe`, `crates/fe/tests/fixtures/fe_test/coin.fe`, `crates/fe/tests/evm_compiler_bench/erc20_minimal.fe`) and the std client helper',
+         '`ingots/std/src/evm/erc20.fe` (a library for calling tokens, not a token). Search: `grep -rniE "erc ?20|token" docs README.md CLI.md` and `grep -rliE "erc20|contract .*(Token|Coin)" --include=*.fe`.', '']
     import json, os
     hist = json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'proof/history.json')))
     h0, h1 = hist['erc20_original'], hist['erc20_index_amendment']

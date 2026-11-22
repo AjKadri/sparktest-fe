@@ -1,8 +1,9 @@
 // ====================================================================================================
-// VENDORED, UNCHANGED. Source: crates/fe/tests/fixtures/fe_test/erc20.fe in https://github.com/argotorg/fe
-// at commit e6e6342b252082f3fd8af5b9f763cb13296bf0a1 (Fe v26.7.0). Licensed under the Apache License 2.0
-// (the Fe repository's LICENSE-APACHE; a copy is in this directory). Everything below the next marker line is
-// byte-for-byte the upstream file; scripts/check-vendored.sh verifies that.
+// VENDORED, UNCHANGED. This is the ERC20 test fixture from the Fe compiler repo
+// (crates/fe/tests/fixtures/fe_test/erc20.fe at e6e6342, https://github.com/argotorg/fe, commit
+// e6e6342b252082f3fd8af5b9f763cb13296bf0a1, Fe v26.7.0). It is a compiler test fixture, not a documented or audited token example.
+// Licensed under the Apache License 2.0 (the Fe repository's LICENSE-APACHE; a copy is in this directory). Everything below the
+// next marker line is byte-for-byte the upstream file; scripts/check-vendored.sh verifies that.
 // ----- BEGIN UPSTREAM FILE -----
 msg Erc20 {
     #[selector = sol("name()")]

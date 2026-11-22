@@ -9,12 +9,13 @@ Sparktest shrinks greedily, so it finds a local minimum, not always the global o
 - Planted bugs: 5/5 found and shrunk; 5/5 minimums as pre-registered. Fixed versions passing: 5/5.
 - Sonatina and native agree exactly (case, steps, original, shrunk) on 22/22 pure properties.
 - std: 12/12 properties hold (no Fe bug found).
-- ERC20 (see below): all 5 required properties plus a conservation property hold on the unchanged contract; the planted self-transfer bug is caught and shrunk by 2 properties.
+- ERC20 test fixture from the Fe compiler repo (see below): all 5 required properties plus a conservation property hold on the unchanged fixture; the planted self-transfer bug is caught and shrunk by 2 properties, with raw `u8` actors and again with `Index<4>` actors.
+- A contract that really panics (`examples/rewards`): found through `try_call` and shrunk to the exact boundary stake; the same property through a direct `evm.call` reverts the whole test with no report.
 
 Honest notes:
 - `fee_buggy` shrinks to a LOCAL minimum (bps=127, amount ~1.45e17); the global smallest overflow is amount=1,844,674,407,370,956 at bps=10000. The pre-registered criterion (a boundary case: amount*bps >= 2^64 and (amount-1)*bps < 2^64) is met.
-- ERC20 buggy copy: the pre-registered minimum (0, 0, 1) was only partly reached: the structure (a self-transfer of amount 1) is exact, but the actor indices are raw u8 values taken `% 4`, and shrinking them to 0 would change the actor, so they stop at e.g. (21, 125). A bounded-index type (`Choice<N>`) would shrink these properly.
-- The shipped ERC20 returns `false` on insufficient balance/allowance instead of reverting; "reverts" in the brief is checked as "does not succeed".
+- ERC20 buggy copy: the pre-registered minimum (0, 0, 1) was only partly reached: the structure (a self-transfer of amount 1) is exact, but the actor indices are raw u8 values taken `% 4`, and shrinking them to 0 would change the actor, so they stop at e.g. (21, 125). `Index<N>` (added in L4.1, amendment tables below) keeps the indices inside the set, but two coupled equal indices still stop at a local minimum such as (3, 3), because a tuple shrinks one component at a time.
+- Observations about the ERC20 test fixture (not bugs): `transfer`/`transferFrom` return `false` instead of reverting on a shortfall, so "reverts" in the brief is checked as "does not succeed"; `mint` is open to anyone.
 
 ## Planted bugs (pure functions, sonatina and native)
 
@@ -54,11 +55,18 @@ Properties of Fe standard-library code. Rerun: `./scripts/proof.sh`.
 
 ## ERC20 through contract calls (sonatina only)
 
-Contract: `crates/fe/tests/fixtures/fe_test/erc20.fe` of Fe v26.7.0, vendored unchanged in `examples/erc20` (Apache-2.0). Four actor proxy contracts
-make the calls, so the token sees four different senders; each case deploys a fresh token (supply 1000 to actor 0, which sends 250 to each other actor).
-Actor indices are taken `% 4`, so self-transfers and repeated actors are common. 64 cases per property. Views are read with the plain typed `evm.call`;
-state-changing calls go through the actors using the non-reverting `try_*` helpers (`CallOutcome::decode` also returns view data from `try_call`).
-The contract returns `false` instead of reverting on insufficient balance/allowance, so "reverts" is checked as "does not succeed".
+Contract: the ERC20 test fixture from the Fe compiler repo (`crates/fe/tests/fixtures/fe_test/erc20.fe` at e6e6342), vendored unchanged in `examples/erc20` (Apache-2.0).
+It is a compiler test fixture, not a documented or audited token example. Observations about it (not bugs): `transfer` and `transferFrom` return `false` instead of reverting
+on insufficient balance/allowance, so "reverts" is checked as "does not succeed"; and `mint` is open to anyone.
+Four actor proxy contracts make the calls, so the token sees four different senders; each case deploys a fresh token (supply 1000 to actor 0, which sends 250 to each other actor).
+64 cases per property. Views are read with the plain typed `evm.call`; state-changing calls go through the actors using the non-reverting `try_*` helpers
+(`CallOutcome::decode` also returns view data from `try_call`).
+
+**Other ERC20 or token sources in Fe v26.7.0 (searched 2026-11-22):** the documentation sources (`docs/`, `docs/language/*.md`, `docs/architecture/*.md`, `examples/`) contain no ERC20 or token
+example contract. The only match is a four-field storage-layout illustration (`pub contract Token { mut owner: Address, ... }` in `docs/language/contract-storage.md`), which has no behaviour to test, so
+nothing was vendored as `examples/erc20-docs/`. The other ERC20-like files in the clone are compiler test fixtures (for example `crates/codegen/tests/fixtures/erc20.fe`,
+`crates/fe/tests/fixtures/build_foundry/erc20.fe`, `crates/fe/tests/fixtures/fe_test/coin.fe`, `crates/fe/tests/evm_compiler_bench/erc20_minimal.fe`) and the std client helper
+`ingots/std/src/evm/erc20.fe` (a library for calling tokens, not a token). Search: `grep -rniE "erc ?20|token" docs README.md CLI.md` and `grep -rliE "erc20|contract .*(Token|Coin)" --include=*.fe`.
 
 ### Unchanged contract, actors picked with a raw `u8 % 4` (original run, 2026-11-22, commit c7004ad)
 

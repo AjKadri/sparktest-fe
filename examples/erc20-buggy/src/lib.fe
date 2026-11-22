@@ -1,8 +1,8 @@
 // ====================================================================================================
-// PLANTED BUG -- NOT A REAL FE EXAMPLE. A copy of examples/erc20 with exactly ONE deliberate change, used to show that
-// Sparktest catches and shrinks it. The change (in `Transfer`): when `to == sender` the debit is skipped but the credit is
-// still applied, so a self-transfer mints tokens. Everything else is the unchanged upstream file
-// (crates/fe/tests/fixtures/fe_test/erc20.fe, Fe v26.7.0, commit e6e6342b252082f3fd8af5b9f763cb13296bf0a1, Apache-2.0).
+// PLANTED BUG -- NOT A REAL FE EXAMPLE. A copy of examples/erc20 (the ERC20 test fixture from the Fe compiler repo,
+// crates/fe/tests/fixtures/fe_test/erc20.fe at e6e6342) with exactly ONE deliberate change, used to show that Sparktest catches and
+// shrinks it. The change (in `Transfer`): when `to == sender` the debit is skipped but the credit is still applied, so a self-transfer
+// mints tokens. Everything else is the unchanged upstream file (Fe v26.7.0, commit e6e6342b252082f3fd8af5b9f763cb13296bf0a1, Apache-2.0).
 // ----- BEGIN FILE -----
 msg Erc20 {
     #[selector = sol("name()")]

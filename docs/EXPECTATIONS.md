@@ -78,3 +78,34 @@ The rows above are unchanged. These expectations cover the L4.1 gaps.
 - Prediction: the Fe v26.7.0 docs sources (`docs/`, `docs/language/*.md`) contain no ERC20 or token example contract; the ERC20s in the clone are test fixtures
   (`crates/fe/tests/fixtures/fe_test/erc20.fe`, `crates/codegen/tests/fixtures/erc20.fe`, `crates/fe/tests/fixtures/build_foundry/erc20.fe`) and the std helper
   `ingots/std/src/evm/erc20.fe` (a client library, not a token). If the search proves this wrong, the found example is vendored unchanged and gets the same 6 properties.
+
+## L6 stateful testing (2026-11-22, written BEFORE steps 2 to 5 were run)
+
+Rows above are unchanged. A "command" below is `(kind, a, b, amount)`; sequences are shrunk by: halve the length, drop one command, then
+shrink single commands. Components of different commands that must stay equal for the bug to show (the same account in three commands)
+cannot be shrunk one at a time, so such indices can stop at a local minimum (as in L4.1); lengths and amounts are expected exact.
+
+### Seq<C, N> unit test
+- Property "no two adjacent commands are equal" over `Seq<Index<3>, 8>`: expected minimal failing sequence has **length exactly 2** and two equal
+  commands `(a, a)`; `a` is 0 only if the first failing sequence already had a = 0 (a pair of equal non-zero values is a local minimum).
+
+### Pure bank model (3 accounts; commands deposit / withdraw / transfer; sonatina and native)
+- Invariant after every command: total deposited - total withdrawn == sum of balances.
+- Planted bug: a withdrawal that takes an account to exactly 0 sets a flag; the account's next deposit is credited twice (the books count it once).
+- Expected minimal failing sequence: **length 3**: `deposit(a, 1)`, `withdraw(a, 1)` (withdraw clamps to the balance), `deposit(a, 1)`, i.e. commands
+  `(0, a, 0, 1), (1, a, 0, 1), (0, a, 0, 1)` with the same account `a` in all three (`a` in 0..2; a = 0 only if the first failing sequence already used account 0 throughout).
+  No sequence of length 1 or 2 can fail (a single call cannot reveal it). The unused field `b` shrinks to 0. Fixed version: passes 256 cases.
+- Sonatina and native must find identical sequences (same seed).
+
+### ERC20 stateful (sonatina only): the ERC20 test fixture from the Fe compiler repo, compared with a pure reference model after every call
+- Setup per case: fresh token with supply 16 to actor 0, which sends 4 to each other actor (every actor holds 4); amounts are taken `% 9` (0..8), so a full-balance
+  transfer (amount 4) is common. N = 8, 64 cases, `Index<4>` actors.
+- Unchanged fixture: expected to **pass** all 64 cases (the model equals the contract: balances, touched allowance, totalSupply, sum of balances == totalSupply).
+- Planted bug (`examples/erc20-stateful-bug`, in `Transfer` only): when a transfer takes the sender to exactly 0, the sender is flagged; the next transfer INTO a flagged
+  account is credited twice. A single call cannot reveal it.
+- Expected minimal failing sequence: **length 2**: `Transfer(a -> b, 4)` then `Transfer(c -> a, 1)` with `b != a`, `c != a`; amounts exactly (4, 1) (4 is the
+  full balance and cannot shrink; 1 is the smallest credit). `a` is shared by both commands, so it may stop at a non-zero local minimum; `b` and `c` are expected
+  to be the smallest indices different from `a`. Not expected: length 3 or more.
+
+### Demo (5th property = the pure bank model)
+- The shrunk sequence (all words, length included) is identical on wasm, native and sonatina for the same seed; so are case and shrink steps.

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sparktest — property testing for Fe</title>
+<meta name="description" content="Sparktest finds the input that breaks your Fe code, shrinks it to the smallest example, and replays it from a seed. This page runs compiled Fe properties in your browser.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <h1 class="brand">
+      <svg class="spark" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5c.7 5.6 2.4 8.9 4.9 10.5-2.5 1.6-4.2 4.9-4.9 10.5-.7-5.6-2.4-8.9-4.9-10.5C9.6 10.4 11.3 7.1 12 1.5z"/></svg>
+      Sparktest
+    </h1>
+    <p class="lede">Property testing for Fe: find the input that breaks your code, shrink it, replay it.</p>
+    <p class="sub">Pick a property below. Sparktest, compiled from Fe to WebAssembly, tries random inputs until one breaks it, then shrinks that input to the smallest one that still does.</p>
+  </div>
+</header>
+
+<main class="wrap grid">
+  <section class="col" aria-labelledby="pick-h">
+    <h2 id="pick-h" class="label">1 · Choose a property</h2>
+    <div id="picker" class="picker" role="radiogroup" aria-label="Property"></div>
+
+    <h2 class="label">2 · Run it</h2>
+    <div class="controls">
+      <div class="seedbox">
+        <span class="k">seed</span>
+        <output id="seed" class="mono">–</output>
+      </div>
+      <div class="buttons">
+        <button id="run" class="primary" disabled>Run</button>
+        <button id="random" disabled>Random seed</button>
+        <button id="replay" disabled>Replay</button>
+        <button id="skip" hidden>Skip animation</button>
+      </div>
+    </div>
+
+    <div id="stage" class="stage" aria-live="polite">
+      <p class="muted">Loading the compiled Fe module…</p>
+    </div>
+  </section>
+
+  <aside class="col side">
+    <h2 class="label">The property, in Fe</h2>
+    <p class="muted small" id="prop-claim"></p>
+    <pre class="code" id="source" tabindex="0" aria-label="Fe source"><code></code></pre>
+
+    <h2 class="label">Recorded on EVM</h2>
+    <div id="recorded" class="recorded"></div>
+  </aside>
+</main>
+
+<footer class="wrap foot">
+  <p><strong>Honest limits.</strong> The properties are prebuilt and compiled to WebAssembly; this page cannot compile your own Fe. Demo inputs are limited to 64 bits so they cross the wasm boundary. The full library (all integer widths, <code>Address</code>, tuples, arrays, structs; sonatina/EVM, native and wasm) runs locally from the repo: <code>./scripts/test-all.sh</code>.</p>
+  <p class="muted small" id="build"></p>
+</footer>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

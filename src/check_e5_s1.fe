@@ -1,0 +1,28 @@
+use std::evm::Evm
+
+// runner forwards the property's effect row
+fn run_eff<P: Fn(u256) -> bool>(_ prop: P, _ n: u256) -> u256 uses P::E {
+    var f: u256 = 0
+    var i: u256 = 0
+    while i < n {
+        if !prop(i) { f += 1 }
+        i += 1
+    }
+    f
+}
+
+fn needs_evm(_ x: u256) -> bool uses (evm: mut Evm) {
+    x < evm.block_number() + 5
+}
+
+#[test]
+fn s1_closure_captures_effect() uses (evm: mut Evm) {
+    let f = run_eff(|x: u256| x < evm.block_number() + 5, 10)
+    assert!(f == 5)
+}
+
+#[test]
+fn s3_fn_item_with_effect() uses (evm: mut Evm) {
+    let f = run_eff(needs_evm, 10)
+    assert!(f == 5)
+}

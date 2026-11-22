@@ -16,7 +16,7 @@ pub struct PropertyFailed {
 pub fn assert_holds<T: Encode + Copy>(_ outcome: Outcome<T>) {
     match outcome {
         Outcome::Pass { cases: _ } => {}
-        Outcome::Fail { original: _, shrunk, case, seed, steps } => {
+        Outcome::Fail { original: _, shrunk, case, seed, steps, early: _ } => {
             revert_error(PropertyFailed { seed, case, steps, input: shrunk.words() })
         }
     }

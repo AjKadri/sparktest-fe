@@ -57,7 +57,7 @@ fn run_seq<T: Arbitrary + Shrink + Encode + Copy, P: Fn(T) -> bool>(_ prop: P, _
             unsafe { st_pass(n.downcast_truncate()) }
             true
         }
-        Outcome::Fail { original: _, shrunk, case, seed: _, steps } => {
+        Outcome::Fail { original: _, shrunk, case, seed: _, steps, early: _ } => {
             let w = shrunk.words()
             var i: usize = 0
             while i < w.len() {

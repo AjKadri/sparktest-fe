@@ -71,7 +71,7 @@ fn a_false_returning_property_works_through_the_same_path() uses (evm: mut Evm) 
     let gas = g0 - evm.gas()
     let plain = check(Config::new(8103 + zero()), below_1000)
     match (o, plain) {
-        (IsoOutcome::Fail { original, shrunk, case, seed: _, steps, reason, original_reason }, Outcome::Fail { original: po, shrunk: ps, case: pc, seed: _, steps: pn }) => {
+        (IsoOutcome::Fail { original, shrunk, case, seed: _, steps, reason, original_reason }, Outcome::Fail { original: po, shrunk: ps, case: pc, seed: _, steps: pn, early: _ }) => {
             assert!(shrunk == 1000 && reason == REASON_FALSE)
             assert!(original == po && shrunk == ps && case == pc && steps == pn)   // identical to check()
             evm.emit(Pi { id: 3, failed: 1, case, steps, reason, original_reason, original: original.words(), shrunk: shrunk.words(), gas })

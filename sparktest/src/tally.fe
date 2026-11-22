@@ -54,7 +54,7 @@ pub enum Verdict {
 
 pub fn guard<T>(_ o: Outcome<T>, _ t: Tally, _ need_accepted: bool, _ kinds: usize) -> Verdict {
     match o {
-        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _ } => Verdict::Failed
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => Verdict::Failed
         Outcome::Pass { cases: _ } => {
             let r = vacuity(t, need_accepted, kinds)
             if r == 0 { Verdict::Held } else { Verdict::Vacuous { reason: r } }

@@ -38,6 +38,6 @@ fn rec_saturating_add() uses (evm: mut Evm) {
     let g0 = evm.gas()
     match check(Config::new(props::DEMO_SEED_SATURATING_ADD + zero()), props::prop_saturating_add) {
         Outcome::Pass { cases } => { evm.emit(Held { cases, gas: g0 - evm.gas() }) }
-        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _ } => { assert!(false) }
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => { assert!(false) }
     }
 }

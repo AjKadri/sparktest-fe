@@ -47,8 +47,9 @@ for n in (2, 3, 4):
         else:
             o += [f'        match {v}.shrink_step(rest) {{',
                   f'            Option::Some({v}2) => Option::Some(({rebuilt}))',
-                  f'            Option::None => joint_candidate(self, rest - count_candidates({v}))', '        }']
-    o += ['    }', '}', '']
+                  f'            Option::None => Option::None', '        }']
+    # joint candidates live in their own method, tried by `check` as a finishing pass after the component candidates reach a fixed point
+    o += ['    }', '    fn joint_step(self, _ i: u256) -> Option<Self> { joint_candidate(self, i) }', '}', '']
     dec_bounds = ', '.join(f'{p}: Decode' for p in ps)
     o += [f'impl<{dec_bounds}> Decode for {ty} {{',
           '    fn decode(_ w: DynArray<u256>, _ pos: usize) -> (Self, usize) {',
@@ -101,9 +102,10 @@ impl<T: Shrink + Encode + Decode + Copy, const N: usize> Shrink for [T; N] {
             rest -= n
             j += 1
         }
-        // element-wise candidates are exhausted: joint candidates (see joint.fe)
-        joint_candidate(self, rest)
+        Option::None
     }
+    // joint candidates (see joint.fe), tried by `check` after the element-wise candidates reach a fixed point
+    fn joint_step(self, _ i: u256) -> Option<Self> { joint_candidate(self, i) }
 }
 
 impl<T: Decode + Copy, const N: usize> Decode for [T; N] {

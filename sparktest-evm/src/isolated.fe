@@ -92,24 +92,50 @@ pub fn check_isolated<T: Arbitrary + Shrink + Encode + Copy>(_ cfg: Config, _ ha
             var cur = x
             var reason = r0
             var steps: u256 = 0
-            var progressed = true
-            while progressed && steps < cfg.max_shrinks {
-                progressed = false
-                var k: u256 = 0
-                var more = true
-                while more {
-                    match cur.shrink_step(k) {
-                        Option::None => { more = false }
-                        Option::Some(c) => {
-                            let rc = evaluate(harness, id, c, ISOLATED_GAS)
-                            if rc != REASON_HELD {
-                                cur = c
-                                reason = rc
-                                steps += 1
-                                progressed = true
-                                more = false
-                            } else {
-                                k += 1
+            // the same two phases as `check`: component candidates to a fixed point, then a joint finishing pass, while anything improves
+            var improving = true
+            while improving && steps < cfg.max_shrinks {
+                improving = false
+                var progressed = true
+                while progressed && steps < cfg.max_shrinks {
+                    progressed = false
+                    var k: u256 = 0
+                    var more = true
+                    while more {
+                        match cur.shrink_step(k) {
+                            Option::None => { more = false }
+                            Option::Some(c) => {
+                                let rc = evaluate(harness, id, c, ISOLATED_GAS)
+                                if rc != REASON_HELD {
+                                    cur = c
+                                    reason = rc
+                                    steps += 1
+                                    progressed = true
+                                    more = false
+                                } else {
+                                    k += 1
+                                }
+                            }
+                        }
+                    }
+                }
+                if steps < cfg.max_shrinks {
+                    var j: u256 = 0
+                    var more = true
+                    while more {
+                        match cur.joint_step(j) {
+                            Option::None => { more = false }
+                            Option::Some(c) => {
+                                let rc = evaluate(harness, id, c, ISOLATED_GAS)
+                                if rc != REASON_HELD {
+                                    cur = c
+                                    reason = rc
+                                    steps += 1
+                                    improving = true
+                                    more = false
+                                } else {
+                                    j += 1
+                                }
                             }
                         }
                     }

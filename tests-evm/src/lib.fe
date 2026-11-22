@@ -7,7 +7,7 @@ struct Info { failed: bool, original: u256, shrunk: u256, case: u256, steps: u25
 fn info(_ o: Outcome<u256>) -> Info {
     match o {
         Outcome::Pass { cases } => Info { failed: false, original: 0, shrunk: 0, case: 0, steps: 0, cases, seed: 0 }
-        Outcome::Fail { original, shrunk, case, seed, steps } => Info { failed: true, original, shrunk, case, steps, cases: 0, seed }
+        Outcome::Fail { original, shrunk, case, seed, steps, early: _ } => Info { failed: true, original, shrunk, case, steps, cases: 0, seed }
     }
 }
 
@@ -103,7 +103,7 @@ fn f_gas_scales_with_cases() uses (evm: mut Evm) {
 fn g_bool_shrinks_to_true() uses (evm: mut Evm) {
     match check(Config::new(fixed_seed(9)), props::prop_bool_false) {
         Outcome::Pass { cases: _ } => { assert!(false) }
-        Outcome::Fail { original, shrunk, case: _, seed: _, steps: _ } => {
+        Outcome::Fail { original, shrunk, case: _, seed: _, steps: _, early: _ } => {
             assert!(original == true)
             assert!(shrunk == true)
         }

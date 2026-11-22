@@ -10,7 +10,7 @@ pub fn main() -> i32 uses (out: mut Stdout) {
     let t1 = ticks()
     match o {
         Outcome::Pass { cases } => { println!("cases=", cases, " cpu_ticks=", t1 - t0) }
-        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _ } => { println!("unexpected failure") }
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => { println!("unexpected failure") }
     }
     0
 }

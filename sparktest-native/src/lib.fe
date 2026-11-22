@@ -36,7 +36,7 @@ pub fn print_summary(_ name: String<31>, _ s: Summary) uses (out: mut Stdout) {
 pub fn assert_holds<T: Encode + Copy>(_ outcome: Outcome<T>) uses (out: mut Stdout) {
     match outcome {
         Outcome::Pass { cases: _ } => {}
-        Outcome::Fail { original: _, shrunk, case, seed, steps } => {
+        Outcome::Fail { original: _, shrunk, case, seed, steps, early: _ } => {
             println!("PROPERTY FAILED seed=", seed, " case=", case, " steps=", steps)
             let w = shrunk.words()
             var i: usize = 0

@@ -23,7 +23,7 @@ fn seq_lengths_stay_within_n_and_hit_both_edges() {
 fn seq_adjacent_equal_shrinks_to_length_2() {
     match check(Config::new(fixed_seed(951)), props::prop_seq_no_adjacent_equal) {
         Outcome::Pass { cases: _ } => { assert!(false) }
-        Outcome::Fail { original, shrunk, case: _, seed: _, steps: _ } => {
+        Outcome::Fail { original, shrunk, case: _, seed: _, steps: _, early: _ } => {
             assert!(original.len >= 2)
             assert!(shrunk.len == 2)
             assert!(shrunk.items[0].value == shrunk.items[1].value)

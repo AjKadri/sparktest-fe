@@ -39,9 +39,10 @@ impl<A: Shrink + Encode + Decode + Copy, B: Shrink + Encode + Decode + Copy> Shr
         rest -= na
         match b.shrink_step(rest) {
             Option::Some(b2) => Option::Some((a, b2))
-            Option::None => joint_candidate(self, rest - count_candidates(b))
+            Option::None => Option::None
         }
     }
+    fn joint_step(self, _ i: u256) -> Option<Self> { joint_candidate(self, i) }
 }
 
 impl<A: Decode, B: Decode> Decode for (A, B) {
@@ -103,9 +104,10 @@ impl<A: Shrink + Encode + Decode + Copy, B: Shrink + Encode + Decode + Copy, C: 
         rest -= nb
         match c.shrink_step(rest) {
             Option::Some(c2) => Option::Some((a, b, c2))
-            Option::None => joint_candidate(self, rest - count_candidates(c))
+            Option::None => Option::None
         }
     }
+    fn joint_step(self, _ i: u256) -> Option<Self> { joint_candidate(self, i) }
 }
 
 impl<A: Decode, B: Decode, C: Decode> Decode for (A, B, C) {
@@ -180,9 +182,10 @@ impl<A: Shrink + Encode + Decode + Copy, B: Shrink + Encode + Decode + Copy, C: 
         rest -= nc
         match d.shrink_step(rest) {
             Option::Some(d2) => Option::Some((a, b, c, d2))
-            Option::None => joint_candidate(self, rest - count_candidates(d))
+            Option::None => Option::None
         }
     }
+    fn joint_step(self, _ i: u256) -> Option<Self> { joint_candidate(self, i) }
 }
 
 impl<A: Decode, B: Decode, C: Decode, D: Decode> Decode for (A, B, C, D) {
@@ -252,9 +255,10 @@ impl<T: Shrink + Encode + Decode + Copy, const N: usize> Shrink for [T; N] {
             rest -= n
             j += 1
         }
-        // element-wise candidates are exhausted: joint candidates (see joint.fe)
-        joint_candidate(self, rest)
+        Option::None
     }
+    // joint candidates (see joint.fe), tried by `check` after the element-wise candidates reach a fixed point
+    fn joint_step(self, _ i: u256) -> Option<Self> { joint_candidate(self, i) }
 }
 
 impl<T: Decode + Copy, const N: usize> Decode for [T; N] {

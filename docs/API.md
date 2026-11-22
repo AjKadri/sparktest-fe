@@ -12,7 +12,7 @@ Generates `cfg.cases` inputs, runs `prop` on each, and on the first failure shri
 let outcome = check(Config::new(fixed_seed(1)), |x: u256| x < 1000)
 match outcome {
     Outcome::Pass { cases: _ } => { assert!(false) }
-    Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _ } => { assert!(shrunk == 1000) }
+    Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _, early: _ } => { assert!(shrunk == 1000) }
 }
 ```
 
@@ -29,7 +29,7 @@ assert!(Config::new(7).cases == 256 && Config::new(7).max_shrinks == 1000)
 ```fe
 match check(Config::new(fixed_seed(1)), |x: u8| x != 255) {
     Outcome::Pass { cases } => { assert!(cases == 256) }
-    Outcome::Fail { original, shrunk, case: _, seed: _, steps: _ } => { assert!(original == 255 && shrunk == 255) }
+    Outcome::Fail { original, shrunk, case: _, seed: _, steps: _, early: _ } => { assert!(original == 255 && shrunk == 255) }
 }
 ```
 
@@ -198,7 +198,7 @@ var tally = Tally::new()
 let outcome = with (mut tally) { check(Config::new(fixed_seed(1)), counted_property) }
 match outcome {
     Outcome::Pass { cases } => { assert!(cases == 256) }
-    Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _ } => { assert!(false) }
+    Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => { assert!(false) }
 }
 assert!(tally.attempted == 256 && tally.accepted > 0 && tally.accepted < 256)
 assert!(tally.kinds[1] == 256 && tally.kinds[0] == 0)
@@ -318,7 +318,7 @@ impl Encode for Pair {
 ```fe
 match check(Config::new(fixed_seed(1)), |p: Pair| (p.a as u256) + (p.b as u256) < 10) {
     Outcome::Pass { cases: _ } => { assert!(false) }
-    Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _ } => { assert!((shrunk.a as u256) + (shrunk.b as u256) == 10) }
+    Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _, early: _ } => { assert!((shrunk.a as u256) + (shrunk.b as u256) == 10) }
 }
 ```
 

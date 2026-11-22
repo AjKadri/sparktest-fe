@@ -7,7 +7,7 @@ use sparktest_evm::fixed_seed
 fn bank_bug_is_found_and_shrunk_to_three_commands() uses (evm: mut Evm) {
     match check(Config::new(fixed_seed(960)).with_cases(512), props::prop_bank_sequence) {
         Outcome::Pass { cases: _ } => { assert!(false) }
-        Outcome::Fail { original, shrunk, case: _, seed: _, steps: _ } => {
+        Outcome::Fail { original, shrunk, case: _, seed: _, steps: _, early: _ } => {
             assert!(original.len > 3)
             assert!(shrunk.len == 3)
             // deposit, withdraw, deposit; amounts 1; one account throughout; the unused `b` is 0
@@ -24,7 +24,7 @@ fn bank_fixed_passes() uses (evm: mut Evm) {
     let g0 = evm.gas()
     match check(Config::new(fixed_seed(961)), props::prop_bank_fixed) {
         Outcome::Pass { cases } => { assert!(cases == 256) }
-        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _ } => { assert!(false) }
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => { assert!(false) }
     }
     assert!(g0 - evm.gas() >= 256 * 5000)   // proof of work: every case runs up to 8 commands
 }

@@ -44,6 +44,9 @@ pub trait Arbitrary {
 pub trait Shrink {
     // i-th shrink candidate (strictly simpler than self); None once candidates are exhausted
     fn shrink_step(self, _ i: u256) -> Option<Self>
+    // i-th JOINT candidate (several components moved together; see joint.fe), tried by `check` only after no shrink_step candidate still fails;
+    // None once exhausted. Scalars have none. Composites (tuples, arrays, Seq) implement it at the top level only, so nested ones cost nothing.
+    fn joint_step(self, _ i: u256) -> Option<Self> { Option::None }
 }
 
 // Encodes a value as a flat list of u256 words (ABI-ish), for reporting counterexamples of any size.
@@ -172,40 +175,89 @@ impl Config {
 
 pub enum Outcome<T> {
     Pass { pub cases: u256 },
-    Fail { pub original: T, pub shrunk: T, pub case: u256, pub seed: u256, pub steps: u256 },
+    // `early` is true when shrinking was stopped before it finished because the `stop` closure of `check_with` said so (on the EVM:
+    // remaining gas fell below the margin, see `sparktest_evm::check_gas`); `shrunk` is then the best input found so far, and it still fails.
+    Fail { pub original: T, pub shrunk: T, pub case: u256, pub seed: u256, pub steps: u256, pub early: bool },
+}
+
+// Greedy shrinking in two phases that repeat while anything improves:
+//   A. component candidates (`shrink_step`): the first candidate that still fails is taken, restart, until none fails (a fixed point);
+//   B. joint candidates (`joint_step`), a finishing pass: the first one that still fails is taken, then back to A.
+// `stop` is polled before every evaluation; when it says true the best input so far is returned with early = true.
+// Returns (shrunk, accepted steps, stopped early).
+fn shrink_loop<T: Shrink + Copy, P: Fn(T) -> bool, B: Fn() -> bool>(_ start: T, _ prop: P, _ max_shrinks: u256, _ stop: B) -> (T, u256, bool) uses (P::E, B::E) {
+    var cur = start
+    var steps: u256 = 0
+    var early = false
+    var improving = true
+    while improving && steps < max_shrinks && !early {
+        improving = false
+        // phase A: component candidates to a fixed point
+        var progressed = true
+        while progressed && steps < max_shrinks && !early {
+            progressed = false
+            var k: u256 = 0
+            var more = true
+            while more {
+                match cur.shrink_step(k) {
+                    Option::None => { more = false }
+                    Option::Some(c) => {
+                        if stop() {
+                            early = true
+                            more = false
+                        } else if !prop(c) {
+                            cur = c
+                            steps += 1
+                            progressed = true
+                            more = false
+                        } else {
+                            k += 1
+                        }
+                    }
+                }
+            }
+        }
+        // phase B: joint candidates, only once the component candidates are exhausted
+        if steps < max_shrinks && !early {
+            var j: u256 = 0
+            var more = true
+            while more {
+                match cur.joint_step(j) {
+                    Option::None => { more = false }
+                    Option::Some(c) => {
+                        if stop() {
+                            early = true
+                            more = false
+                        } else if !prop(c) {
+                            cur = c
+                            steps += 1
+                            improving = true
+                            more = false
+                        } else {
+                            j += 1
+                        }
+                    }
+                }
+            }
+        }
+    }
+    (cur, steps, early)
 }
 
 pub fn check<T: Arbitrary + Shrink + Copy, P: Fn(T) -> bool>(_ cfg: Config, _ prop: P) -> Outcome<T> uses P::E {
+    check_with(cfg, prop, || false)
+}
+
+// `check` with a `stop` closure polled before every shrink evaluation (the core has no effects; the caller decides what "stop" means).
+// sparktest_evm::check_gas passes "remaining gas is below the margin".
+pub fn check_with<T: Arbitrary + Shrink + Copy, P: Fn(T) -> bool, B: Fn() -> bool>(_ cfg: Config, _ prop: P, _ stop: B) -> Outcome<T> uses (P::E, B::E) {
     var rng = Xorshift::seeded(cfg.seed)
     var i: u256 = 0
     while i < cfg.cases {
         let x = <T as Arbitrary>::arbitrary(mut rng)
         if !prop(x) {
-            // greedy shrink: first candidate that still fails, repeat
-            var cur = x
-            var steps: u256 = 0
-            var progressed = true
-            while progressed && steps < cfg.max_shrinks {
-                progressed = false
-                var k: u256 = 0
-                var more = true
-                while more {
-                    match cur.shrink_step(k) {
-                        Option::None => { more = false }
-                        Option::Some(c) => {
-                            if !prop(c) {
-                                cur = c
-                                steps += 1
-                                progressed = true
-                                more = false
-                            } else {
-                                k += 1
-                            }
-                        }
-                    }
-                }
-            }
-            return Outcome::Fail { original: x, shrunk: cur, case: i, seed: cfg.seed, steps }
+            let (cur, steps, early) = shrink_loop(x, prop, cfg.max_shrinks, stop)
+            return Outcome::Fail { original: x, shrunk: cur, case: i, seed: cfg.seed, steps, early }
         }
         i += 1
     }
@@ -219,6 +271,7 @@ pub struct Summary {
     pub steps: u256,
     pub original: [u256; 4],  // first 4 words of Encode::words(original)
     pub shrunk: [u256; 4],    // first 4 words of Encode::words(shrunk)
+    pub early: u256,          // 1 = shrinking stopped early (gas), 0 = it finished
 }
 
 fn first4(_ w: DynArray<u256>) -> [u256; 4] {
@@ -233,8 +286,8 @@ fn first4(_ w: DynArray<u256>) -> [u256; 4] {
 
 pub fn summarize<T: Encode + Copy>(_ o: Outcome<T>) -> Summary {
     match o {
-        Outcome::Pass { cases } => Summary { failed: 0, case: cases, steps: 0, original: [0, 0, 0, 0], shrunk: [0, 0, 0, 0] }
-        Outcome::Fail { original, shrunk, case, seed: _, steps } => Summary { failed: 1, case, steps, original: first4(original.words()), shrunk: first4(shrunk.words()) }
+        Outcome::Pass { cases } => Summary { failed: 0, case: cases, steps: 0, original: [0, 0, 0, 0], shrunk: [0, 0, 0, 0], early: 0 }
+        Outcome::Fail { original, shrunk, case, seed: _, steps, early } => Summary { failed: 1, case, steps, original: first4(original.words()), shrunk: first4(shrunk.words()), early: if early { 1 } else { 0 } }
     }
 }
 
@@ -245,40 +298,19 @@ pub struct Full {
     pub steps: u256,
     pub original: DynArray<u256>,
     pub shrunk: DynArray<u256>,
+    pub early: u256,
 }
 
 pub fn full<T: Encode + Copy>(_ o: Outcome<T>) -> Full {
     match o {
-        Outcome::Pass { cases } => Full { failed: 0, case: cases, steps: 0, original: DynArray::empty(), shrunk: DynArray::empty() }
-        Outcome::Fail { original, shrunk, case, seed: _, steps } => Full { failed: 1, case, steps, original: original.words(), shrunk: shrunk.words() }
+        Outcome::Pass { cases } => Full { failed: 0, case: cases, steps: 0, original: DynArray::empty(), shrunk: DynArray::empty(), early: 0 }
+        Outcome::Fail { original, shrunk, case, seed: _, steps, early } => Full { failed: 1, case, steps, original: original.words(), shrunk: shrunk.words(), early: if early { 1 } else { 0 } }
     }
 }
 
 // Shrinks a KNOWN failing input with the same greedy rule as `check` (first candidate that still fails, repeat; at most `max_shrinks` accepted steps).
 // Returns the shrunk input and the number of accepted steps. Useful for tests and for replaying a reported counterexample.
 pub fn shrink_input<T: Shrink + Copy, P: Fn(T) -> bool>(_ start: T, _ prop: P, _ max_shrinks: u256) -> (T, u256) uses P::E {
-    var cur = start
-    var steps: u256 = 0
-    var progressed = true
-    while progressed && steps < max_shrinks {
-        progressed = false
-        var k: u256 = 0
-        var more = true
-        while more {
-            match cur.shrink_step(k) {
-                Option::None => { more = false }
-                Option::Some(c) => {
-                    if !prop(c) {
-                        cur = c
-                        steps += 1
-                        progressed = true
-                        more = false
-                    } else {
-                        k += 1
-                    }
-                }
-            }
-        }
-    }
+    let (cur, steps, _) = shrink_loop(start, prop, max_shrinks, || false)
     (cur, steps)
 }

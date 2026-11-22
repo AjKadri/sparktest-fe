@@ -47,7 +47,7 @@ fn probe_check_shrinks_through_contract_call() uses (evm: mut Evm) {
     })
     match o {
         Outcome::Pass { cases: _ } => { assert!(false) }
-        Outcome::Fail { original, shrunk, case: _, seed: _, steps: _ } => {
+        Outcome::Fail { original, shrunk, case: _, seed: _, steps: _, early: _ } => {
             // minimal failing sums are exactly 256
             assert!((original.0 as u256) + (original.1 as u256) > 255)
             assert!((shrunk.0 as u256) + (shrunk.1 as u256) == 256)
@@ -69,7 +69,7 @@ fn probe_check_via_contract_reports_shrunk_and_gas() uses (evm: mut Evm) {
     let gas = g0 - evm.gas()
     match o {
         Outcome::Pass { cases: _ } => { assert!(false) }
-        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps } => {
+        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps, early: _ } => {
             evm.emit(ShrunkViaContract { a: shrunk.0 as u256, b: shrunk.1 as u256, steps, gas })
         }
     }

@@ -44,7 +44,7 @@ fn deposit_then_withdraw_never_profits(_ p: (u32, u32, u32)) -> bool {
 fn sparktest_finds_the_bug_and_shrinks_it() uses (evm: mut Evm) {
     match check(Config::new(fixed_seed(2)), deposit_then_withdraw_never_profits) {
         Outcome::Pass { cases: _ } => { assert!(false) }
-        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _ } => {
+        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _, early: _ } => {
             // the smallest vault where rounding up pays the depositor: 3 assets, 1 share, deposit 1
             assert!(shrunk.0 == 3 && shrunk.1 == 1 && shrunk.2 == 1)
         }
@@ -56,10 +56,10 @@ fn sparktest_finds_the_bug_and_shrinks_it() uses (evm: mut Evm) {
 fn the_seed_replays_the_failure() uses (evm: mut Evm) {
     match check(Config::new(fixed_seed(2)), deposit_then_withdraw_never_profits) {
         Outcome::Pass { cases: _ } => { assert!(false) }
-        Outcome::Fail { original, shrunk, case, seed, steps } => {
+        Outcome::Fail { original, shrunk, case, seed, steps, early: _ } => {
             match check(Config::new(seed), deposit_then_withdraw_never_profits) {
                 Outcome::Pass { cases: _ } => { assert!(false) }
-                Outcome::Fail { original: o2, shrunk: s2, case: c2, seed: _, steps: n2 } => {
+                Outcome::Fail { original: o2, shrunk: s2, case: c2, seed: _, steps: n2, early: _ } => {
                     assert!(o2 == original && s2 == shrunk && c2 == case && n2 == steps)
                 }
             }
@@ -83,7 +83,7 @@ fn most_seeds_reach_the_smallest_vault() uses (evm: mut Evm) {
     while s <= 12 {
         match check(Config::new(fixed_seed(s)), deposit_then_withdraw_never_profits) {
             Outcome::Pass { cases: _ } => { assert!(false) }
-            Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _ } => {
+            Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _, early: _ } => {
                 if shrunk.0 == 3 && shrunk.1 == 1 && shrunk.2 == 1 { exact += 1 }
                 assert!(shrunk.1 == 1)   // always a single share
             }
@@ -98,7 +98,7 @@ fn most_seeds_reach_the_smallest_vault() uses (evm: mut Evm) {
 fn replay_from_the_seed_in_the_failure_report() {
     match check(Config::new(25286971856348077807), deposit_then_withdraw_never_profits) {
         Outcome::Pass { cases: _ } => { assert!(false) }
-        Outcome::Fail { original: _, shrunk, case, seed: _, steps } => {
+        Outcome::Fail { original: _, shrunk, case, seed: _, steps, early: _ } => {
             assert!(case == 2 && steps == 178)   // "case 3 (index 2)" and "steps 178" in the report
             assert!(shrunk.0 == 3 && shrunk.1 == 1 && shrunk.2 == 1)
         }

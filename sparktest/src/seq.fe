@@ -91,7 +91,12 @@ impl<C: Shrink + Encode + Decode + Copy, const N: usize> Shrink for Seq<C, N> {
             rest -= n
             j += 1
         }
-        // (4) joint candidates across the commands (see joint.fe): equal words together, the same column together, redistribution
+        Option::None
+    }
+    // joint candidates across the commands (see joint.fe): equal words together, the same column together; tried by `check` after the
+    // single-command candidates reach a fixed point
+    fn joint_step(self, _ i: u256) -> Option<Self> {
+        let rest = i
         if self.len == 0 { return Option::None }
         let xw = self.words()
         let n = xw.len()

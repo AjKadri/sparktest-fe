@@ -52,7 +52,7 @@ fn deposit_then_withdraw_never_profits(_ p: (u32, u32, u32)) -> bool {
 fn sparktest_finds_the_bug_and_shrinks_it() uses (evm: mut Evm) {
     match check(Config::new(fixed_seed(2)), deposit_then_withdraw_never_profits) {
         Outcome::Pass { cases: _ } => { assert!(false) }
-        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _ } => {
+        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _, early: _ } => {
             // the smallest vault where rounding up pays the depositor: 3 assets, 1 share, deposit 1
             assert!(shrunk.0 == 3 && shrunk.1 == 1 && shrunk.2 == 1)
         }
@@ -112,7 +112,7 @@ input     3 word(s): [3, 1, 1]
 fn replay_from_the_seed_in_the_failure_report() {
     match check(Config::new(25286971856348077807), deposit_then_withdraw_never_profits) {
         Outcome::Pass { cases: _ } => { assert!(false) }
-        Outcome::Fail { original: _, shrunk, case, seed: _, steps } => {
+        Outcome::Fail { original: _, shrunk, case, seed: _, steps, early: _ } => {
             assert!(case == 2 && steps == 178)   // "case 3 (index 2)" and "steps 178" in the report
             assert!(shrunk.0 == 3 && shrunk.1 == 1 && shrunk.2 == 1)
         }

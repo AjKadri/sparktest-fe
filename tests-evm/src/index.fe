@@ -72,7 +72,7 @@ fn index_draws_are_spread_over_the_whole_range() uses (evm: mut Evm) {
 fn index_shrinks_to_the_boundary_of_the_failing_set() uses (evm: mut Evm) {
     match check(Config::new(fixed_seed(904)), fails_below_3) {
         Outcome::Pass { cases: _ } => { assert!(false) }
-        Outcome::Fail { original, shrunk, case: _, seed: _, steps: _ } => {
+        Outcome::Fail { original, shrunk, case: _, seed: _, steps: _, early: _ } => {
             assert!(original.value >= 3)
             assert!(shrunk.value == 3)
         }

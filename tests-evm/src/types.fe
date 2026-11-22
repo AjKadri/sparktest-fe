@@ -8,21 +8,21 @@ use props::Transfer
 fn is_pass<T>(_ o: Outcome<T>) -> bool {
     match o {
         Outcome::Pass { cases: _ } => true
-        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _ } => false
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => false
     }
 }
 
 fn shrunk_of<T: Copy>(_ o: Outcome<T>, _ d: T) -> T {
     match o {
         Outcome::Pass { cases: _ } => d
-        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _ } => shrunk
+        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _, early: _ } => shrunk
     }
 }
 
 fn case_of<T>(_ o: Outcome<T>) -> u256 {
     match o {
         Outcome::Pass { cases } => cases
-        Outcome::Fail { original: _, shrunk: _, case, seed: _, steps: _ } => case
+        Outcome::Fail { original: _, shrunk: _, case, seed: _, steps: _, early: _ } => case
     }
 }
 

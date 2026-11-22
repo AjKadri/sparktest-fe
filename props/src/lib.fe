@@ -180,7 +180,7 @@ pub fn scenario_digest(_ seed: u256) -> Summary {
     let b = digest_of<(u8, u16)>(mut rng, 1000)
     let c = digest_of<Address>(mut rng, 1000)
     let d = digest_of<[u64; 4]>(mut rng, 1000)
-    Summary { failed: 0, case: 4000, steps: 0, original: [a, b, c, d], shrunk: [0, 0, 0, 0] }
+    Summary { failed: 0, case: 4000, steps: 0, original: [a, b, c, d], shrunk: [0, 0, 0, 0], early: 0 }
 }
 
 // ---- demo scenarios: the same numeric seeds the web demo uses (256 cases, 1000 max shrinks) ----

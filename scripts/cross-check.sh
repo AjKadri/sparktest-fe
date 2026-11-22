@@ -12,5 +12,5 @@ trap 'rm -rf "$tmp"' EXIT
 
 echo "--- sonatina ($(grep -c 'failed=' "$tmp/evm.txt") scenarios)"; cat "$tmp/evm.txt"
 echo "--- native ($(grep -c 'failed=' "$tmp/native.txt") scenarios)"; cat "$tmp/native.txt"
-if [ "$(grep -c 'failed=' "$tmp/evm.txt")" != 7 ]; then echo "cross-check: expected 7 EVM scenarios"; exit 1; fi
-if diff "$tmp/evm.txt" "$tmp/native.txt" > "$tmp/diff.txt"; then echo "CROSS-CHECK: IDENTICAL (7/7)"; else echo "CROSS-CHECK: MISMATCH"; cat "$tmp/diff.txt"; exit 1; fi
+if [ "$(grep -c 'failed=' "$tmp/evm.txt")" != 11 ]; then echo "cross-check: expected 11 EVM scenarios"; exit 1; fi
+if diff "$tmp/evm.txt" "$tmp/native.txt" > "$tmp/diff.txt"; then echo "CROSS-CHECK: IDENTICAL (11/11)"; else echo "CROSS-CHECK: MISMATCH"; cat "$tmp/diff.txt"; exit 1; fi

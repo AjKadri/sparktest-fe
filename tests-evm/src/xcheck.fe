@@ -26,4 +26,8 @@ fn xcheck_emit_all_scenarios() uses (evm: mut Evm) {
     emit_summary(5, props::scenario_transfer_amount(1005 + z))
     emit_summary(6, props::scenario_late_fail(2004 + z))   // fails late: case 148
     emit_summary(7, props::scenario_digest(2100 + z))      // passing: digest of 4 x 1000 generated values
+    emit_summary(8, props::scenario_demo_capped_mint(props::DEMO_SEED_CAPPED_MINT + z))
+    emit_summary(9, props::scenario_demo_buggy_sort(props::DEMO_SEED_BUGGY_SORT + z))
+    emit_summary(10, props::scenario_demo_pair_sum(props::DEMO_SEED_PAIR_SUM + z))
+    emit_summary(11, props::scenario_demo_saturating_add(props::DEMO_SEED_SATURATING_ADD + z))
 }

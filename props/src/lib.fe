@@ -177,3 +177,14 @@ pub fn scenario_digest(_ seed: u256) -> Summary {
     let d = digest_of<[u64; 4]>(mut rng, 1000)
     Summary { failed: 0, case: 4000, steps: 0, original: [a, b, c, d], shrunk: [0, 0, 0, 0] }
 }
+
+// ---- demo scenarios: the same numeric seeds the web demo uses (256 cases, 1000 max shrinks) ----
+pub const DEMO_SEED_CAPPED_MINT: u256 = 11
+pub const DEMO_SEED_BUGGY_SORT: u256 = 22
+pub const DEMO_SEED_PAIR_SUM: u256 = 33
+pub const DEMO_SEED_SATURATING_ADD: u256 = 44
+
+pub fn scenario_demo_capped_mint(_ seed: u256) -> Summary { summarize(check(Config::new(seed), prop_capped_mint)) }
+pub fn scenario_demo_buggy_sort(_ seed: u256) -> Summary { summarize(check(Config::new(seed), prop_sorted)) }
+pub fn scenario_demo_pair_sum(_ seed: u256) -> Summary { summarize(check(Config::new(seed), prop_pair_sum)) }
+pub fn scenario_demo_saturating_add(_ seed: u256) -> Summary { summarize(check(Config::new(seed), prop_saturating_add)) }

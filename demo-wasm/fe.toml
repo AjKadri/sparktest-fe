@@ -1,0 +1,8 @@
+[ingot]
+name = "demo_wasm"
+version = "0.1.0"
+target = "wasm"
+
+[dependencies]
+sparktest = { path = "../sparktest" }
+props = { path = "../props" }

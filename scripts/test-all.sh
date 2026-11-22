@@ -1,24 +1,28 @@
 #!/usr/bin/env bash
-# Runs every test ingot. Exits non-zero if any fails.
-# To add a target, append a line to SUITES: "<dir> <extra fe test args...>"
+# Runs every part of the suite; exits non-zero if any part fails. Each part prints a header and a PASS/FAIL line.
 set -u
 export PATH="$HOME/.fe/bin:$PATH"
 cd "$(dirname "$0")/.."
 
-SUITES=(
-  "tests-evm"
-  # "tests-native --backend native"   # later
-  # "tests-wasm --backend wasm"       # later
-)
-
 failed=0
-for entry in "${SUITES[@]}"; do
-  read -r dir args <<<"$entry"
-  echo "=== $dir ${args:-}"
-  # shellcheck disable=SC2086
-  if ! (cd "$dir" && fe test ${args:-}); then
-    echo "FAILED: $dir"
-    failed=1
-  fi
-done
+part() { # part <name> <command...>
+  local name="$1"; shift
+  echo "=== $name"
+  if "$@"; then echo "--- PART OK: $name"; else echo "--- PART FAILED: $name"; failed=1; fi
+}
+
+fe_suite()  { (cd "$1" && shift && fe test "$@"); }
+freshness() {
+  python3 scripts/gen_widths.py && python3 scripts/gen_composite.py && python3 scripts/gen_checked.py \
+    && git diff --exit-code -- qc/src/widths.fe qc/src/composite.fe qc/src/checked.fe \
+    && echo "generated files are up to date"
+}
+
+part "tests-evm (sonatina)"      fe_suite tests-evm
+part "tests-native (native)"     fe_suite tests-native
+part "decode-revert (node)"      node tools/decode-revert/test.mjs
+part "cross-check (sonatina vs native)" ./scripts/cross-check.sh
+part "freshness (generated files)" freshness
+
+if [ "$failed" -eq 0 ]; then echo "ALL PARTS PASSED"; else echo "SOME PARTS FAILED"; fi
 exit $failed

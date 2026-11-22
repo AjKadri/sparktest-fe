@@ -93,12 +93,14 @@ function valsHtml(words, prev, cls = '') {
 
 function fmtMs(ms) { return ms < 0.01 ? '<0.01 ms' : `${ms.toFixed(ms < 1 ? 2 : 1)} ms`; }
 
-// runs `f` once to warm up, then once more under performance.now(); returns [result, milliseconds]
+// Browsers coarsen performance.now(), and one run takes well under a millisecond, so: warm up once, time REPS
+// identical runs together and report the mean per run. Returns [result, milliseconds per run].
+const REPS = 200;
 function timed(f) {
-  f();
+  let r = f();
   const t0 = performance.now();
-  const r = f();
-  return [r, performance.now() - t0];
+  for (let i = 0; i < REPS; i++) r = f();
+  return [r, (performance.now() - t0) / REPS];
 }
 
 async function start(s, isReplay = false) {
@@ -111,7 +113,7 @@ async function start(s, isReplay = false) {
 
   if (r.passed) {
     stage.innerHTML = `<div class="block"><h3>Result</h3><p class="big"><span class="verdict good">Held</span></p>
-      <p class="counter">${r.cases} cases in ${fmtMs(ms)}<small>measured in your browser, in WebAssembly</small></p>
+      <p class="counter">${r.cases} cases in ${fmtMs(ms)}<small>mean of ${REPS} runs, measured in your browser, in WebAssembly</small></p>
       <p class="note">No counterexample in ${r.cases} cases (edge values such as 0, 1, max and powers of two are generated on purpose). Run again with a random seed to try another sequence.</p></div>`;
     lastResult = r;
     setBusy(false);
@@ -123,7 +125,7 @@ async function start(s, isReplay = false) {
   stage.innerHTML = '';
   const b1 = el('div', 'block');
   b1.innerHTML = `<h3>First counterexample</h3><p class="big"><span class="verdict bad">Property failed</span> on case ${r.caseNumber}</p>${valsHtml(first, null)}
-    <p class="note">Search and shrink together took ${fmtMs(ms)} (measured in your browser, in WebAssembly).</p>`;
+    <p class="note">Search and shrink together took ${fmtMs(ms)} (mean of ${REPS} runs, measured in your browser, in WebAssembly).</p>`;
   stage.appendChild(b1);
 
   const b2 = el('div', 'block');

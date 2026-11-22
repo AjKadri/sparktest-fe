@@ -28,3 +28,8 @@ cd web && python3 -m http.server 8765        # then open http://localhost:8765/ 
 ```
 
 The page loads `props.json` and `demo_wasm.wasm` with relative paths, so it also works under a sub-path such as `https://<user>.github.io/<repo>/`. `./scripts/record-evm.sh` re-records the sonatina runs shown in the page's "Recorded on EVM" panel (`--check` verifies them without writing). `node web/sparktest.test.mjs` checks that the wasm results equal the recorded sonatina (EVM) and native results for the same seeds.
+
+## License
+
+Licensed under either of Apache License 2.0 or MIT license at your option.
+See [LICENSE-APACHE](LICENSE-APACHE) and [LICENSE-MIT](LICENSE-MIT).

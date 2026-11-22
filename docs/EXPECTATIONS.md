@@ -280,3 +280,22 @@ it returns `failed == 1`, `early == 1`, a shrunk input that still fails the prop
 
 ### Step 4 prediction
 Only the runs listed in Step 1 change gas; every other proof row keeps its minimum and moves by under 1% in gas (the per-evaluation stop poll costs a few gas, only in suites that switch to `check_gas`).
+
+### L7d results (amendment rows, 2026-11-22; measured after the pre-registration commit e8b1ed4)
+Rows above are not edited. Gas is the `gas` column of docs/PROOF.md.
+
+| case | before joint shrinking (L7b) | L7c | expected after L7d | found after L7d | as expected |
+|---|---|---|---|---|---|
+| `bank_buggy` seed 8002 | 17,737,382 | 369,471,853 | at most 60,000,000 | **18,617,705** (1.05x of before joint shrinking); same minimum (accounts 0, case 137, 49 steps) | yes |
+| `fee_buggy` seed 5003 | 17,614,067 | 116,137,403 | within +-15% of 116M | **114,304,157** (-1.6%; still 6.5x of before joint shrinking); same minimum (1844674407370956, 10000), same 187 steps | yes |
+| ERC20 raw `u8` P1 | 66,384,537 | 159,818,273 | within +-15% of 160M | **159,523,204** (-0.2%; 2.4x of before joint shrinking); same minimum (1, 1, 1), same 40 steps | yes |
+| ERC20 stateful planted bug (128 cases) | 99,283,665 (64 cases) | 563,967,611 | at most 300,000,000 | **75,992,616**; same 2-call minimum, same case 102 | yes |
+| every minimum and every step count in docs/PROOF.md | | | unchanged | unchanged (only the gas column and, for runs that shrink, the calls accepted / attempted counters differ, because fewer evaluations run) | yes |
+| other proof rows | | | under 1% gas change | passing rows moved by less than 0.1% (a few hundred gas), except `pack_fixed` +6.5% (260,998 to 277,932) and `std_sort_heap` +0.2% | **partly** (pack_fixed is above the predicted 1%; not investigated) |
+| cross-check | | | IDENTICAL | IDENTICAL (11/11) | yes |
+
+Why the flat cases did not get cheaper: the two flat ones (`fee_buggy`, ERC20 raw P1) already explored the component candidates first; their extra cost is the accepted joint steps themselves (187 and 40 steps), which stay.
+The nested ones (`Seq` of tuples) got cheap because joint candidates were enumerated at every nesting level, and `count_candidates` walked them again on every call.
+
+Step 2/3: `check_gas` (margin 50,000,000). The test `expensive_shrink_stops_early_instead_of_running_out_of_gas` (a property costing about 20M gas per evaluation) passes with `early = 1`, a shrunk input that still fails (235, from 8446975623834719884; the minimum is 1), and 43,456,686 gas left (below the margin, within one evaluation of it as predicted).
+The control, plain `check` on the same property and seed: `Test halted: OutOfGas(Basic) (gas: 1000000000)`.

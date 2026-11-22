@@ -4,7 +4,15 @@ use std::abi::sol
 use std::evm::{Address, Call, Ctx}
 use std::evm::erc20::{try_transfer, try_transfer_from, try_approve}
 
+// the token's mint(address,uint256), called by an actor as ITSELF (to test whether a non-owner can mint)
+pub msg MintMsg {
+    #[selector = sol("mint(address,uint256)")]
+    Mint { to: Address, amount: u256 } -> bool,
+}
+
 pub msg ActorMsg {
+    #[selector = sol("mint(address,address,uint256)")]
+    Mint { token: Address, to: Address, amount: u256 } -> u256,
     #[selector = sol("transfer(address,address,uint256)")]
     Transfer { token: Address, to: Address, amount: u256 } -> u256,
     #[selector = sol("approve(address,address,uint256)")]
@@ -22,6 +30,10 @@ pub contract Actor {
         }
         Approve { token, spender, amount } -> u256 uses (ctx: Ctx, call: mut Call) {
             if try_approve(token, spender, amount).is_ok() { 1 } else { 0 }
+        }
+        Mint { token, to, amount } -> u256 uses (ctx: Ctx, call: mut Call) {
+            let out = call.try_call(addr: token, gas: 1000000, value: Wei::zero(), message: MintMsg::Mint { to, amount })
+            if out.success() { 1 } else { 0 }
         }
         TransferFrom { token, from, to, amount } -> u256 uses (ctx: Ctx, call: mut Call) {
             if try_transfer_from(token, owner: from, receiver: to, amount).is_ok() { 1 } else { 0 }

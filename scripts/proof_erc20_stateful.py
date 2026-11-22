@@ -12,6 +12,15 @@ def cmds(w):
         else: out.append(f'Mint(to {a}, {amt})')
     return out
 
+def cnt(r):
+    return f"{r['accepted']} / {r['attempted']}" if 'accepted' in r else 'n/a'
+
+def kinds(r):
+    return ', '.join(str(x) for x in r['kinds']) if 'kinds' in r else 'n/a'
+
+def vac(r):
+    return 'no' if r.get('vacuous') == 0 else (f"VACUOUS (reason {r['vacuous']})" if 'vacuous' in r else 'n/a')
+
 def rows(run, problems):
     out = run(['fe', 'test', '--filter', 'stateful_', '--show-logs'], cwd='tests-erc20').stdout
     res = proof_stateful.parse_evm(out)
@@ -21,7 +30,7 @@ def rows(run, problems):
          'with `Index<4>` actors and an `Index<9>` amount (0..8): Transfer(a to b), Approve(owner a, spender b), TransferFrom(spender a, owner b, to c), Mint(to a). 64 cases per run.',
          'History: the first encoding packed the amount and the third actor into one `u32` (`% 9`, `/ 16 % 4`). It found the same 2-call shape (amounts 4 and 1 after the modulo) but left the raw packed numbers',
          'unshrunk (for example 407994619, which is 4 mod 9), so the amount became an `Index<9>` and the third actor an `Index<4>`, which shrink to real values.', '',
-         '| scenario | expected | found (shrunk) sequence | length | as expected | case | shrink steps | gas | backend | rerun |', '|---|---|---|---|---|---|---|---|---|---|']
+         '| scenario | expected | found (shrunk) sequence | length | as expected | case | shrink steps | calls accepted / attempted | commands executed (Transfer, Approve, TransferFrom, Mint) | vacuous? | gas | backend | rerun |', '|---|---|---|---|---|---|---|---|---|---|---|---|---|']
     for rid, title, expect in ((601, 'unchanged fixture', 'passes 64 cases'),
                                (602, 'examples/erc20-stateful-bug (PLANTED: after a transfer takes a holder to 0, the next transfer into it credits twice)',
                                 'length 2: Transfer(a -> b, 4), Transfer(c -> a, 1), b != a, c != a')):
@@ -29,9 +38,9 @@ def rows(run, problems):
         if r is None:
             problems.append(f'erc20 stateful {rid}: no result'); continue
         if rid == 601:
-            ok = 'yes' if r['failed'] == 0 and r['case'] == 64 else 'NO'
-            if ok == 'NO': problems.append(f'unchanged ERC20 failed the stateful model check: {r}')
-            s.append(f"| {title} | {expect} | passed {r['case']} cases | - | {ok} | - | - | {r['gas']:,} | sonatina | `cd tests-erc20 && fe test --filter stateful_orig --show-logs` |")
+            ok = 'yes' if r['failed'] == 0 and r['case'] == 64 and r.get('vacuous') == 0 else 'NO'
+            if ok == 'NO': problems.append(f'unchanged ERC20 failed the stateful model check (or was vacuous): {r}')
+            s.append(f"| {title} | {expect} | passed {r['case']} cases | - | {ok} | - | - | {cnt(r)} | {kinds(r)} | {vac(r)} | {r['gas']:,} | sonatina | `cd tests-erc20 && fe test --filter stateful_orig --show-logs` |")
         else:
             if r['failed'] != 1:
                 problems.append(f'planted ERC20 stateful bug not found: {r}'); continue
@@ -42,6 +51,6 @@ def rows(run, problems):
             ok = 'yes: length 2, amounts exactly 4 and 1' + (', all indices minimal (a = 0)' if c[0][1] == 0 else f', a = {c[0][1]} (local minimum)') if shape else 'NO'
             if not shape:
                 problems.append(f'planted ERC20 stateful bug: pre-registered shape not met: {w}')
-            s.append(f"| {title} | {expect} | {' ; '.join(cmds(w))} | {w[0]} | {ok} | {r['case'] + 1} | {r['steps']} | {r['gas']:,} | sonatina | `cd tests-erc20 && fe test --filter stateful_bug --show-logs` |")
+            s.append(f"| {title} | {expect} | {' ; '.join(cmds(w))} | {w[0]} | {ok} | {r['case'] + 1} | {r['steps']} | {cnt(r)} | {kinds(r)} | {vac(r)} | {r['gas']:,} | sonatina | `cd tests-erc20 && fe test --filter stateful_bug --show-logs` |")
     s.append('')
     return s

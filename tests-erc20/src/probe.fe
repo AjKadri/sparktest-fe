@@ -1,7 +1,7 @@
 // Probe: does `try_call` give the return data back, so a view like balanceOf can be read without reverting?
 use std::evm::{Evm, Address}
 use erc20_example::CoolCoin
-use ingot::client::Tok
+use erc20_actors::client::Tok
 
 #[test]
 fn probe_try_call_returns_view_data() uses (evm: mut Evm) {

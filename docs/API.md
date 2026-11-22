@@ -173,6 +173,60 @@ let x: u8 = 3
 assert!(count_candidates(x) == 3)   // 0, 3 - 1 = 2, then x - 1 = 2
 ```
 
+## Vacuity guards (contract and stateful properties)
+
+A run that passes proves nothing if the property never exercised its premise: a conditional property whose condition never held, or a command kind that was never generated. A property that makes calls records what it did in a `Tally` (an effect, so the runner forwards it like any other); the caller then asks whether a passing run was vacuous. A run that fails is a failure whatever the counts.
+
+### `Tally { attempted, accepted, kinds }`
+Counters: calls attempted, calls that succeeded, and commands executed per kind (0 to 7). A property declares `uses (tally: mut Tally)` and calls `tally.call(ok)` after each call it makes and `tally.command(kind)` for each command it executes. The caller provides the tally with `with (mut tally) { check(...) }`.
+```fe-item
+fn counted_property(_ x: u8) -> bool uses (tally: mut Tally) {
+    tally.call(x > 100)
+    tally.command(1)
+    true
+}
+```
+```fe
+var tally = Tally::new()
+let outcome = with (mut tally) { check(Config::new(fixed_seed(1)), counted_property) }
+match outcome {
+    Outcome::Pass { cases } => { assert!(cases == 256) }
+    Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _ } => { assert!(false) }
+}
+assert!(tally.attempted == 256 && tally.accepted > 0 && tally.accepted < 256)
+assert!(tally.kinds[1] == 256 && tally.kinds[0] == 0)
+```
+
+### `vacuity(tally, need_accepted, kinds) -> u256`
+Returns 0 for a run that exercised its premise, otherwise the reason: `VACUOUS_NO_CALLS` (1: nothing attempted), `VACUOUS_NONE_SUCCEEDED` (2: calls attempted but none succeeded, checked only when `need_accepted`; properties about calls that must fail pass `false`), or `VACUOUS_KIND_BASE + k` (3 + k: no command of kind `k` was executed, checked for kinds `0..kinds`).
+```fe
+var t = Tally::new()
+assert!(vacuity(t, false, 0) == VACUOUS_NO_CALLS)
+t.call(false)
+assert!(vacuity(t, false, 0) == 0)
+assert!(vacuity(t, true, 0) == VACUOUS_NONE_SUCCEEDED)
+t.call(true)
+assert!(vacuity(t, true, 0) == 0)
+assert!(vacuity(t, true, 2) == VACUOUS_KIND_BASE)       // no command of kind 0 was executed
+t.command(0)
+assert!(vacuity(t, true, 2) == VACUOUS_KIND_BASE + 1)   // kind 1 still missing
+t.command(1)
+assert!(vacuity(t, true, 2) == 0)
+```
+
+### `Verdict` and `guard(outcome, tally, need_accepted, kinds) -> Verdict`
+Applies `vacuity` to an `Outcome`: `Failed` for a failing run, `Held` for a passing run that exercised its premise, `Vacuous { reason }` for a passing run that did not.
+```fe
+var t = Tally::new()
+t.call(false)
+let o: Outcome<u8> = Outcome::Pass { cases: 10 }
+match guard(o, t, true, 0) {
+    Verdict::Vacuous { reason } => { assert!(reason == VACUOUS_NONE_SUCCEEDED) }
+    Verdict::Held => { assert!(false) }
+    Verdict::Failed => { assert!(false) }
+}
+```
+
 ## Writing your own type
 
 A struct becomes testable by delegating `Arbitrary`, `Shrink` and `Encode` to a tuple of its fields:

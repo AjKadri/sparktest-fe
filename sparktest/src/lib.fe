@@ -4,6 +4,7 @@ use core::ptr::MemVec
 pub use checked::Checked
 pub use index::Index
 pub use seq::Seq
+pub use tally::{Tally, Verdict, guard, vacuity, VACUOUS_NO_CALLS, VACUOUS_NONE_SUCCEEDED, VACUOUS_KIND_BASE}
 pub const MAX: u256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 const MASK64: u256 = 0xffffffffffffffff
 

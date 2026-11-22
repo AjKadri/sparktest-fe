@@ -42,3 +42,17 @@ pub fn actor_transfer_from(_ actor: Address, _ token: Address, _ from: Address, 
 pub fn mint(_ token: Address, _ to: Address, _ amount: u256) -> bool uses (evm: mut Evm) {
     evm.call(addr: token, gas: 1000000, value: Wei::zero(), message: TokMint::Mint { to, amount })
 }
+
+// the test contract itself calls transfer (used by the Fe Guide setup, where the test contract is the owner)
+pub msg TokTransfer {
+    #[selector = sol("transfer(address,uint256)")]
+    Transfer { to: Address, amount: u256 } -> bool,
+}
+pub fn direct_transfer(_ token: Address, _ to: Address, _ amount: u256) -> bool uses (evm: mut Evm) {
+    evm.call(addr: token, gas: 1000000, value: Wei::zero(), message: TokTransfer::Transfer { to, amount })
+}
+
+// an actor (not the owner) tries to mint: 1 = the token accepted it
+pub fn actor_mint(_ actor: Address, _ token: Address, _ to: Address, _ amount: u256) -> u256 uses (evm: mut Evm) {
+    evm.call(addr: actor, gas: 5000000, value: Wei::zero(), message: ActorMsg::Mint { token, to, amount })
+}

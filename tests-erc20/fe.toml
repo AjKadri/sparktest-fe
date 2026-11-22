@@ -5,6 +5,7 @@ version = "0.1.0"
 [dependencies]
 sparktest = { path = "../sparktest" }
 sparktest_evm = { path = "../sparktest-evm" }
+erc20_actors = { path = "../erc20-actors" }
 erc20_example = { path = "../examples/erc20" }
 erc20_buggy = { path = "../examples/erc20-buggy" }
 erc20_stateful_bug = { path = "../examples/erc20-stateful-bug" }

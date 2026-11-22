@@ -1,0 +1,63 @@
+// Tally: counters that make contract and stateful properties unable to pass vacuously.
+// A property that makes calls declares `uses (tally: mut Tally)` and records what it did; the caller provides a Tally with `with (mut tally) { .. }`
+// (check forwards the property's effects: `uses P::E`), then asks `guard` whether a PASSING run actually exercised anything.
+use ingot::Outcome
+
+pub struct Tally {
+    pub attempted: u256,
+    pub accepted: u256,
+    pub kinds: [u256; 8],
+}
+
+impl Tally {
+    pub fn new() -> Self {
+        Tally { attempted: 0, accepted: 0, kinds: [0, 0, 0, 0, 0, 0, 0, 0] }
+    }
+
+    // a call was attempted; `ok` = it succeeded
+    pub fn call(mut self, _ ok: bool) {
+        self.attempted += 1
+        if ok { self.accepted += 1 }
+    }
+
+    // a command of this kind (0..7) was executed
+    pub fn command(mut self, _ kind: usize) {
+        self.kinds[kind] += 1
+    }
+}
+
+// ---- vacuity guards ----
+// A run that PASSES proves nothing if the property never exercised its premise (a conditional property whose condition never held,
+// a command kind that was never generated). `vacuity` returns 0 for a non-vacuous run, else the reason:
+pub const VACUOUS_NO_CALLS: u256 = 1        // no call was attempted at all
+pub const VACUOUS_NONE_SUCCEEDED: u256 = 2  // calls were attempted, but none succeeded where success is expected (need_accepted)
+pub const VACUOUS_KIND_BASE: u256 = 3       // 3 + k: no command of kind k was executed across the whole run
+
+pub fn vacuity(_ t: Tally, _ need_accepted: bool, _ kinds: usize) -> u256 {
+    if t.attempted == 0 { return VACUOUS_NO_CALLS }
+    if need_accepted && t.accepted == 0 { return VACUOUS_NONE_SUCCEEDED }
+    var k: usize = 0
+    while k < kinds {
+        if t.kinds[k] == 0 { return VACUOUS_KIND_BASE + (k as u256) }
+        k += 1
+    }
+    0
+}
+
+// What a run means once the guards are applied: `Failed` (a counterexample, whatever the counts), `Held` (passed and exercised its premise),
+// or `Vacuous { reason }` (passed, but only vacuously; reason as in `vacuity`).
+pub enum Verdict {
+    Held,
+    Failed,
+    Vacuous { pub reason: u256 },
+}
+
+pub fn guard<T>(_ o: Outcome<T>, _ t: Tally, _ need_accepted: bool, _ kinds: usize) -> Verdict {
+    match o {
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _ } => Verdict::Failed
+        Outcome::Pass { cases: _ } => {
+            let r = vacuity(t, need_accepted, kinds)
+            if r == 0 { Verdict::Held } else { Verdict::Vacuous { reason: r } }
+        }
+    }
+}

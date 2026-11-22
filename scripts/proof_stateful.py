@@ -34,10 +34,14 @@ def parse_evm(out):
         w = [int(h[i:i + 64], 16) for i in range(0, len(h), 64)]
         if len(w) < 7:
             continue
+        head = w[4] // 32    # the first dynamic array starts right after the head words
         def arr(off):
             i = off // 32
             return w[i + 1:i + 1 + w[i]]
-        res[w[0]] = dict(failed=w[1], case=w[2], steps=w[3], original=arr(w[4]), shrunk=arr(w[5]), gas=w[6])
+        r = dict(failed=w[1], case=w[2], steps=w[3], original=arr(w[4]), shrunk=arr(w[5]), gas=w[6])
+        if head >= 14:   # counters added in L7a: attempted, accepted, vacuous, commands executed per kind 0..3
+            r.update(attempted=w[7], accepted=w[8], vacuous=w[9], kinds=w[10:14])
+        res[w[0]] = r
     return res
 
 def parse_native(lines):

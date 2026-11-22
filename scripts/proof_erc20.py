@@ -20,8 +20,10 @@ def section(run, problems):
         if m:
             h = m.group(1)[2:]
             w = [int(h[i:i + 64], 16) for i in range(0, len(h), 64)]
-            if len(w) == 13:
+            if len(w) >= 13:
                 res[w[0]] = dict(failed=w[1], case=w[2], steps=w[3], original=w[4:8], shrunk=w[8:12], gas=w[12])
+                if len(w) >= 16:   # counters added in L7a
+                    res[w[0]].update(attempted=w[13], accepted=w[14], vacuous=w[15])
     s = ['## ERC20 through contract calls (sonatina only)', '',
          'Contract: the ERC20 test fixture from the Fe compiler repo (`crates/fe/tests/fixtures/fe_test/erc20.fe` at e6e6342), vendored unchanged in `examples/erc20` (Apache-2.0).',
          'It is a compiler test fixture, not a documented or audited token example. Observations about it (not bugs): `transfer` and `transferFrom` return `false` instead of reverting',
@@ -44,8 +46,8 @@ def section(run, problems):
         (f"AMENDMENT {h1['date']} (commit {h1['commit']}): planted bug, actors picked with `Index<4>`", 400, True, 'Index<4>'),
     )
     for title, base, buggy, mode in runs:
-        s += [f'### {title}', '', '| # | property | input | expected | found | as expected | cases | case | shrink steps | gas | backend | rerun |',
-              '|---|---|---|---|---|---|---|---|---|---|---|---|']
+        s += [f'### {title}', '', '| # | property | input | expected | found | as expected | cases | case | shrink steps | calls accepted / attempted | vacuous? | gas | backend | rerun |',
+              '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|']
         for pid, (text, inp) in PROPS.items():
             r = res.get(base + pid)
             if r is None:
@@ -74,11 +76,23 @@ def section(run, problems):
             else:
                 expected = 'passes'
                 found = f"passed {r['case']} cases" if r['failed'] == 0 else f"FAILED, shrunk {r['shrunk']}"
-                ok = 'yes' if r['failed'] == 0 and r['case'] == 64 else 'NO'
+                ok = 'yes' if r['failed'] == 0 and r['case'] == 64 and r['vacuous'] == 0 else 'NO'
                 if ok == 'NO':
                     problems.append(f"erc20 base {base} P{pid} expected to pass but: {r}")
             case = '-' if r['failed'] == 0 else str(r['case'] + 1)
             steps = '-' if r['failed'] == 0 else str(r['steps'])
-            s.append(f"| P{pid} | {text} | {inp} | {expected} | {found} | {ok} | 64 | {case} | {steps} | {r['gas']:,} | sonatina | `{CMD}` |")
+            s.append(f"| P{pid} | {text} | {inp} | {expected} | {found} | {ok} | 64 | {case} | {steps} | {r['accepted']} / {r['attempted']} | {'no' if r['vacuous'] == 0 else 'VACUOUS (reason ' + str(r['vacuous']) + ')'} | {r['gas']:,} | sonatina | `{CMD}` |")
         s.append('')
+    d = res.get(701)
+    if d is None:
+        problems.append('vacuity demo: no result')
+    else:
+        if not (d['failed'] == 0 and d['attempted'] == 64 and d['accepted'] == 0 and d['vacuous'] == 2):
+            problems.append(f'vacuity demo did not behave as expected: {d}')
+        s += ['### Vacuity guard demo (sonatina)', '',
+              'A conditional property, "if the transfer succeeds it moves exactly the amount", written so that every amount exceeds the balance. The transfer never succeeds, so the property can never fail.', '',
+              '| run | result | calls accepted / attempted | verdict |', '|---|---|---|---|',
+              f"| unguarded `check` | **Pass** ({d['case']} cases) | not looked at | passes silently |",
+              f"| with the guard (`vacuity` / `guard`) | passed, but vacuously | {d['accepted']} / {d['attempted']} | **VACUOUS, reason 2: no call succeeded** |", '',
+              'Reasons: 1 = no call attempted, 2 = calls attempted but none succeeded where success is expected, 3 + k = no command of kind k executed across the whole run. Rerun: `cd tests-erc20 && fe test --filter vacuous --show-logs`.', '']
     return s

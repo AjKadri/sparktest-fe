@@ -1,0 +1,2 @@
+// Actor proxy contracts and typed client helpers for the ERC20 suites (shared by tests-erc20 and tests-coolcoin).
+pub use actor::Actor

@@ -1,0 +1,56 @@
+// A small staking-rewards contract, written for the Sparktest proof (NOT a Fe example, NOT audited).
+// `stake(amount)` records the caller's stake; `claim()` returns the reward = stake * RATE / SCALE (RATE 1000, SCALE 10000: 10%).
+//
+// RewardsBuggy has a PLANTED BUG: `stake * RATE` is computed in u64 and overflows (checked arithmetic panics, Panic(0x11)) as soon as
+// stake * 1000 >= 2^64, i.e. for every stake >= 18446744073709552. RewardsFixed divides first and splits the multiply.
+pub msg RewardsMsg {
+    #[selector = sol("stake(uint64)")]
+    Stake { amount: u64 } -> bool,
+    #[selector = sol("claim()")]
+    Claim -> u64,
+}
+
+struct RewardsStore {
+    stakes: StorageMap<Address, u64>,
+}
+
+const RATE: u64 = 1000
+const SCALE: u64 = 10000
+
+pub contract RewardsBuggy uses (ctx: Ctx) {
+    mut store: RewardsStore
+
+    init() {}
+
+    recv RewardsMsg {
+        Stake { amount } -> bool uses (mut store, ctx) {
+            store.stakes.set(key: ctx.caller(), value: amount)
+            return true
+        }
+
+        Claim -> u64 uses (store, ctx) {
+            let stake = store.stakes.get(key: ctx.caller())
+            // BUG: stake * RATE overflows u64 for large stakes (panics) before the division brings it back down
+            return stake * RATE / SCALE
+        }
+    }
+}
+
+pub contract RewardsFixed uses (ctx: Ctx) {
+    mut store: RewardsStore
+
+    init() {}
+
+    recv RewardsMsg {
+        Stake { amount } -> bool uses (mut store, ctx) {
+            store.stakes.set(key: ctx.caller(), value: amount)
+            return true
+        }
+
+        Claim -> u64 uses (store, ctx) {
+            let stake = store.stakes.get(key: ctx.caller())
+            // divide first, then multiply the remainder: never exceeds stake * RATE / SCALE <= stake
+            return stake / SCALE * RATE + (stake % SCALE) * RATE / SCALE
+        }
+    }
+}

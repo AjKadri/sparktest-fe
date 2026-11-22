@@ -1,0 +1,8 @@
+[ingot]
+name = "tests_rewards"
+version = "0.1.0"
+
+[dependencies]
+sparktest = { path = "../sparktest" }
+sparktest_evm = { path = "../sparktest-evm" }
+rewards_example = { path = "../examples/rewards" }

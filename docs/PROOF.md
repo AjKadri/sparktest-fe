@@ -104,3 +104,16 @@ The contract returns `false` instead of reverting on insufficient balance/allowa
 | P5 | transferFrom(amount > allowance) does not succeed | (Index<4> owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 22,392,264 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
 | P6 | balances of the 4 actors always sum to totalSupply | (Index<4> sender, Index<4> receiver, amount) | fails; minimum (0, 0, 1) (honest prediction: (a, a, 1)) | (sender=0, receiver=0, amount=1) | yes: exactly (0, 0, 1) | 64 | 1 | 16 | 11,593,937 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
 
+
+## A contract that really panics: `examples/rewards` (2026-11-22, commit pending)
+
+A small staking-rewards contract written for this proof (not a Fe example): `claim` returns `stake * 1000 / 10000` and computes `stake * 1000` in `u64`.
+The planted overflow (Panic 0x11) starts at stake 18446744073709552 (`18446744073709552 * 1000 >= 2^64`). Property: "stake, then claim, succeeds and returns stake / 10 for every stake <= 2^63".
+The same property is written twice and run on sonatina; the difference is the call API.
+
+| how the property calls the contract | what happens when the contract panics | shrunk stake | seed | case | shrink steps | pre-registered minimum | as expected | gas | rerun |
+|---|---|---|---|---|---|---|---|---|---|
+| `evm.call` (direct) | the callee's Panic(0x11) bubbles up and the **whole test reverts**: no Outcome, no shrinking, no seed. Asserted by `#[test(should_revert, panic = 0x11)]` `rewards_buggy_direct_call_reverts_the_whole_test`; the same effect for a pure overflow is `probe_overflow_in_property_reverts_whole_run` in `tests-evm/src/lib.fe` | none | none | none | none | - | yes (reverts with Panic 0x11) | - | `cd tests-rewards && fe test --filter direct` |
+| `evm.try_call` | the failed call is a value; the property returns false; Sparktest reports and shrinks it | 18446744073709552 | 7001 | 2 | 32 | 18446744073709552 | yes: exact | 71,798,499 | `cd tests-rewards && fe test --filter buggy_through --show-logs` |
+| `evm.try_call`, RewardsFixed (divides first) | no panic | passes 128 cases | 7002 | - | - | passes | yes | 5,911,231 | `cd tests-rewards && fe test --filter fixed --show-logs` |
+

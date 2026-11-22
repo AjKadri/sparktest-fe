@@ -102,6 +102,8 @@ try:
     sys.path.insert(0, os.path.join(ROOT, 'scripts'))
     import proof_erc20  # scripts/proof_erc20.py
     sections.append(proof_erc20.section(run, problems))
+    import proof_rewards
+    sections.append(proof_rewards.section(run, problems))
 except ImportError:
     pass
 

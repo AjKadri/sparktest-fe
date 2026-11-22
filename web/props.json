@@ -1,10 +1,4 @@
 {
-  "generated": {
-    "commit": "137b5c8",
-    "dirty": false,
-    "date": "2026-11-22 13:51 UTC",
-    "fe": "fe 26.7.0 (e6e6342)"
-  },
   "wasm": {
     "file": "demo_wasm.wasm",
     "bytes": 32010,
@@ -28,22 +22,10 @@
       "seed": 11,
       "cases": 256,
       "source": "// A token with a supply cap. mint() must never let the supply exceed CAP.\npub const CAP: u64 = 1000\n\n// BUG: the cap is checked against the supply BEFORE minting (`>=`), not against the supply AFTER\n// minting (`new_supply > CAP`), so the last mint can overshoot the cap.\npub fn mint(_ supply: u64, _ amount: u64) -> u64 {\n    if supply >= CAP { return supply }\n    supply + amount\n}\n\n// Property: starting from any supply within the cap, minting any amount never exceeds the cap.\npub fn prop_capped_mint(_ p: (u32, u32)) -> bool {\n    let supply = p.0 as u64\n    if supply > CAP { return true }\n    mint(supply, p.1 as u64) <= CAP\n}\n",
-      "evm": {
-        "seed": 11,
-        "case": 6,
-        "steps": 23,
-        "input": [
-          0,
-          1001
-        ],
-        "revert_data": "0x4c350703000000000000000000000000000000000000000000000000000000000000000b0000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000001700000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003e9",
-        "commit": "137b5c8",
-        "date": "2026-11-22 13:51 UTC",
-        "command": "cd demo-record && fe test --show-logs  # then: node tools/decode-revert/decode.mjs <revert data>"
-      },
+      "bug": "the cap is checked against the supply BEFORE minting (`>=`), not against the supply AFTER minting (`new_supply > CAP`), so the last mint can overshoot the cap.",
       "native": {
         "failed": 1,
-        "case": 6,
+        "case_index": 6,
         "steps": 23,
         "shrunk": [
           0,
@@ -53,7 +35,11 @@
         ]
       },
       "title": "Capped mint",
-      "blurb": "A token must never exceed its supply cap of 1000. The mint helper has an off-by-one in its cap check.",
+      "blurb": "A token must never exceed its supply cap of 1000. The cap is checked against the supply before minting, so the last mint can overshoot.",
+      "bug_keywords": [
+        "before minting",
+        "overshoot"
+      ],
       "property": "supply never exceeds CAP",
       "labels": [
         "supply",
@@ -66,24 +52,10 @@
       "seed": 22,
       "cases": 256,
       "source": "// Sorts four numbers with bubble sort.\n// BUG: sorting 4 elements needs 3 passes, this one stops after 2.\npub fn sort4(_ input: [u32; 4]) -> [u32; 4] {\n    var a = input\n    var pass: usize = 0\n    while pass < 2 {\n        var i: usize = 0\n        while i < 3 {\n            if a[i] > a[i + 1] {\n                let t = a[i]\n                a[i] = a[i + 1]\n                a[i + 1] = t\n            }\n            i += 1\n        }\n        pass += 1\n    }\n    a\n}\n\n// Property: the output is sorted.\npub fn prop_sorted(_ input: [u32; 4]) -> bool {\n    let o = sort4(input)\n    o[0] <= o[1] && o[1] <= o[2] && o[2] <= o[3]\n}\n",
-      "evm": {
-        "seed": 22,
-        "case": 0,
-        "steps": 132,
-        "input": [
-          1,
-          1,
-          1,
-          0
-        ],
-        "revert_data": "0x4c350703000000000000000000000000000000000000000000000000000000000000001600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000084000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000",
-        "commit": "137b5c8",
-        "date": "2026-11-22 13:51 UTC",
-        "command": "cd demo-record && fe test --show-logs  # then: node tools/decode-revert/decode.mjs <revert data>"
-      },
+      "bug": "sorting 4 elements needs 3 passes, this one stops after 2.",
       "native": {
         "failed": 1,
-        "case": 0,
+        "case_index": 0,
         "steps": 132,
         "shrunk": [
           1,
@@ -93,7 +65,10 @@
         ]
       },
       "title": "Buggy sort",
-      "blurb": "Sorts four numbers with bubble sort, but stops one pass too early.",
+      "blurb": "Sorts four numbers with bubble sort, but stops one pass too early: four numbers need three passes and it makes two.",
+      "bug_keywords": [
+        "pass"
+      ],
       "property": "the output is sorted",
       "labels": [
         "a[0]",
@@ -108,22 +83,10 @@
       "seed": 33,
       "cases": 256,
       "source": "// Property: the sum of two numbers is below 10 (false for many inputs; the smallest is a sum of exactly 10).\n// Sums are widened to u64 first so the property itself cannot overflow.\npub fn prop_pair_sum(_ p: (u32, u32)) -> bool {\n    (p.0 as u64) + (p.1 as u64) < 10\n}\n",
-      "evm": {
-        "seed": 33,
-        "case": 0,
-        "steps": 31,
-        "input": [
-          0,
-          10
-        ],
-        "revert_data": "0x4c35070300000000000000000000000000000000000000000000000000000000000000210000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001f000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a",
-        "commit": "137b5c8",
-        "date": "2026-11-22 13:51 UTC",
-        "command": "cd demo-record && fe test --show-logs  # then: node tools/decode-revert/decode.mjs <revert data>"
-      },
+      "bug": "",
       "native": {
         "failed": 1,
-        "case": 0,
+        "case_index": 0,
         "steps": 31,
         "shrunk": [
           0,
@@ -146,16 +109,10 @@
       "seed": 44,
       "cases": 256,
       "source": "// A property that holds: saturating addition never goes below its left operand.\npub fn prop_saturating_add(_ p: (u32, u32)) -> bool {\n    p.0.saturating_add(p.1) >= p.0\n}\n",
-      "evm": {
-        "cases": 256,
-        "gas": 158866,
-        "commit": "137b5c8",
-        "date": "2026-11-22 13:51 UTC",
-        "command": "cd demo-record && fe test --show-logs  # then: node tools/decode-revert/decode.mjs <revert data>"
-      },
+      "bug": "",
       "native": {
         "failed": 0,
-        "case": 256,
+        "case_index": 256,
         "steps": 0,
         "shrunk": [
           0,

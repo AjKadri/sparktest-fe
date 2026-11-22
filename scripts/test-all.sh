@@ -15,6 +15,9 @@ fe_suite()  { (cd "$1" && shift && fe test "$@"); }
 demo_web() {
   ./scripts/build-demo.sh && node web/sparktest.test.mjs
 }
+recordings() {
+  ./scripts/record-evm.sh --check
+}
 freshness() {
   python3 scripts/gen_widths.py && python3 scripts/gen_composite.py && python3 scripts/gen_checked.py \
     && git diff --exit-code -- sparktest/src/widths.fe sparktest/src/composite.fe sparktest/src/checked.fe \
@@ -26,6 +29,7 @@ part "tests-native (native)"     fe_suite tests-native
 part "decode-revert (node)"      node tools/decode-revert/test.mjs
 part "cross-check (sonatina vs native)" ./scripts/cross-check.sh
 part "web demo (build wasm + node test)" demo_web
+part "evm recordings are current (record-evm.sh --check)" recordings
 part "freshness (generated files)" freshness
 
 if [ "$failed" -eq 0 ]; then echo "ALL PARTS PASSED"; else echo "SOME PARTS FAILED"; fi

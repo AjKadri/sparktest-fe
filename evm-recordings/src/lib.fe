@@ -1,5 +1,5 @@
-// Recording ingot for the web demo. NOT part of test-all: the rec_* tests intentionally "fail" with a wrong
-// expected selector so the runner prints the real PropertyFailed revert data, which scripts/build-demo.sh
+// Recording ingot for the web demo (evm-recordings/). NOT part of test-all: the rec_* tests intentionally "fail" with a wrong
+// expected selector so the runner prints the real PropertyFailed revert data, which scripts/record-evm.sh
 // decodes with tools/decode-revert and stores in web/props.json as the "Recorded on EVM" panel.
 use std::evm::Evm
 use sparktest::{check, Config, Outcome}

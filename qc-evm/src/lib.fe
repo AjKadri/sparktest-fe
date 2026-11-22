@@ -1,0 +1,27 @@
+// EVM shim for fe-quickcheck: turns an Outcome into a revert, and provides an opaque runtime seed.
+use std::evm::{Evm, revert_error}
+use std::abi::{DynArray, dyn_array_from}
+use qc::{Outcome, Encode}
+
+#[error]
+pub struct PropertyFailed {
+    pub seed: u256,
+    pub case: u256,
+    pub steps: u256,
+    pub input: DynArray<u256>,
+}
+
+// Returns on Pass; reverts with PropertyFailed (the shrunk input, encoded) on Fail.
+pub fn assert_holds<T: Encode + Copy>(_ outcome: Outcome<T>) {
+    match outcome {
+        Outcome::Pass { cases: _ } => {}
+        Outcome::Fail { original: _, shrunk, case, seed, steps } => {
+            revert_error(PropertyFailed { seed, case, steps, input: dyn_array_from(shrunk.words()) })
+        }
+    }
+}
+
+// A seed the optimizer cannot see through (depends on remaining gas and prevrandao).
+pub fn runtime_seed() -> u256 uses (evm: mut Evm) {
+    evm.gas() ^ (evm.prevrandao() << 64)
+}

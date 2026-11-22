@@ -1,0 +1,20 @@
+use std::evm::Evm
+use qc::{check, Config, Outcome, MAX}
+use qc_evm::{assert_holds, runtime_seed}
+
+struct Info { failed: bool, original: u256, shrunk: u256, case: u256, steps: u256, cases: u256 }
+
+fn info(_ o: Outcome<u256>) -> Info {
+    match o {
+        Outcome::Pass { cases } => Info { failed: false, original: 0, shrunk: 0, case: 0, steps: 0, cases }
+        Outcome::Fail { original, shrunk, case, seed: _, steps } => Info { failed: true, original, shrunk, case, steps, cases: 0 }
+    }
+}
+
+#[test]
+fn a_shrinks_to_1000() uses (evm: mut Evm) {
+    let i = info(check(Config::new(runtime_seed()), |x: u256| x < 1000))
+    assert!(i.failed)
+    assert!(i.shrunk == 1000)
+    assert!(i.original >= 1000)
+}

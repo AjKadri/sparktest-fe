@@ -1,0 +1,5 @@
+CLAUDE.md
+HANDOFF.md
+out/
+out_*/
+.DS_Store

@@ -13,3 +13,12 @@ fn e2_shrink_evm() uses (evm: mut Evm) {
     assert!(o.found)
     assert!(o.input == 1000)
 }
+
+// same seed as the native test, to cross-check backends (seed is constant here, so this one may fold; gas shown for reference)
+#[test]
+fn e2_shrink_evm_fixed_seed() uses (evm: mut Evm) {
+    let g0 = evm.gas()
+    let o = run(|x: u256| x < 1000, 12345, 1000, 0)
+    let gas = g0 - evm.gas()
+    evm.emit(Shrunk { min: o.input, first_case: o.first_case, steps: o.steps, evals: o.evals, gas })
+}

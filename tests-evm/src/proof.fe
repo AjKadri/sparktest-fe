@@ -94,3 +94,99 @@ fn proof_bounds_fixed() uses (evm: mut Evm) {
     let s = props::proof_scenarios::sc_bounds_fixed(5010 + z)
     emit_pr(10, s, g0 - evm.gas())
 }
+
+#[test]
+fn proof_std_int_u8() uses (evm: mut Evm) {
+    let z = zero()
+    let g0 = evm.gas()
+    let s = props::proof_scenarios::sc_std_int_u8(6001 + z)
+    emit_pr(11, s, g0 - evm.gas())
+}
+
+#[test]
+fn proof_std_int_u32() uses (evm: mut Evm) {
+    let z = zero()
+    let g0 = evm.gas()
+    let s = props::proof_scenarios::sc_std_int_u32(6002 + z)
+    emit_pr(12, s, g0 - evm.gas())
+}
+
+#[test]
+fn proof_std_int_u64() uses (evm: mut Evm) {
+    let z = zero()
+    let g0 = evm.gas()
+    let s = props::proof_scenarios::sc_std_int_u64(6003 + z)
+    emit_pr(13, s, g0 - evm.gas())
+}
+
+#[test]
+fn proof_std_mul_div() uses (evm: mut Evm) {
+    let z = zero()
+    let g0 = evm.gas()
+    let s = props::proof_scenarios::sc_std_mul_div(6004 + z)
+    emit_pr(14, s, g0 - evm.gas())
+}
+
+#[test]
+fn proof_std_isqrt() uses (evm: mut Evm) {
+    let z = zero()
+    let g0 = evm.gas()
+    let s = props::proof_scenarios::sc_std_isqrt(6005 + z)
+    emit_pr(15, s, g0 - evm.gas())
+}
+
+#[test]
+fn proof_std_sort_heap() uses (evm: mut Evm) {
+    let z = zero()
+    let g0 = evm.gas()
+    let s = props::proof_scenarios::sc_std_sort_heap(6006 + z)
+    emit_pr(16, s, g0 - evm.gas())
+}
+
+#[test]
+fn proof_std_sort_small() uses (evm: mut Evm) {
+    let z = zero()
+    let g0 = evm.gas()
+    let s = props::proof_scenarios::sc_std_sort_small(6007 + z)
+    emit_pr(17, s, g0 - evm.gas())
+}
+
+#[test]
+fn proof_std_dedup() uses (evm: mut Evm) {
+    let z = zero()
+    let g0 = evm.gas()
+    let s = props::proof_scenarios::sc_std_dedup(6008 + z)
+    emit_pr(18, s, g0 - evm.gas())
+}
+
+#[test]
+fn proof_std_binary_search() uses (evm: mut Evm) {
+    let z = zero()
+    let g0 = evm.gas()
+    let s = props::proof_scenarios::sc_std_binary_search(6009 + z)
+    emit_pr(19, s, g0 - evm.gas())
+}
+
+#[test]
+fn proof_std_abi_u256() uses (evm: mut Evm) {
+    let z = zero()
+    let g0 = evm.gas()
+    let s = props::proof_scenarios::sc_std_abi_u256(6010 + z)
+    emit_pr(20, s, g0 - evm.gas())
+}
+
+#[test]
+fn proof_std_abi_tuple() uses (evm: mut Evm) {
+    let z = zero()
+    let g0 = evm.gas()
+    let s = props::proof_scenarios::sc_std_abi_tuple(6011 + z)
+    emit_pr(21, s, g0 - evm.gas())
+}
+
+#[test]
+fn proof_std_abi_address() uses (evm: mut Evm) {
+    let z = zero()
+    let g0 = evm.gas()
+    let s = props::proof_scenarios::sc_std_abi_address(6012 + z)
+    emit_pr(22, s, g0 - evm.gas())
+}

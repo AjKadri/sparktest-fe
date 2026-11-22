@@ -18,9 +18,15 @@ demo_web() {
 recordings() {
   ./scripts/record-evm.sh --check
 }
+erc20() {
+  ./scripts/check-vendored.sh && fe_suite examples/erc20 && fe_suite tests-erc20
+}
+proof() {
+  ./scripts/proof.sh --check
+}
 freshness() {
-  python3 scripts/gen_widths.py && python3 scripts/gen_composite.py && python3 scripts/gen_checked.py \
-    && git diff --exit-code -- sparktest/src/widths.fe sparktest/src/composite.fe sparktest/src/checked.fe \
+  python3 scripts/gen_widths.py && python3 scripts/gen_composite.py && python3 scripts/gen_checked.py && python3 scripts/gen_proof.py && python3 scripts/gen_erc20_tests.py \
+    && git diff --exit-code -- sparktest/src/widths.fe sparktest/src/composite.fe sparktest/src/checked.fe props/src/proof_scenarios.fe tests-evm/src/proof.fe proof-native/src/lib.fe tests-erc20/src/original.fe tests-erc20/src/buggy.fe \
     && echo "generated files are up to date"
 }
 
@@ -28,6 +34,8 @@ part "tests-evm (sonatina)"      fe_suite tests-evm
 part "tests-native (native)"     fe_suite tests-native
 part "decode-revert (node)"      node tools/decode-revert/test.mjs
 part "cross-check (sonatina vs native)" ./scripts/cross-check.sh
+part "erc20 (sonatina only): vendored example + properties + planted bug" erc20
+part "proof suites (planted bugs, std, erc20 -> docs/PROOF.md --check)" proof
 part "web demo (build wasm + node test)" demo_web
 part "evm recordings are current (record-evm.sh --check)" recordings
 part "freshness (generated files)" freshness

@@ -82,15 +82,16 @@ def pure_rows():
 
 def md_pure(rows, group, title, intro):
     s = [f'## {title}', '', intro, '']
-    s += ['| id | bug / area | property | expected minimum | minimum found | as expected | case | shrink steps | seed | sonatina = native | gas (sonatina) |',
-          '|---|---|---|---|---|---|---|---|---|---|---|']
+    s += ['| id | target | property | backends | cases | expected minimum | minimum found | as expected | case | shrink steps | seed | sonatina = native | gas (sonatina) | rerun |',
+          '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|']
     for r, e, n, ok, same in rows:
         if r['group'] != group:
             continue
-        found = 'passed 256 cases' if e['failed'] == 0 and r['cases'] == 256 else (f"passed {e['case']} cases" if e['failed'] == 0 else fmt_words(r, e['shrunk']))
+        found = f"passed {r['cases']} cases" if e['failed'] == 0 else fmt_words(r, e['shrunk'])
         case = '-' if e['failed'] == 0 else str(e['case'] + 1)
         steps = '-' if e['failed'] == 0 else str(e['steps'])
-        s.append(f"| {r['name']} | {r['bug']} | {r['property']} | {r['expected']} | {found} | {'yes' if ok else '**NO**'} | {case} | {steps} | {r['seed']} | {'identical' if same else '**DIFFERENT**'} | {e['gas']:,} |")
+        rerun = f"`cd tests-evm && fe test --filter proof_{r['name']} --show-logs`; native: `./scripts/proof.sh`"
+        s.append(f"| {r['name']} | {r['bug']} | {r['property']} | sonatina + native | {r['cases']} | {r['expected']} | {found} | {'yes' if ok else '**NO**'} | {case} | {steps} | {r['seed']} | {'identical' if same else '**DIFFERENT**'} | {e['gas']:,} | {rerun} |")
     return s
 
 # ---------- extension point: other suites register sections here ----------

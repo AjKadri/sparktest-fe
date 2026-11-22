@@ -14,5 +14,17 @@ pub fn main() -> i32 uses (out: mut Stdout) {
     print_summary("pack_fixed", props::proof_scenarios::sc_pack_fixed(5008 + z))
     print_summary("bounds_buggy", props::proof_scenarios::sc_bounds_buggy(5009 + z))
     print_summary("bounds_fixed", props::proof_scenarios::sc_bounds_fixed(5010 + z))
+    print_summary("std_int_u8", props::proof_scenarios::sc_std_int_u8(6001 + z))
+    print_summary("std_int_u32", props::proof_scenarios::sc_std_int_u32(6002 + z))
+    print_summary("std_int_u64", props::proof_scenarios::sc_std_int_u64(6003 + z))
+    print_summary("std_mul_div", props::proof_scenarios::sc_std_mul_div(6004 + z))
+    print_summary("std_isqrt", props::proof_scenarios::sc_std_isqrt(6005 + z))
+    print_summary("std_sort_heap", props::proof_scenarios::sc_std_sort_heap(6006 + z))
+    print_summary("std_sort_small", props::proof_scenarios::sc_std_sort_small(6007 + z))
+    print_summary("std_dedup", props::proof_scenarios::sc_std_dedup(6008 + z))
+    print_summary("std_binary_search", props::proof_scenarios::sc_std_binary_search(6009 + z))
+    print_summary("std_abi_u256", props::proof_scenarios::sc_std_abi_u256(6010 + z))
+    print_summary("std_abi_tuple", props::proof_scenarios::sc_std_abi_tuple(6011 + z))
+    print_summary("std_abi_address", props::proof_scenarios::sc_std_abi_address(6012 + z))
     0
 }

@@ -1,0 +1,187 @@
+// Properties of Fe standard-library code (core::num, core::sort, std ABI codec). Pure; run on sonatina and native.
+// Each returns true when it HOLDS. Models are written independently, in widened u256 arithmetic.
+use std::evm::Address
+use core::num::{mul_div, mul_div_ceil, addmod, mulmod, isqrt}
+use core::sort::{sort, insertion_sort, heap_sort, is_sorted, dedup_sorted, binary_search}
+use std::evm::{encode_abi_payload, decode_returndata}
+
+// ---- integer helpers: wrapping_* / saturating_* vs a u256 model ----
+fn min256(_ a: u256, _ b: u256) -> u256 { if a < b { a } else { b } }
+
+pub fn prop_std_int_u8(_ p: (u8, u8)) -> bool {
+    let a = p.0 as u256
+    let b = p.1 as u256
+    p.0.wrapping_add(p.1) as u256 == (a + b) % 256
+        && p.0.wrapping_sub(p.1) as u256 == (a + 256 - b) % 256
+        && p.0.wrapping_mul(p.1) as u256 == (a * b) % 256
+        && p.0.saturating_add(p.1) as u256 == min256(a + b, 255)
+        && p.0.saturating_sub(p.1) as u256 == (if a > b { a - b } else { 0 })
+        && p.0.saturating_mul(p.1) as u256 == min256(a * b, 255)
+}
+pub fn prop_std_int_u32(_ p: (u32, u32)) -> bool {
+    let a = p.0 as u256
+    let b = p.1 as u256
+    let m: u256 = 4294967296
+    p.0.wrapping_add(p.1) as u256 == (a + b) % m
+        && p.0.wrapping_sub(p.1) as u256 == (a + m - b) % m
+        && p.0.wrapping_mul(p.1) as u256 == (a * b) % m
+        && p.0.saturating_add(p.1) as u256 == min256(a + b, m - 1)
+        && p.0.saturating_sub(p.1) as u256 == (if a > b { a - b } else { 0 })
+        && p.0.saturating_mul(p.1) as u256 == min256(a * b, m - 1)
+}
+pub fn prop_std_int_u64(_ p: (u64, u64)) -> bool {
+    let a = p.0 as u256
+    let b = p.1 as u256
+    let m: u256 = 18446744073709551616
+    p.0.wrapping_add(p.1) as u256 == (a + b) % m
+        && p.0.wrapping_sub(p.1) as u256 == (a + m - b) % m
+        && p.0.wrapping_mul(p.1) as u256 == (a * b) % m
+        && p.0.saturating_add(p.1) as u256 == min256(a + b, m - 1)
+        && p.0.saturating_sub(p.1) as u256 == (if a > b { a - b } else { 0 })
+        && p.0.saturating_mul(p.1) as u256 == min256(a * b, m - 1)
+}
+
+// ---- full-precision mul_div / addmod / mulmod / isqrt (inputs u128, so a*b fits in u256 and is the model) ----
+pub fn prop_std_mul_div(_ p: (u128, u128, u128)) -> bool {
+    let a = p.0 as u256
+    let b = p.1 as u256
+    let d = p.2 as u256
+    if d == 0 { return true }
+    mul_div(a, b, d) == a * b / d
+        && mul_div_ceil(a, b, d) == (a * b + d - 1) / d
+        && addmod(a, b, d) == (a + b) % d
+        && mulmod(a, b, d) == (a * b) % d
+}
+pub fn prop_std_isqrt(_ x: u128) -> bool {
+    let n = x as u256
+    let r = isqrt(n)
+    r * r <= n && n < (r + 1) * (r + 1)
+}
+
+// ---- core::sort ----
+fn sum20(_ a: [u8; 20]) -> u256 {
+    var s: u256 = 0
+    var i: usize = 0
+    while i < 20 {
+        s += a[i] as u256
+        i += 1
+    }
+    s
+}
+fn sumsq20(_ a: [u8; 20]) -> u256 {
+    var s: u256 = 0
+    var i: usize = 0
+    while i < 20 {
+        s += (a[i] as u256) * (a[i] as u256)
+        i += 1
+    }
+    s
+}
+fn sorted20(_ a: [u8; 20]) -> bool {
+    var i: usize = 1
+    while i < 20 {
+        if a[i - 1] > a[i] { return false }
+        i += 1
+    }
+    true
+}
+fn same_array20(_ a: [u8; 20], _ b: [u8; 20]) -> bool {
+    var i: usize = 0
+    while i < 20 {
+        if a[i] != b[i] { return false }
+        i += 1
+    }
+    true
+}
+// 20 elements: `sort` takes the heapsort path (insertion sort is used up to 16). Output sorted, a permutation
+// (sum and sum of squares preserved), and agreeing with both algorithms called directly.
+pub fn prop_std_sort_heap(_ input: [u8; 20]) -> bool {
+    var a = input
+    sort(mut a)
+    var h = input
+    heap_sort(mut h)
+    var s = input
+    insertion_sort(mut s)
+    sorted20(a) && is_sorted(a) && sum20(a) == sum20(input) && sumsq20(a) == sumsq20(input)
+        && same_array20(a, h) && same_array20(a, s)
+}
+pub fn prop_std_sort_small(_ input: [u8; 6]) -> bool {
+    var a = input
+    sort(mut a)
+    var ok = is_sorted(a)
+    var i: usize = 1
+    while i < 6 {
+        if a[i - 1] > a[i] { ok = false }
+        i += 1
+    }
+    var s1: u256 = 0
+    var s2: u256 = 0
+    var j: usize = 0
+    while j < 6 {
+        s1 += (a[j] as u256) * (a[j] as u256)
+        s2 += (input[j] as u256) * (input[j] as u256)
+        j += 1
+    }
+    ok && s1 == s2
+}
+// dedup_sorted on a sorted array: the first k elements are strictly increasing and are exactly the distinct values
+pub fn prop_std_dedup(_ input: [u8; 8]) -> bool {
+    var a = input
+    sort(mut a)
+    let sorted_copy = a
+    let k = dedup_sorted(mut a)
+    var i: usize = 1
+    while i < k {
+        if a[i - 1] >= a[i] { return false }
+        i += 1
+    }
+    // every input value appears among the first k; k <= 8
+    var j: usize = 0
+    while j < 8 {
+        var found = false
+        var m: usize = 0
+        while m < k {
+            if a[m] == sorted_copy[j] { found = true }
+            m += 1
+        }
+        if !found { return false }
+        j += 1
+    }
+    k >= 1 && k <= 8
+}
+// binary_search finds every element of a sorted array, and a value that is not there is not found
+pub fn prop_std_binary_search(_ p: ([u8; 8], u8)) -> bool {
+    var a = p.0
+    sort(mut a)
+    var i: usize = 0
+    var present = false
+    while i < 8 {
+        match binary_search(a, a[i]) {
+            Option::Some(k) => { if a[k] != a[i] { return false } }
+            Option::None => { return false }
+        }
+        if a[i] == p.1 { present = true }
+        i += 1
+    }
+    match binary_search(a, p.1) {
+        Option::Some(k) => present && a[k] == p.1
+        Option::None => !present
+    }
+}
+
+// ---- std ABI codec: decode(encode(x)) == x ----
+pub fn prop_std_abi_u256(_ x: u256) -> bool {
+    let buf = encode_abi_payload(x)
+    let y: u256 = decode_returndata(buf.span())
+    y == x
+}
+pub fn prop_std_abi_tuple(_ p: (u8, u256, bool)) -> bool {
+    let buf = encode_abi_payload(p)
+    let q: (u8, u256, bool) = decode_returndata(buf.span())
+    q.0 == p.0 && q.1 == p.1 && q.2 == p.2
+}
+pub fn prop_std_abi_address(_ a: Address) -> bool {
+    let buf = encode_abi_payload(a)
+    let b: Address = decode_returndata(buf.span())
+    b.word() == a.word()
+}

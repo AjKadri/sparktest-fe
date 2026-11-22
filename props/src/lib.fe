@@ -2,6 +2,7 @@
 pub use demo::*
 pub use bugs::*
 pub use proof_scenarios::*
+pub use stdprops::*
 // A property returns true when it HOLDS. Planted bugs fail on a known minimal input (stated per fn).
 use std::evm::Address
 use std::abi::DynArray

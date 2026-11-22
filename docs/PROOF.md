@@ -8,18 +8,37 @@ Sparktest shrinks greedily, so it finds a local minimum, not always the global o
 
 Five realistic contract bug classes, each with a buggy and a fixed version. Rerun: `./scripts/proof.sh`. Sources: `props/src/bugs.fe`; scenarios: `proof/registry.json`.
 
-| id | bug / area | property | expected minimum | minimum found | as expected | case | shrink steps | seed | sonatina = native | gas (sonatina) |
-|---|---|---|---|---|---|---|---|---|---|---|
-| vault_buggy | a) vault deposit rounds minted shares up | deposit then withdraw never returns more than deposited | almost-empty vault, A,S,x <= 10 (global min A=3,S=1,x=1) | assets=3, shares=1, amount=1 | yes | 2 | 44 | 5001 | identical | 810,662 |
-| vault_fixed | a) fixed: rounds down | deposit then withdraw never returns more than deposited | passes | passed 256 cases | yes | - | - | 5002 | identical | 361,095 |
-| fee_buggy | b) fee multiplies before dividing (u64 overflow) | fee computation never overflows and fee <= amount (bps <= 10000) | amount*bps >= 2^64 and (amount-1)*bps < 2^64 | amount=145249953336295683, bps=127 | yes | 10 | 32 | 5003 | identical | 18,447,622 |
-| fee_fixed | b) fixed: divide first, split multiply | fee computation never overflows and fee <= amount (bps <= 10000) | passes | passed 256 cases | yes | - | - | 5004 | identical | 233,484 |
-| withdraw_buggy | c) subtract before checking balance >= amount | an accepted withdrawal never exceeds the balance | (balance 0, amount 1) | balance=0, amount=1 | yes | 2 | 65 | 5005 | identical | 154,411 |
-| withdraw_fixed | c) fixed: check first | an accepted withdrawal never exceeds the balance | passes | passed 256 cases | yes | - | - | 5006 | identical | 245,377 |
-| pack_buggy | d) two u128 packed into a u256 with shift 127 | unpack(pack(a, b)) == (a, b) | (a=1, b=0) | a=1, b=0 | yes | 2 | 125 | 5007 | identical | 5,729,007 |
-| pack_fixed | d) fixed: shift 128 | unpack(pack(a, b)) == (a, b) | passes | passed 256 cases | yes | - | - | 5008 | identical | 260,485 |
-| bounds_buggy | e) index check uses <= instead of < | an index declared in bounds is below len | (i=0, len=0) | i=0, len=0 | yes | 28 | 0 | 5009 | identical | 30,493 |
-| bounds_fixed | e) fixed: < | an index declared in bounds is below len | passes | passed 256 cases | yes | - | - | 5010 | identical | 199,528 |
+| id | target | property | backends | cases | expected minimum | minimum found | as expected | case | shrink steps | seed | sonatina = native | gas (sonatina) | rerun |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| vault_buggy | a) vault deposit rounds minted shares up | deposit then withdraw never returns more than deposited | sonatina + native | 256 | almost-empty vault, A,S,x <= 10 (global min A=3,S=1,x=1) | assets=3, shares=1, amount=1 | yes | 2 | 44 | 5001 | identical | 778,801 | `cd tests-evm && fe test --filter proof_vault_buggy --show-logs`; native: `./scripts/proof.sh` |
+| vault_fixed | a) fixed: rounds down | deposit then withdraw never returns more than deposited | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 5002 | identical | 361,659 | `cd tests-evm && fe test --filter proof_vault_fixed --show-logs`; native: `./scripts/proof.sh` |
+| fee_buggy | b) fee multiplies before dividing (u64 overflow) | fee computation never overflows and fee <= amount (bps <= 10000) | sonatina + native | 256 | amount*bps >= 2^64 and (amount-1)*bps < 2^64 | amount=145249953336295683, bps=127 | yes | 10 | 32 | 5003 | identical | 17,614,067 | `cd tests-evm && fe test --filter proof_fee_buggy --show-logs`; native: `./scripts/proof.sh` |
+| fee_fixed | b) fixed: divide first, split multiply | fee computation never overflows and fee <= amount (bps <= 10000) | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 5004 | identical | 233,859 | `cd tests-evm && fe test --filter proof_fee_fixed --show-logs`; native: `./scripts/proof.sh` |
+| withdraw_buggy | c) subtract before checking balance >= amount | an accepted withdrawal never exceeds the balance | sonatina + native | 256 | (balance 0, amount 1) | balance=0, amount=1 | yes | 2 | 65 | 5005 | identical | 153,366 | `cd tests-evm && fe test --filter proof_withdraw_buggy --show-logs`; native: `./scripts/proof.sh` |
+| withdraw_fixed | c) fixed: check first | an accepted withdrawal never exceeds the balance | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 5006 | identical | 245,731 | `cd tests-evm && fe test --filter proof_withdraw_fixed --show-logs`; native: `./scripts/proof.sh` |
+| pack_buggy | d) two u128 packed into a u256 with shift 127 | unpack(pack(a, b)) == (a, b) | sonatina + native | 256 | (a=1, b=0) | a=1, b=0 | yes | 2 | 125 | 5007 | identical | 5,479,488 | `cd tests-evm && fe test --filter proof_pack_buggy --show-logs`; native: `./scripts/proof.sh` |
+| pack_fixed | d) fixed: shift 128 | unpack(pack(a, b)) == (a, b) | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 5008 | identical | 260,869 | `cd tests-evm && fe test --filter proof_pack_fixed --show-logs`; native: `./scripts/proof.sh` |
+| bounds_buggy | e) index check uses <= instead of < | an index declared in bounds is below len | sonatina + native | 256 | (i=0, len=0) | i=0, len=0 | yes | 28 | 0 | 5009 | identical | 32,930 | `cd tests-evm && fe test --filter proof_bounds_buggy --show-logs`; native: `./scripts/proof.sh` |
+| bounds_fixed | e) fixed: < | an index declared in bounds is below len | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 5010 | identical | 199,903 | `cd tests-evm && fe test --filter proof_bounds_fixed --show-logs`; native: `./scripts/proof.sh` |
+
+## Properties of std (pure, sonatina and native)
+
+Properties of Fe standard-library code. Rerun: `./scripts/proof.sh`.
+
+| id | target | property | backends | cases | expected minimum | minimum found | as expected | case | shrink steps | seed | sonatina = native | gas (sonatina) | rerun |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| std_int_u8 | core::num: u8 wrapping_/saturating_ add, sub, mul | equal to a widened u256 model | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6001 | identical | 325,433 | `cd tests-evm && fe test --filter proof_std_int_u8 --show-logs`; native: `./scripts/proof.sh` |
+| std_int_u32 | core::num: u32 wrapping_/saturating_ add, sub, mul | equal to a widened u256 model | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6002 | identical | 323,629 | `cd tests-evm && fe test --filter proof_std_int_u32 --show-logs`; native: `./scripts/proof.sh` |
+| std_int_u64 | core::num: u64 wrapping_/saturating_ add, sub, mul | equal to a widened u256 model | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6003 | identical | 341,422 | `cd tests-evm && fe test --filter proof_std_int_u64 --show-logs`; native: `./scripts/proof.sh` |
+| std_mul_div | core::num: mul_div, mul_div_ceil, addmod, mulmod | equal to the u256 model (a*b/d, ceil, mod) | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6004 | identical | 477,320 | `cd tests-evm && fe test --filter proof_std_mul_div --show-logs`; native: `./scripts/proof.sh` |
+| std_isqrt | core::num: isqrt | r*r <= x < (r+1)^2 | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6005 | identical | 279,847 | `cd tests-evm && fe test --filter proof_std_isqrt --show-logs`; native: `./scripts/proof.sh` |
+| std_sort_heap | core::sort on [u8; 20] (heapsort path) | sorted, a permutation, and equal to insertion_sort and heap_sort | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6006 | identical | 23,211,167 | `cd tests-evm && fe test --filter proof_std_sort_heap --show-logs`; native: `./scripts/proof.sh` |
+| std_sort_small | core::sort on [u8; 6] (insertion path) | sorted and a permutation | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6007 | identical | 1,713,696 | `cd tests-evm && fe test --filter proof_std_sort_small --show-logs`; native: `./scripts/proof.sh` |
+| std_dedup | core::sort::dedup_sorted on [u8; 8] | first k strictly increasing and cover every value | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6008 | identical | 4,205,694 | `cd tests-evm && fe test --filter proof_std_dedup --show-logs`; native: `./scripts/proof.sh` |
+| std_binary_search | core::sort::binary_search on sorted [u8; 8] | finds every element, and only elements | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6009 | identical | 3,958,589 | `cd tests-evm && fe test --filter proof_std_binary_search --show-logs`; native: `./scripts/proof.sh` |
+| std_abi_u256 | std ABI codec, u256 | decode(encode(x)) == x | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6010 | identical | 119,181 | `cd tests-evm && fe test --filter proof_std_abi_u256 --show-logs`; native: `./scripts/proof.sh` |
+| std_abi_tuple | std ABI codec, (u8, u256, bool) | decode(encode(x)) == x | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6011 | identical | 274,897 | `cd tests-evm && fe test --filter proof_std_abi_tuple --show-logs`; native: `./scripts/proof.sh` |
+| std_abi_address | std ABI codec, Address | decode(encode(x)) == x | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6012 | identical | 142,029 | `cd tests-evm && fe test --filter proof_std_abi_address --show-logs`; native: `./scripts/proof.sh` |
 
 ## ERC20 through contract calls (sonatina only)
 

@@ -1,27 +1,385 @@
 [
-  {"id": 1, "group": "planted", "name": "vault_buggy", "kind": "buggy", "prop": "props::prop_vault_buggy", "seed": 5001, "cases": 256,
-   "bug": "a) vault deposit rounds minted shares up", "property": "deposit then withdraw never returns more than deposited",
-   "labels": ["assets", "shares", "amount"], "expected": "almost-empty vault, A,S,x <= 10 (global min A=3,S=1,x=1)", "check": "all_le_10"},
-  {"id": 2, "group": "planted", "name": "vault_fixed", "kind": "fixed", "prop": "props::prop_vault_fixed", "seed": 5002, "cases": 256,
-   "bug": "a) fixed: rounds down", "property": "deposit then withdraw never returns more than deposited", "labels": ["assets", "shares", "amount"], "expected": "passes", "check": "pass"},
-  {"id": 3, "group": "planted", "name": "fee_buggy", "kind": "buggy", "prop": "props::prop_fee_buggy", "seed": 5003, "cases": 256,
-   "bug": "b) fee multiplies before dividing (u64 overflow)", "property": "fee computation never overflows and fee <= amount (bps <= 10000)",
-   "labels": ["amount", "bps"], "expected": "amount*bps >= 2^64 and (amount-1)*bps < 2^64", "check": "fee_boundary"},
-  {"id": 4, "group": "planted", "name": "fee_fixed", "kind": "fixed", "prop": "props::prop_fee_fixed", "seed": 5004, "cases": 256,
-   "bug": "b) fixed: divide first, split multiply", "property": "fee computation never overflows and fee <= amount (bps <= 10000)", "labels": ["amount", "bps"], "expected": "passes", "check": "pass"},
-  {"id": 5, "group": "planted", "name": "withdraw_buggy", "kind": "buggy", "prop": "props::prop_withdraw_buggy", "seed": 5005, "cases": 256,
-   "bug": "c) subtract before checking balance >= amount", "property": "an accepted withdrawal never exceeds the balance",
-   "labels": ["balance", "amount"], "expected": "(balance 0, amount 1)", "check": "eq:0,1"},
-  {"id": 6, "group": "planted", "name": "withdraw_fixed", "kind": "fixed", "prop": "props::prop_withdraw_fixed", "seed": 5006, "cases": 256,
-   "bug": "c) fixed: check first", "property": "an accepted withdrawal never exceeds the balance", "labels": ["balance", "amount"], "expected": "passes", "check": "pass"},
-  {"id": 7, "group": "planted", "name": "pack_buggy", "kind": "buggy", "prop": "props::prop_pack_buggy", "seed": 5007, "cases": 256,
-   "bug": "d) two u128 packed into a u256 with shift 127", "property": "unpack(pack(a, b)) == (a, b)",
-   "labels": ["a", "b"], "expected": "(a=1, b=0)", "check": "eq:1,0"},
-  {"id": 8, "group": "planted", "name": "pack_fixed", "kind": "fixed", "prop": "props::prop_pack_fixed", "seed": 5008, "cases": 256,
-   "bug": "d) fixed: shift 128", "property": "unpack(pack(a, b)) == (a, b)", "labels": ["a", "b"], "expected": "passes", "check": "pass"},
-  {"id": 9, "group": "planted", "name": "bounds_buggy", "kind": "buggy", "prop": "props::prop_bounds_buggy", "seed": 5009, "cases": 256,
-   "bug": "e) index check uses <= instead of <", "property": "an index declared in bounds is below len",
-   "labels": ["i", "len"], "expected": "(i=0, len=0)", "check": "eq:0,0"},
-  {"id": 10, "group": "planted", "name": "bounds_fixed", "kind": "fixed", "prop": "props::prop_bounds_fixed", "seed": 5010, "cases": 256,
-   "bug": "e) fixed: <", "property": "an index declared in bounds is below len", "labels": ["i", "len"], "expected": "passes", "check": "pass"}
+ {
+  "id": 1,
+  "group": "planted",
+  "name": "vault_buggy",
+  "kind": "buggy",
+  "prop": "props::prop_vault_buggy",
+  "seed": 5001,
+  "cases": 256,
+  "bug": "a) vault deposit rounds minted shares up",
+  "property": "deposit then withdraw never returns more than deposited",
+  "labels": [
+   "assets",
+   "shares",
+   "amount"
+  ],
+  "expected": "almost-empty vault, A,S,x <= 10 (global min A=3,S=1,x=1)",
+  "check": "all_le_10"
+ },
+ {
+  "id": 2,
+  "group": "planted",
+  "name": "vault_fixed",
+  "kind": "fixed",
+  "prop": "props::prop_vault_fixed",
+  "seed": 5002,
+  "cases": 256,
+  "bug": "a) fixed: rounds down",
+  "property": "deposit then withdraw never returns more than deposited",
+  "labels": [
+   "assets",
+   "shares",
+   "amount"
+  ],
+  "expected": "passes",
+  "check": "pass"
+ },
+ {
+  "id": 3,
+  "group": "planted",
+  "name": "fee_buggy",
+  "kind": "buggy",
+  "prop": "props::prop_fee_buggy",
+  "seed": 5003,
+  "cases": 256,
+  "bug": "b) fee multiplies before dividing (u64 overflow)",
+  "property": "fee computation never overflows and fee <= amount (bps <= 10000)",
+  "labels": [
+   "amount",
+   "bps"
+  ],
+  "expected": "amount*bps >= 2^64 and (amount-1)*bps < 2^64",
+  "check": "fee_boundary"
+ },
+ {
+  "id": 4,
+  "group": "planted",
+  "name": "fee_fixed",
+  "kind": "fixed",
+  "prop": "props::prop_fee_fixed",
+  "seed": 5004,
+  "cases": 256,
+  "bug": "b) fixed: divide first, split multiply",
+  "property": "fee computation never overflows and fee <= amount (bps <= 10000)",
+  "labels": [
+   "amount",
+   "bps"
+  ],
+  "expected": "passes",
+  "check": "pass"
+ },
+ {
+  "id": 5,
+  "group": "planted",
+  "name": "withdraw_buggy",
+  "kind": "buggy",
+  "prop": "props::prop_withdraw_buggy",
+  "seed": 5005,
+  "cases": 256,
+  "bug": "c) subtract before checking balance >= amount",
+  "property": "an accepted withdrawal never exceeds the balance",
+  "labels": [
+   "balance",
+   "amount"
+  ],
+  "expected": "(balance 0, amount 1)",
+  "check": "eq:0,1"
+ },
+ {
+  "id": 6,
+  "group": "planted",
+  "name": "withdraw_fixed",
+  "kind": "fixed",
+  "prop": "props::prop_withdraw_fixed",
+  "seed": 5006,
+  "cases": 256,
+  "bug": "c) fixed: check first",
+  "property": "an accepted withdrawal never exceeds the balance",
+  "labels": [
+   "balance",
+   "amount"
+  ],
+  "expected": "passes",
+  "check": "pass"
+ },
+ {
+  "id": 7,
+  "group": "planted",
+  "name": "pack_buggy",
+  "kind": "buggy",
+  "prop": "props::prop_pack_buggy",
+  "seed": 5007,
+  "cases": 256,
+  "bug": "d) two u128 packed into a u256 with shift 127",
+  "property": "unpack(pack(a, b)) == (a, b)",
+  "labels": [
+   "a",
+   "b"
+  ],
+  "expected": "(a=1, b=0)",
+  "check": "eq:1,0"
+ },
+ {
+  "id": 8,
+  "group": "planted",
+  "name": "pack_fixed",
+  "kind": "fixed",
+  "prop": "props::prop_pack_fixed",
+  "seed": 5008,
+  "cases": 256,
+  "bug": "d) fixed: shift 128",
+  "property": "unpack(pack(a, b)) == (a, b)",
+  "labels": [
+   "a",
+   "b"
+  ],
+  "expected": "passes",
+  "check": "pass"
+ },
+ {
+  "id": 9,
+  "group": "planted",
+  "name": "bounds_buggy",
+  "kind": "buggy",
+  "prop": "props::prop_bounds_buggy",
+  "seed": 5009,
+  "cases": 256,
+  "bug": "e) index check uses <= instead of <",
+  "property": "an index declared in bounds is below len",
+  "labels": [
+   "i",
+   "len"
+  ],
+  "expected": "(i=0, len=0)",
+  "check": "eq:0,0"
+ },
+ {
+  "id": 10,
+  "group": "planted",
+  "name": "bounds_fixed",
+  "kind": "fixed",
+  "prop": "props::prop_bounds_fixed",
+  "seed": 5010,
+  "cases": 256,
+  "bug": "e) fixed: <",
+  "property": "an index declared in bounds is below len",
+  "labels": [
+   "i",
+   "len"
+  ],
+  "expected": "passes",
+  "check": "pass"
+ },
+ {
+  "id": 11,
+  "group": "std",
+  "name": "std_int_u8",
+  "kind": "std",
+  "prop": "props::prop_std_int_u8",
+  "seed": 6001,
+  "cases": 256,
+  "bug": "core::num: u8 wrapping_/saturating_ add, sub, mul",
+  "property": "equal to a widened u256 model",
+  "labels": [
+   "a",
+   "b"
+  ],
+  "expected": "passes",
+  "check": "pass"
+ },
+ {
+  "id": 12,
+  "group": "std",
+  "name": "std_int_u32",
+  "kind": "std",
+  "prop": "props::prop_std_int_u32",
+  "seed": 6002,
+  "cases": 256,
+  "bug": "core::num: u32 wrapping_/saturating_ add, sub, mul",
+  "property": "equal to a widened u256 model",
+  "labels": [
+   "a",
+   "b"
+  ],
+  "expected": "passes",
+  "check": "pass"
+ },
+ {
+  "id": 13,
+  "group": "std",
+  "name": "std_int_u64",
+  "kind": "std",
+  "prop": "props::prop_std_int_u64",
+  "seed": 6003,
+  "cases": 256,
+  "bug": "core::num: u64 wrapping_/saturating_ add, sub, mul",
+  "property": "equal to a widened u256 model",
+  "labels": [
+   "a",
+   "b"
+  ],
+  "expected": "passes",
+  "check": "pass"
+ },
+ {
+  "id": 14,
+  "group": "std",
+  "name": "std_mul_div",
+  "kind": "std",
+  "prop": "props::prop_std_mul_div",
+  "seed": 6004,
+  "cases": 256,
+  "bug": "core::num: mul_div, mul_div_ceil, addmod, mulmod",
+  "property": "equal to the u256 model (a*b/d, ceil, mod)",
+  "labels": [
+   "a",
+   "b",
+   "d"
+  ],
+  "expected": "passes",
+  "check": "pass"
+ },
+ {
+  "id": 15,
+  "group": "std",
+  "name": "std_isqrt",
+  "kind": "std",
+  "prop": "props::prop_std_isqrt",
+  "seed": 6005,
+  "cases": 256,
+  "bug": "core::num: isqrt",
+  "property": "r*r <= x < (r+1)^2",
+  "labels": [
+   "x"
+  ],
+  "expected": "passes",
+  "check": "pass"
+ },
+ {
+  "id": 16,
+  "group": "std",
+  "name": "std_sort_heap",
+  "kind": "std",
+  "prop": "props::prop_std_sort_heap",
+  "seed": 6006,
+  "cases": 256,
+  "bug": "core::sort on [u8; 20] (heapsort path)",
+  "property": "sorted, a permutation, and equal to insertion_sort and heap_sort",
+  "labels": [
+   "a[0]",
+   "a[1]",
+   "a[2]",
+   "a[3]"
+  ],
+  "expected": "passes",
+  "check": "pass"
+ },
+ {
+  "id": 17,
+  "group": "std",
+  "name": "std_sort_small",
+  "kind": "std",
+  "prop": "props::prop_std_sort_small",
+  "seed": 6007,
+  "cases": 256,
+  "bug": "core::sort on [u8; 6] (insertion path)",
+  "property": "sorted and a permutation",
+  "labels": [
+   "a[0]",
+   "a[1]",
+   "a[2]",
+   "a[3]"
+  ],
+  "expected": "passes",
+  "check": "pass"
+ },
+ {
+  "id": 18,
+  "group": "std",
+  "name": "std_dedup",
+  "kind": "std",
+  "prop": "props::prop_std_dedup",
+  "seed": 6008,
+  "cases": 256,
+  "bug": "core::sort::dedup_sorted on [u8; 8]",
+  "property": "first k strictly increasing and cover every value",
+  "labels": [
+   "a[0]",
+   "a[1]",
+   "a[2]",
+   "a[3]"
+  ],
+  "expected": "passes",
+  "check": "pass"
+ },
+ {
+  "id": 19,
+  "group": "std",
+  "name": "std_binary_search",
+  "kind": "std",
+  "prop": "props::prop_std_binary_search",
+  "seed": 6009,
+  "cases": 256,
+  "bug": "core::sort::binary_search on sorted [u8; 8]",
+  "property": "finds every element, and only elements",
+  "labels": [
+   "a[0]",
+   "a[1]",
+   "a[2]",
+   "a[3]"
+  ],
+  "expected": "passes",
+  "check": "pass"
+ },
+ {
+  "id": 20,
+  "group": "std",
+  "name": "std_abi_u256",
+  "kind": "std",
+  "prop": "props::prop_std_abi_u256",
+  "seed": 6010,
+  "cases": 256,
+  "bug": "std ABI codec, u256",
+  "property": "decode(encode(x)) == x",
+  "labels": [
+   "x"
+  ],
+  "expected": "passes",
+  "check": "pass"
+ },
+ {
+  "id": 21,
+  "group": "std",
+  "name": "std_abi_tuple",
+  "kind": "std",
+  "prop": "props::prop_std_abi_tuple",
+  "seed": 6011,
+  "cases": 256,
+  "bug": "std ABI codec, (u8, u256, bool)",
+  "property": "decode(encode(x)) == x",
+  "labels": [
+   "u8",
+   "u256",
+   "bool"
+  ],
+  "expected": "passes",
+  "check": "pass"
+ },
+ {
+  "id": 22,
+  "group": "std",
+  "name": "std_abi_address",
+  "kind": "std",
+  "prop": "props::prop_std_abi_address",
+  "seed": 6012,
+  "cases": 256,
+  "bug": "std ABI codec, Address",
+  "property": "decode(encode(x)) == x",
+  "labels": [
+   "address"
+  ],
+  "expected": "passes",
+  "check": "pass"
+ }
 ]

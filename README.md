@@ -6,7 +6,7 @@ Sparktest generates many random inputs (biased toward edge values such as 0, max
 
 **Live demo:** https://ajkadri.github.io/sparktest-fe/ (placeholder until the first deploy)
 
-**Status: work in progress.** Supported inputs so far: `bool`, `u8`..`u256`, `Address`, tuples of 2 to 4, fixed arrays and user structs (by delegating to a tuple).
+**Status: work in progress.** Supported inputs so far: `bool`, `u8`..`u256`, `Address`, tuples of 2 to 4, fixed arrays, user structs (by delegating to a tuple), bounded indices (`Index<N>`) and command sequences (`Seq<C, N>`) for stateful testing, where the invariant is checked after every command and a failing sequence is shrunk to the shortest.
 
 ## Run the tests
 

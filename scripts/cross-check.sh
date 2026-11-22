@@ -8,7 +8,7 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 ( cd tests-evm && fe test --filter xcheck --show-logs ) 2>&1 | python3 -I scripts/xcheck_format.py > "$tmp/evm.txt"
-( cd xcheck-native && fe build --backend native --emit executable --out-dir "$tmp/native-out" >/dev/null 2>&1 && "$tmp/native-out/xcheck_native" ) > "$tmp/native.txt"
+( cd xcheck-native && fe build --backend native --emit executable --out-dir "$tmp/native-out" >/dev/null 2>&1 && "$tmp/native-out/xcheck_native" ) | grep -E "^XC " > "$tmp/native.txt"   # XW (full-word sequence) lines are compared by proof.sh and the web demo test
 
 echo "--- sonatina ($(grep -c 'failed=' "$tmp/evm.txt") scenarios)"; cat "$tmp/evm.txt"
 echo "--- native ($(grep -c 'failed=' "$tmp/native.txt") scenarios)"; cat "$tmp/native.txt"

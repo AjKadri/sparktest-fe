@@ -18,3 +18,95 @@ fn a_shrinks_to_1000() uses (evm: mut Evm) {
     assert!(i.shrunk == 1000)
     assert!(i.original >= 1000)
 }
+
+#[test]
+fn b_holding_property_passes_all_cases() uses (evm: mut Evm) {
+    // x/2 <= x always holds; `x != s` (s opaque) keeps the loop observable to the optimizer
+    let s = runtime_seed()
+    let i = info(check(Config::new(s), |x: u256| x / 2 <= x && x != s))
+    assert!(!i.failed)
+    assert!(i.cases == 256)
+}
+
+#[test]
+fn c_same_seed_same_outcome_different_seed_differs() uses (evm: mut Evm) {
+    let s = runtime_seed()
+    let a = info(check(Config::new(s), |x: u256| x < 1000))
+    let b = info(check(Config::new(s), |x: u256| x < 1000))
+    assert!(a.failed && b.failed)
+    assert!(a.original == b.original)
+    assert!(a.shrunk == b.shrunk)
+    assert!(a.case == b.case)
+    assert!(a.steps == b.steps)
+    let c = info(check(Config::new(s + 1), |x: u256| x < 1000))
+    assert!(c.failed)
+    assert!(c.original != a.original)
+}
+
+#[test]
+fn d_edge_bias_finds_max() uses (evm: mut Evm) {
+    let i = info(check(Config::new(runtime_seed()), |x: u256| x != MAX))
+    assert!(i.failed)
+    assert!(i.original == MAX)
+    assert!(i.shrunk == MAX)
+    assert!(i.case < 256)
+}
+
+#[test]
+fn e1_zero_cases_passes_with_zero() uses (evm: mut Evm) {
+    let i = info(check(Config::new(runtime_seed()).with_cases(0), |x: u256| false))
+    assert!(!i.failed)
+    assert!(i.cases == 0)
+}
+
+#[test]
+fn e2_zero_max_shrinks_keeps_original() uses (evm: mut Evm) {
+    let i = info(check(Config::new(runtime_seed()).with_max_shrinks(0), |x: u256| x < 1000))
+    assert!(i.failed)
+    assert!(i.steps == 0)
+    assert!(i.shrunk == i.original)
+}
+
+#[test]
+fn e3_always_false_shrinks_to_zero() uses (evm: mut Evm) {
+    let i = info(check(Config::new(runtime_seed()), |x: u256| false))
+    assert!(i.failed)
+    assert!(i.shrunk == 0)
+    assert!(i.case == 0)
+}
+
+#[event]
+struct GasProbe { gas10: u256, gas1000: u256 }
+
+#[test]
+fn f_gas_scales_with_cases() uses (evm: mut Evm) {
+    let s = runtime_seed()
+    let g0 = evm.gas()
+    let a = info(check(Config::new(s).with_cases(10), |x: u256| x != s))
+    let g1 = evm.gas()
+    let b = info(check(Config::new(s).with_cases(1000), |x: u256| x != s))
+    let g2 = evm.gas()
+    assert!(!a.failed && !b.failed)
+    assert!(a.cases == 10 && b.cases == 1000)
+    let gas10 = g0 - g1
+    let gas1000 = g1 - g2
+    evm.emit(GasProbe { gas10, gas1000 })
+    assert!(gas1000 >= 20 * gas10)
+}
+
+#[test]
+fn g_bool_shrinks_to_true() uses (evm: mut Evm) {
+    match check(Config::new(runtime_seed()), |b: bool| b == false) {
+        Outcome::Pass { cases: _ } => { assert!(false) }
+        Outcome::Fail { original, shrunk, case: _, seed: _, steps: _ } => {
+            assert!(original == true)
+            assert!(shrunk == true)
+        }
+    }
+}
+
+// 0x4c350703 = selector of PropertyFailed(uint256,uint256,uint256,uint256[]) as emitted by the compiler
+#[test(should_revert, selector = 0x4c350703)]
+fn h_assert_holds_reverts_with_property_failed() uses (evm: mut Evm) {
+    assert_holds(check(Config::new(runtime_seed()), |x: u256| x < 1000))
+}

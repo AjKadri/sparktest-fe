@@ -25,3 +25,10 @@ pub fn assert_holds<T: Encode + Copy>(_ outcome: Outcome<T>) {
 pub fn runtime_seed() -> u256 uses (evm: mut Evm) {
     evm.gas() ^ (evm.prevrandao() << 64)
 }
+
+// Deterministic seed for tests: `salt` mixed with chain id read from the EVM. The chain id is a fixed
+// value in a fresh test EVM but opaque to the optimizer, so loops seeded with it cannot be folded away.
+// Same salt => same seed on every run; different salts => different seeds.
+pub fn fixed_seed(_ salt: u256) -> u256 uses (evm: mut Evm) {
+    0x5eed5eed5eed5eed ^ salt ^ (evm.chainid() << 64)
+}

@@ -1,0 +1,103 @@
+// Planted-bug suite: five realistic contract bug classes, each with a BUGGY and a FIXED version.
+// Pure, effect-free functions. Every property returns true when it HOLDS. Arithmetic that could overflow is
+// done in a wider type or with the checked helpers, so an overflow is a reported failure, never a panic.
+use sparktest::Checked
+
+// ---------------------------------------------------------------- a) vault share rounding
+// shares minted = amount * total_shares / total_assets. Minting must round DOWN (in the vault's favour).
+fn ceil_div(_ n: u128, _ d: u128) -> u128 { (n + d - 1) / d }
+
+pub fn deposit_shares_buggy(_ amount: u128, _ assets: u128, _ shares: u128) -> u128 {
+    ceil_div(amount * shares, assets)          // BUG: rounds up, the depositor is over-credited
+}
+pub fn deposit_shares_fixed(_ amount: u128, _ assets: u128, _ shares: u128) -> u128 {
+    amount * shares / assets
+}
+pub fn withdraw_assets(_ burned: u128, _ assets: u128, _ shares: u128) -> u128 {
+    burned * assets / shares
+}
+
+fn vault_roundtrip(_ p: (u32, u32, u32), _ buggy: bool) -> bool {
+    let assets = p.0 as u128
+    let shares = p.1 as u128
+    let amount = p.2 as u128
+    if assets == 0 || shares == 0 || amount == 0 { return true }
+    let minted = if buggy { deposit_shares_buggy(amount, assets, shares) } else { deposit_shares_fixed(amount, assets, shares) }
+    // deposit, then immediately withdraw what was minted
+    let back = withdraw_assets(minted, assets + amount, shares + minted)
+    back <= amount
+}
+// input: (total_assets, total_shares, amount)
+pub fn prop_vault_buggy(_ p: (u32, u32, u32)) -> bool { vault_roundtrip(p, true) }
+pub fn prop_vault_fixed(_ p: (u32, u32, u32)) -> bool { vault_roundtrip(p, false) }
+
+// ---------------------------------------------------------------- b) fee calculation overflow
+pub fn fee_mul_first(_ amount: u64, _ bps: u64) -> Option<u64> {
+    match amount.checked_mul(bps) {               // BUG: multiplies before dividing; overflows for large amounts
+        Option::Some(p) => Option::Some(p / 10000)
+        Option::None => Option::None
+    }
+}
+pub fn fee_split(_ amount: u64, _ bps: u64) -> Option<u64> {
+    // amount / 10000 * bps + (amount % 10000) * bps / 10000, which cannot overflow for bps <= 10000
+    Option::Some(amount / 10000 * bps + (amount % 10000) * bps / 10000)
+}
+fn fee_ok(_ r: Option<u64>, _ amount: u64) -> bool {
+    match r {
+        Option::Some(fee) => fee <= amount
+        Option::None => false                     // an overflow is a reported failure
+    }
+}
+// input: (amount, bps); only bps <= 10000 are valid basis points, others are skipped
+pub fn prop_fee_buggy(_ p: (u64, u16)) -> bool {
+    let bps = p.1 as u64
+    if bps > 10000 { return true }
+    fee_ok(fee_mul_first(p.0, bps), p.0)
+}
+pub fn prop_fee_fixed(_ p: (u64, u16)) -> bool {
+    let bps = p.1 as u64
+    if bps > 10000 { return true }
+    fee_ok(fee_split(p.0, bps), p.0)
+}
+
+// ---------------------------------------------------------------- c) balance check underflow
+// returns (ok, new_balance)
+pub fn withdraw_buggy(_ balance: u64, _ amount: u64) -> (bool, u64) {
+    let new_balance = balance.wrapping_sub(amount)  // BUG: subtracts first (wrapping) and never checks balance >= amount
+    (true, new_balance)
+}
+pub fn withdraw_fixed(_ balance: u64, _ amount: u64) -> (bool, u64) {
+    if balance >= amount { (true, balance - amount) } else { (false, balance) }
+}
+fn withdraw_ok(_ r: (bool, u64), _ balance: u64, _ amount: u64) -> bool {
+    // if the withdrawal is accepted, the books must add up
+    if r.0 { amount <= balance && r.1 == balance - amount } else { r.1 == balance }
+}
+// input: (balance, amount)
+pub fn prop_withdraw_buggy(_ p: (u64, u64)) -> bool { withdraw_ok(withdraw_buggy(p.0, p.1), p.0, p.1) }
+pub fn prop_withdraw_fixed(_ p: (u64, u64)) -> bool { withdraw_ok(withdraw_fixed(p.0, p.1), p.0, p.1) }
+
+// ---------------------------------------------------------------- d) packing two u128 into a u256
+const MASK128: u256 = 0xffffffffffffffffffffffffffffffff
+pub fn pack_buggy(_ a: u128, _ b: u128) -> u256 { ((a as u256) << 127) | (b as u256) }   // BUG: shifts by 127, not 128
+pub fn pack_fixed(_ a: u128, _ b: u128) -> u256 { ((a as u256) << 128) | (b as u256) }
+pub fn unpack(_ p: u256) -> (u128, u128) {
+    let hi: u128 = (p >> 128).downcast_truncate()
+    let lo: u128 = (p & MASK128).downcast_truncate()
+    (hi, lo)
+}
+pub fn prop_pack_buggy(_ p: (u128, u128)) -> bool {
+    let r = unpack(pack_buggy(p.0, p.1))
+    r.0 == p.0 && r.1 == p.1
+}
+pub fn prop_pack_fixed(_ p: (u128, u128)) -> bool {
+    let r = unpack(pack_fixed(p.0, p.1))
+    r.0 == p.0 && r.1 == p.1
+}
+
+// ---------------------------------------------------------------- e) bounds off-by-one
+pub fn in_bounds_buggy(_ i: u8, _ len: u8) -> bool { i <= len }   // BUG: should be i < len
+pub fn in_bounds_fixed(_ i: u8, _ len: u8) -> bool { i < len }
+// input: (i, len). If the index is declared in bounds it must really be below len.
+pub fn prop_bounds_buggy(_ p: (u8, u8)) -> bool { if in_bounds_buggy(p.0, p.1) { p.0 < p.1 } else { true } }
+pub fn prop_bounds_fixed(_ p: (u8, u8)) -> bool { if in_bounds_fixed(p.0, p.1) { p.0 < p.1 } else { true } }

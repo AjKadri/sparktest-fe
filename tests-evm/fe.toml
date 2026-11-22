@@ -5,3 +5,4 @@ version = "0.1.0"
 [dependencies]
 qc = { path = "../qc" }
 qc_evm = { path = "../qc-evm" }
+props = { path = "../props" }

@@ -1,5 +1,5 @@
 use std::evm::Evm
-use qc::{check, Config, Outcome, MAX}
+use qc::{check, Config, Outcome, Checked, MAX}
 use qc_evm::{assert_holds, fixed_seed}
 
 struct Info { failed: bool, original: u256, shrunk: u256, case: u256, steps: u256, cases: u256, seed: u256 }
@@ -13,7 +13,7 @@ fn info(_ o: Outcome<u256>) -> Info {
 
 #[test]
 fn a_shrinks_to_1000() uses (evm: mut Evm) {
-    let i = info(check(Config::new(fixed_seed(1)), |x: u256| x < 1000))
+    let i = info(check(Config::new(fixed_seed(1)), props::prop_below_1000))
     assert!(i.failed)
     assert!(i.shrunk == 1000)
     assert!(i.original >= 1000)
@@ -31,14 +31,14 @@ fn b_holding_property_passes_all_cases() uses (evm: mut Evm) {
 #[test]
 fn c_same_seed_same_outcome_different_seed_differs() uses (evm: mut Evm) {
     let s = fixed_seed(3)
-    let a = info(check(Config::new(s), |x: u256| x < 1000))
-    let b = info(check(Config::new(s), |x: u256| x < 1000))
+    let a = info(check(Config::new(s), props::prop_below_1000))
+    let b = info(check(Config::new(s), props::prop_below_1000))
     assert!(a.failed && b.failed)
     assert!(a.original == b.original)
     assert!(a.shrunk == b.shrunk)
     assert!(a.case == b.case)
     assert!(a.steps == b.steps)
-    let c = info(check(Config::new(s + 1), |x: u256| x < 1000))
+    let c = info(check(Config::new(s + 1), props::prop_below_1000))
     assert!(c.failed)
     assert!(c.original != a.original)
 }
@@ -46,7 +46,7 @@ fn c_same_seed_same_outcome_different_seed_differs() uses (evm: mut Evm) {
 // Seed salt 4 is known to draw MAX at case 5 (EdgeProbe event), well inside the 256 cases.
 #[test]
 fn d_edge_bias_finds_max() uses (evm: mut Evm) {
-    let i = info(check(Config::new(fixed_seed(4)), |x: u256| x != MAX))
+    let i = info(check(Config::new(fixed_seed(4)), props::prop_ne_max))
     assert!(i.failed)
     assert!(i.original == MAX)
     assert!(i.shrunk == MAX)
@@ -59,14 +59,14 @@ struct EdgeProbe { case: u256 }
 
 #[test]
 fn e1_zero_cases_passes_with_zero() uses (evm: mut Evm) {
-    let i = info(check(Config::new(fixed_seed(5)).with_cases(0), |x: u256| false))
+    let i = info(check(Config::new(fixed_seed(5)).with_cases(0), props::prop_false))
     assert!(!i.failed)
     assert!(i.cases == 0)
 }
 
 #[test]
 fn e2_zero_max_shrinks_keeps_original() uses (evm: mut Evm) {
-    let i = info(check(Config::new(fixed_seed(6)).with_max_shrinks(0), |x: u256| x < 1000))
+    let i = info(check(Config::new(fixed_seed(6)).with_max_shrinks(0), props::prop_below_1000))
     assert!(i.failed)
     assert!(i.steps == 0)
     assert!(i.shrunk == i.original)
@@ -74,7 +74,7 @@ fn e2_zero_max_shrinks_keeps_original() uses (evm: mut Evm) {
 
 #[test]
 fn e3_always_false_shrinks_to_zero() uses (evm: mut Evm) {
-    let i = info(check(Config::new(fixed_seed(7)), |x: u256| false))
+    let i = info(check(Config::new(fixed_seed(7)), props::prop_false))
     assert!(i.failed)
     assert!(i.shrunk == 0)
     assert!(i.case == 0)
@@ -101,7 +101,7 @@ fn f_gas_scales_with_cases() uses (evm: mut Evm) {
 
 #[test]
 fn g_bool_shrinks_to_true() uses (evm: mut Evm) {
-    match check(Config::new(fixed_seed(9)), |b: bool| b == false) {
+    match check(Config::new(fixed_seed(9)), props::prop_bool_false) {
         Outcome::Pass { cases: _ } => { assert!(false) }
         Outcome::Fail { original, shrunk, case: _, seed: _, steps: _ } => {
             assert!(original == true)
@@ -113,15 +113,15 @@ fn g_bool_shrinks_to_true() uses (evm: mut Evm) {
 // 0x4c350703 = selector of PropertyFailed(uint256,uint256,uint256,uint256[]) as emitted by the compiler
 #[test(should_revert, selector = 0x4c350703)]
 fn h_assert_holds_reverts_with_property_failed() uses (evm: mut Evm) {
-    assert_holds(check(Config::new(fixed_seed(10)), |x: u256| x < 1000))
+    assert_holds(check(Config::new(fixed_seed(10)), props::prop_below_1000))
 }
 
 #[test]
 fn i_replay_reproduces_failure() uses (evm: mut Evm) {
-    let o = info(check(Config::new(fixed_seed(11)), |x: u256| x < 1000))
+    let o = info(check(Config::new(fixed_seed(11)), props::prop_below_1000))
     assert!(o.failed)
     // replaying with the seed reported in the Outcome gives the same original, shrunk, case
-    let r = info(check(Config::new(o.seed), |x: u256| x < 1000))
+    let r = info(check(Config::new(o.seed), props::prop_below_1000))
     assert!(r.failed)
     assert!(r.original == o.original)
     assert!(r.shrunk == o.shrunk)
@@ -133,6 +133,26 @@ fn i_replay_reproduces_failure() uses (evm: mut Evm) {
 // check() cannot catch it, and no Outcome is produced.
 #[test(should_revert, panic = 0x11)]
 fn probe_overflow_in_property_reverts_whole_run() uses (evm: mut Evm) {
-    let o = info(check(Config::new(fixed_seed(12)), |x: u256| x + 1 > 0))
+    let o = info(check(Config::new(fixed_seed(12)), props::prop_overflows_at_max))
     assert!(!o.failed) // never reached when some case is MAX or the generator yields it
+}
+
+// checked_add/sub/mul boundaries: `z` is an opaque zero (chain id compared against an impossible value),
+// so the helpers run at runtime. props::checked_boundaries returns 0 when every boundary is right,
+// otherwise the number of the first wrong case.
+fn opaque_zero() -> u256 uses (evm: mut Evm) {
+    if evm.chainid() == 0x1234567890abcdef { 1 } else { 0 }
+}
+
+#[test]
+fn checked_helpers_boundaries() uses (evm: mut Evm) {
+    assert!(props::checked_boundaries(opaque_zero()) == 0)
+}
+
+// the checked helpers never panic where plain `+` would: max + 1 as Option
+#[test]
+fn checked_add_none_instead_of_panic() uses (evm: mut Evm) {
+    let m: u256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff - opaque_zero()
+    assert!(m.checked_add(1).is_none())
+    assert!(!m.checked_sub(1).is_none())
 }

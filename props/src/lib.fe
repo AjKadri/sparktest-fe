@@ -1,0 +1,135 @@
+// Shared properties and planted-bug examples: plain, effect-free fns used by every backend's tests.
+// A property returns true when it HOLDS. Planted bugs fail on a known minimal input (stated per fn).
+use std::evm::Address
+use std::abi::DynArray
+use qc::{Arbitrary, Shrink, Encode, Rng, Checked, Outcome, Config, check}
+
+// ---- u256 / bool ----
+pub fn prop_below_1000(_ x: u256) -> bool { x < 1000 }               // fails; minimal counterexample 1000
+pub fn prop_ne_max(_ x: u256) -> bool { x != 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff }
+pub fn prop_false(_ x: u256) -> bool { false }                        // fails; minimal 0
+pub fn prop_half_le(_ x: u256) -> bool { x / 2 <= x }                 // holds
+pub fn prop_bool_false(_ b: bool) -> bool { b == false }              // fails; minimal true
+
+// ---- u8 ----
+pub fn prop_u8_any(_ x: u8) -> bool { (x as u256) <= 255 }          // holds
+pub fn prop_u8_below_lim(_ x: u8) -> bool { (x as u256) < 200 }   // fails; minimal 200
+pub fn prop_u8_ne_max(_ x: u8) -> bool { (x as u256) != 255 }      // fails only at max
+
+// ---- u16 ----
+pub fn prop_u16_any(_ x: u16) -> bool { (x as u256) <= 65535 }          // holds
+pub fn prop_u16_below_lim(_ x: u16) -> bool { (x as u256) < 40000 }   // fails; minimal 40000
+pub fn prop_u16_ne_max(_ x: u16) -> bool { (x as u256) != 65535 }      // fails only at max
+
+// ---- u32 ----
+pub fn prop_u32_any(_ x: u32) -> bool { (x as u256) <= 4294967295 }          // holds
+pub fn prop_u32_below_lim(_ x: u32) -> bool { (x as u256) < 3000000000 }   // fails; minimal 3000000000
+pub fn prop_u32_ne_max(_ x: u32) -> bool { (x as u256) != 4294967295 }      // fails only at max
+
+// ---- u64 ----
+pub fn prop_u64_any(_ x: u64) -> bool { (x as u256) <= 18446744073709551615 }          // holds
+pub fn prop_u64_below_lim(_ x: u64) -> bool { (x as u256) < 1152921504606846976 }   // fails; minimal 1152921504606846976
+pub fn prop_u64_ne_max(_ x: u64) -> bool { (x as u256) != 18446744073709551615 }      // fails only at max
+
+// ---- u128 ----
+pub fn prop_u128_any(_ x: u128) -> bool { (x as u256) <= 340282366920938463463374607431768211455 }          // holds
+pub fn prop_u128_below_lim(_ x: u128) -> bool { (x as u256) < 1267650600228229401496703205376 }   // fails; minimal 1267650600228229401496703205376
+pub fn prop_u128_ne_max(_ x: u128) -> bool { (x as u256) != 340282366920938463463374607431768211455 }      // fails only at max
+
+// ---- Address ----
+pub fn prop_addr_any(_ a: Address) -> bool { a.word() < 1461501637330902918203684832716283019655932542976 }   // holds (< 2^160)
+pub fn prop_addr_below_0x1000(_ a: Address) -> bool { a.word() < 0x1000 }            // fails; minimal 0x1000
+pub fn prop_addr_ne_max(_ a: Address) -> bool { a.word() != 1461501637330902918203684832716283019655932542975 }
+pub fn prop_addr_ne_zero(_ a: Address) -> bool { a.word() != 0 }
+
+// ---- tuples (sums are widened to u256 first, so the property itself cannot overflow) ----
+pub fn prop_pair_u8_sum_lt_10(_ p: (u8, u8)) -> bool { (p.0 as u256) + (p.1 as u256) < 10 }           // fails; sum shrinks to 10
+pub fn prop_pair_u8_sum_lt_511(_ p: (u8, u8)) -> bool { (p.0 as u256) + (p.1 as u256) < 511 }         // holds
+pub fn prop_triple_sum_lt_10(_ p: (u8, u16, u32)) -> bool { (p.0 as u256) + (p.1 as u256) + (p.2 as u256) < 10 }
+pub fn prop_quad_u8_sum_lt_10(_ p: (u8, u8, u8, u8)) -> bool { (p.0 as u256) + (p.1 as u256) + (p.2 as u256) + (p.3 as u256) < 10 }
+pub fn prop_mixed_any(_ p: (bool, u8, Address)) -> bool { (p.1 as u256) < 256 }                      // holds
+
+// ---- arrays ----
+pub fn prop_arr_u64x4_sum_lt_10(_ a: [u64; 4]) -> bool { (a[0] as u256) + (a[1] as u256) + (a[2] as u256) + (a[3] as u256) < 10 }
+pub fn prop_arr_u8x3_sum_lt_766(_ a: [u8; 3]) -> bool { (a[0] as u256) + (a[1] as u256) + (a[2] as u256) < 766 }   // holds
+pub fn prop_arr_u64x6_ends_lt_10(_ a: [u64; 6]) -> bool { (a[0] as u256) + (a[5] as u256) < 10 }
+
+// ---- user struct: copy this pattern for your own types ----
+/// A user-defined struct becomes testable by delegating Arbitrary, Shrink and Encode to a tuple of its
+/// fields. To copy: (1) `impl Copy for YourStruct {}`; (2) convert to/from a tuple of the fields;
+/// (3) call the tuple's impls as `<(A, B) as Arbitrary>::arbitrary(mut rng)` (never `Type::f`).
+pub struct Transfer { pub to: Address, pub amount: u256 }
+impl Copy for Transfer {}
+
+fn transfer_of(_ p: (Address, u256)) -> Transfer { Transfer { to: p.0, amount: p.1 } }
+fn pair_of(_ t: Transfer) -> (Address, u256) { (t.to, t.amount) }
+
+impl Arbitrary for Transfer {
+    fn arbitrary<R: Rng>(_ rng: mut R) -> Self {
+        transfer_of(<(Address, u256) as Arbitrary>::arbitrary(mut rng))
+    }
+}
+impl Shrink for Transfer {
+    fn shrink_step(self, _ i: u256) -> Option<Self> {
+        match pair_of(self).shrink_step(i) {
+            Option::Some(p) => Option::Some(transfer_of(p))
+            Option::None => Option::None
+        }
+    }
+}
+impl Encode for Transfer {
+    fn words(self) -> DynArray<u256> { pair_of(self).words() }
+}
+
+pub fn prop_transfer_amount_le_500(_ t: Transfer) -> bool { t.amount <= 500 }       // fails; minimal amount 501, to = zero address
+pub fn prop_transfer_to_any(_ t: Transfer) -> bool { t.to.word() < 1461501637330902918203684832716283019655932542976 }
+
+// ---- checked arithmetic boundaries: returns 0 when every boundary behaves, else the number of the first wrong case.
+// `z` must be an optimizer-opaque zero so the checks run at runtime.
+pub fn checked_boundaries(_ z: u256) -> u256 {
+    let m8: u8 = (255 + z).downcast_truncate()
+    let m16: u16 = (65535 + z).downcast_truncate()
+    let m32: u32 = (4294967295 + z).downcast_truncate()
+    let m64: u64 = (18446744073709551615 + z).downcast_truncate()
+    let m128: u128 = (340282366920938463463374607431768211455 + z).downcast_truncate()
+    let m256: u256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff - z
+    let zero8: u8 = z.downcast_truncate()
+    let zero256: u256 = z
+    // add: max + 0 ok, max + 1 overflow
+    if m8.checked_add(zero8).is_none() { return 1 }
+    if !m8.checked_add(1).is_none() { return 2 }
+    if !m16.checked_add(1).is_none() { return 3 }
+    if !m32.checked_add(1).is_none() { return 4 }
+    if !m64.checked_add(1).is_none() { return 5 }
+    if !m128.checked_add(1).is_none() { return 6 }
+    if m256.checked_add(zero256).is_none() { return 7 }
+    if !m256.checked_add(1).is_none() { return 8 }
+    // sub: 0 - 1 underflow, max - max = 0
+    if !zero8.checked_sub(1).is_none() { return 9 }
+    if !zero256.checked_sub(1).is_none() { return 10 }
+    if m8.checked_sub(m8).is_none() { return 11 }
+    // mul: overflow and the boundary that fits
+    let h8: u8 = (16 + z).downcast_truncate()
+    if !h8.checked_mul(16).is_none() { return 12 }
+    let g8: u8 = (15 + z).downcast_truncate()
+    if g8.checked_mul(17).is_none() { return 13 }        // 255 fits
+    if !m8.checked_mul(2).is_none() { return 14 }
+    if !m256.checked_mul(2).is_none() { return 15 }
+    if m256.checked_mul(1).is_none() { return 16 }
+    let half: u256 = (1 << 128) + z
+    if !half.checked_mul(half).is_none() { return 17 }  // 2^256 overflows
+    if half.checked_mul(half - 1).is_none() { return 18 } // 2^256 - 2^128 fits
+    // values of the successes
+    match m8.checked_add(zero8) {
+        Option::Some(v) => { if v != 255 { return 19 } }
+        Option::None => { return 19 }
+    }
+    match g8.checked_mul(17) {
+        Option::Some(v) => { if v != 255 { return 20 } }
+        Option::None => { return 20 }
+    }
+    0
+}
+
+// planted bug: overflows (panics) when x is the max value; used to probe "overflow inside a property"
+pub fn prop_overflows_at_max(_ x: u256) -> bool { x + 1 > 0 }

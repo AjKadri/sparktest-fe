@@ -3,6 +3,7 @@ use std::evm::{Evm, Address}
 use std::abi::DynArray
 use qc::{check, Config, Outcome, Arbitrary, Shrink, Encode}
 use qc_evm::{assert_holds, fixed_seed}
+use props::Transfer
 
 fn is_pass<T>(_ o: Outcome<T>) -> bool {
     match o {
@@ -29,7 +30,7 @@ fn case_of<T>(_ o: Outcome<T>) -> u256 {
 #[test]
 fn u8_passing_property() uses (evm: mut Evm) {
     let g0 = evm.gas()
-    let o = check(Config::new(fixed_seed(20)), |x: u8| (x as u256) <= 255)
+    let o = check(Config::new(fixed_seed(20)), props::prop_u8_any)
     assert!(is_pass(o))
     assert!(case_of(o) == 256)
     // proof the cases actually ran: gas used is at least 50 per case
@@ -39,7 +40,7 @@ fn u8_passing_property() uses (evm: mut Evm) {
 // x < 200 fails; the minimal counterexample is exactly 200
 #[test]
 fn u8_failing_property_shrinks_to_minimum() uses (evm: mut Evm) {
-    let o = check(Config::new(fixed_seed(21)), |x: u8| (x as u256) < 200)
+    let o = check(Config::new(fixed_seed(21)), props::prop_u8_below_lim)
     assert!(!is_pass(o))
     assert!((shrunk_of(o, 0) as u256) == 200)
 }
@@ -48,7 +49,7 @@ fn u8_failing_property_shrinks_to_minimum() uses (evm: mut Evm) {
 #[test]
 fn u8_edge_bias_finds_max() uses (evm: mut Evm) {
     let max: u8 = 255
-    let o = check(Config::new(fixed_seed(22)), |x: u8| x != max)
+    let o = check(Config::new(fixed_seed(22)), props::prop_u8_ne_max)
     assert!(!is_pass(o))
     assert!(case_of(o) < 256)
     assert!(shrunk_of(o, 0) == max)
@@ -58,7 +59,7 @@ fn u8_edge_bias_finds_max() uses (evm: mut Evm) {
 #[test]
 fn u16_passing_property() uses (evm: mut Evm) {
     let g0 = evm.gas()
-    let o = check(Config::new(fixed_seed(23)), |x: u16| (x as u256) <= 65535)
+    let o = check(Config::new(fixed_seed(23)), props::prop_u16_any)
     assert!(is_pass(o))
     assert!(case_of(o) == 256)
     // proof the cases actually ran: gas used is at least 50 per case
@@ -68,7 +69,7 @@ fn u16_passing_property() uses (evm: mut Evm) {
 // x < 40000 fails; the minimal counterexample is exactly 40000
 #[test]
 fn u16_failing_property_shrinks_to_minimum() uses (evm: mut Evm) {
-    let o = check(Config::new(fixed_seed(24)), |x: u16| (x as u256) < 40000)
+    let o = check(Config::new(fixed_seed(24)), props::prop_u16_below_lim)
     assert!(!is_pass(o))
     assert!((shrunk_of(o, 0) as u256) == 40000)
 }
@@ -77,7 +78,7 @@ fn u16_failing_property_shrinks_to_minimum() uses (evm: mut Evm) {
 #[test]
 fn u16_edge_bias_finds_max() uses (evm: mut Evm) {
     let max: u16 = 65535
-    let o = check(Config::new(fixed_seed(25)), |x: u16| x != max)
+    let o = check(Config::new(fixed_seed(25)), props::prop_u16_ne_max)
     assert!(!is_pass(o))
     assert!(case_of(o) < 256)
     assert!(shrunk_of(o, 0) == max)
@@ -87,7 +88,7 @@ fn u16_edge_bias_finds_max() uses (evm: mut Evm) {
 #[test]
 fn u32_passing_property() uses (evm: mut Evm) {
     let g0 = evm.gas()
-    let o = check(Config::new(fixed_seed(26)), |x: u32| (x as u256) <= 4294967295)
+    let o = check(Config::new(fixed_seed(26)), props::prop_u32_any)
     assert!(is_pass(o))
     assert!(case_of(o) == 256)
     // proof the cases actually ran: gas used is at least 50 per case
@@ -97,7 +98,7 @@ fn u32_passing_property() uses (evm: mut Evm) {
 // x < 3000000000 fails; the minimal counterexample is exactly 3000000000
 #[test]
 fn u32_failing_property_shrinks_to_minimum() uses (evm: mut Evm) {
-    let o = check(Config::new(fixed_seed(27)), |x: u32| (x as u256) < 3000000000)
+    let o = check(Config::new(fixed_seed(27)), props::prop_u32_below_lim)
     assert!(!is_pass(o))
     assert!((shrunk_of(o, 0) as u256) == 3000000000)
 }
@@ -106,7 +107,7 @@ fn u32_failing_property_shrinks_to_minimum() uses (evm: mut Evm) {
 #[test]
 fn u32_edge_bias_finds_max() uses (evm: mut Evm) {
     let max: u32 = 4294967295
-    let o = check(Config::new(fixed_seed(28)), |x: u32| x != max)
+    let o = check(Config::new(fixed_seed(28)), props::prop_u32_ne_max)
     assert!(!is_pass(o))
     assert!(case_of(o) < 256)
     assert!(shrunk_of(o, 0) == max)
@@ -116,7 +117,7 @@ fn u32_edge_bias_finds_max() uses (evm: mut Evm) {
 #[test]
 fn u64_passing_property() uses (evm: mut Evm) {
     let g0 = evm.gas()
-    let o = check(Config::new(fixed_seed(29)), |x: u64| (x as u256) <= 18446744073709551615)
+    let o = check(Config::new(fixed_seed(29)), props::prop_u64_any)
     assert!(is_pass(o))
     assert!(case_of(o) == 256)
     // proof the cases actually ran: gas used is at least 50 per case
@@ -126,7 +127,7 @@ fn u64_passing_property() uses (evm: mut Evm) {
 // x < 1152921504606846976 fails; the minimal counterexample is exactly 2^60
 #[test]
 fn u64_failing_property_shrinks_to_minimum() uses (evm: mut Evm) {
-    let o = check(Config::new(fixed_seed(30)), |x: u64| (x as u256) < 1152921504606846976)
+    let o = check(Config::new(fixed_seed(30)), props::prop_u64_below_lim)
     assert!(!is_pass(o))
     assert!((shrunk_of(o, 0) as u256) == 1152921504606846976)
 }
@@ -135,7 +136,7 @@ fn u64_failing_property_shrinks_to_minimum() uses (evm: mut Evm) {
 #[test]
 fn u64_edge_bias_finds_max() uses (evm: mut Evm) {
     let max: u64 = 18446744073709551615
-    let o = check(Config::new(fixed_seed(31)), |x: u64| x != max)
+    let o = check(Config::new(fixed_seed(31)), props::prop_u64_ne_max)
     assert!(!is_pass(o))
     assert!(case_of(o) < 256)
     assert!(shrunk_of(o, 0) == max)
@@ -145,7 +146,7 @@ fn u64_edge_bias_finds_max() uses (evm: mut Evm) {
 #[test]
 fn u128_passing_property() uses (evm: mut Evm) {
     let g0 = evm.gas()
-    let o = check(Config::new(fixed_seed(32)), |x: u128| (x as u256) <= 340282366920938463463374607431768211455)
+    let o = check(Config::new(fixed_seed(32)), props::prop_u128_any)
     assert!(is_pass(o))
     assert!(case_of(o) == 256)
     // proof the cases actually ran: gas used is at least 50 per case
@@ -155,7 +156,7 @@ fn u128_passing_property() uses (evm: mut Evm) {
 // x < 1267650600228229401496703205376 fails; the minimal counterexample is exactly 2^100
 #[test]
 fn u128_failing_property_shrinks_to_minimum() uses (evm: mut Evm) {
-    let o = check(Config::new(fixed_seed(33)), |x: u128| (x as u256) < 1267650600228229401496703205376)
+    let o = check(Config::new(fixed_seed(33)), props::prop_u128_below_lim)
     assert!(!is_pass(o))
     assert!((shrunk_of(o, 0) as u256) == 1267650600228229401496703205376)
 }
@@ -164,7 +165,7 @@ fn u128_failing_property_shrinks_to_minimum() uses (evm: mut Evm) {
 #[test]
 fn u128_edge_bias_finds_max() uses (evm: mut Evm) {
     let max: u128 = 340282366920938463463374607431768211455
-    let o = check(Config::new(fixed_seed(34)), |x: u128| x != max)
+    let o = check(Config::new(fixed_seed(34)), props::prop_u128_ne_max)
     assert!(!is_pass(o))
     assert!(case_of(o) < 256)
     assert!(shrunk_of(o, 0) == max)
@@ -174,7 +175,7 @@ fn u128_edge_bias_finds_max() uses (evm: mut Evm) {
 #[test]
 fn address_passing_property() uses (evm: mut Evm) {
     let g0 = evm.gas()
-    let o = check(Config::new(fixed_seed(40)), |a: Address| a.word() < 1461501637330902918203684832716283019655932542976) // < 2^160
+    let o = check(Config::new(fixed_seed(40)), props::prop_addr_any)
     assert!(is_pass(o))
     assert!(g0 - evm.gas() >= 256 * 50)
 }
@@ -182,7 +183,7 @@ fn address_passing_property() uses (evm: mut Evm) {
 // word(a) < 0x1000 fails; minimal counterexample is the address 0x1000
 #[test]
 fn address_failing_property_shrinks_to_minimum() uses (evm: mut Evm) {
-    let o = check(Config::new(fixed_seed(41)), |a: Address| a.word() < 0x1000)
+    let o = check(Config::new(fixed_seed(41)), props::prop_addr_below_0x1000)
     assert!(!is_pass(o))
     assert!(shrunk_of(o, Address::zero()).word() == 0x1000)
 }
@@ -191,10 +192,10 @@ fn address_failing_property_shrinks_to_minimum() uses (evm: mut Evm) {
 #[test]
 fn address_edge_bias_finds_max_and_zero() uses (evm: mut Evm) {
     let max = Address::from_word_truncate(1461501637330902918203684832716283019655932542975)
-    let o = check(Config::new(fixed_seed(42)), |a: Address| a.word() != max.word())
+    let o = check(Config::new(fixed_seed(42)), props::prop_addr_ne_max)
     assert!(!is_pass(o))
     assert!(case_of(o) < 256)
-    let z = check(Config::new(fixed_seed(43)), |a: Address| a.word() != 0)
+    let z = check(Config::new(fixed_seed(43)), props::prop_addr_ne_zero)
     assert!(!is_pass(z))
     assert!(case_of(z) < 256)
 }
@@ -206,7 +207,7 @@ struct Shape { e0: u256, e1: u256, e2: u256, e3: u256 }
 // (u8, u8): a + b < 10 fails; shrinks to a sum of exactly 10
 #[test]
 fn tuple2_u8_failing_property_sum_is_10() uses (evm: mut Evm) {
-    let o = check(Config::new(fixed_seed(50)), |p: (u8, u8)| (p.0 as u256) + (p.1 as u256) < 10)
+    let o = check(Config::new(fixed_seed(50)), props::prop_pair_u8_sum_lt_10)
     assert!(!is_pass(o))
     let m = shrunk_of(o, (0, 0))
     evm.emit(Shape { e0: m.0 as u256, e1: m.1 as u256, e2: 0, e3: 0 })
@@ -216,14 +217,14 @@ fn tuple2_u8_failing_property_sum_is_10() uses (evm: mut Evm) {
 #[test]
 fn tuple2_passing_property() uses (evm: mut Evm) {
     let g0 = evm.gas()
-    let o = check(Config::new(fixed_seed(51)), |p: (u8, u8)| (p.0 as u256) + (p.1 as u256) < 511)
+    let o = check(Config::new(fixed_seed(51)), props::prop_pair_u8_sum_lt_511)
     assert!(is_pass(o))
     assert!(g0 - evm.gas() >= 256 * 50)
 }
 
 #[test]
 fn tuple3_failing_property_sum_is_10() uses (evm: mut Evm) {
-    let o = check(Config::new(fixed_seed(52)), |p: (u8, u16, u32)| (p.0 as u256) + (p.1 as u256) + (p.2 as u256) < 10)
+    let o = check(Config::new(fixed_seed(52)), props::prop_triple_sum_lt_10)
     assert!(!is_pass(o))
     let m = shrunk_of(o, (0, 0, 0))
     evm.emit(Shape { e0: m.0 as u256, e1: m.1 as u256, e2: m.2 as u256, e3: 0 })
@@ -232,7 +233,7 @@ fn tuple3_failing_property_sum_is_10() uses (evm: mut Evm) {
 
 #[test]
 fn tuple4_failing_property_sum_is_10() uses (evm: mut Evm) {
-    let o = check(Config::new(fixed_seed(53)), |p: (u8, u8, u8, u8)| (p.0 as u256) + (p.1 as u256) + (p.2 as u256) + (p.3 as u256) < 10)
+    let o = check(Config::new(fixed_seed(53)), props::prop_quad_u8_sum_lt_10)
     assert!(!is_pass(o))
     let m = shrunk_of(o, (0, 0, 0, 0))
     evm.emit(Shape { e0: m.0 as u256, e1: m.1 as u256, e2: m.2 as u256, e3: m.3 as u256 })
@@ -242,7 +243,7 @@ fn tuple4_failing_property_sum_is_10() uses (evm: mut Evm) {
 #[test]
 fn tuple3_passing_property() uses (evm: mut Evm) {
     let g0 = evm.gas()
-    let o = check(Config::new(fixed_seed(54)), |p: (bool, u8, Address)| (p.1 as u256) < 256)
+    let o = check(Config::new(fixed_seed(54)), props::prop_mixed_any)
     assert!(is_pass(o))
     assert!(g0 - evm.gas() >= 256 * 50)
 }
@@ -252,7 +253,7 @@ fn tuple3_passing_property() uses (evm: mut Evm) {
 // observed minimal shape (logged in `Shape`): [0, 0, 0, 10], i.e. the whole 10 sits in the last element.
 #[test]
 fn array_u64x4_failing_property_sum_is_10() uses (evm: mut Evm) {
-    let o = check(Config::new(fixed_seed(60)), |a: [u64; 4]| (a[0] as u256) + (a[1] as u256) + (a[2] as u256) + (a[3] as u256) < 10)
+    let o = check(Config::new(fixed_seed(60)), props::prop_arr_u64x4_sum_lt_10)
     assert!(!is_pass(o))
     let m = shrunk_of(o, [0, 0, 0, 0])
     evm.emit(Shape { e0: m[0] as u256, e1: m[1] as u256, e2: m[2] as u256, e3: m[3] as u256 })
@@ -262,44 +263,15 @@ fn array_u64x4_failing_property_sum_is_10() uses (evm: mut Evm) {
 #[test]
 fn array_passing_property() uses (evm: mut Evm) {
     let g0 = evm.gas()
-    let o = check(Config::new(fixed_seed(61)), |a: [u8; 3]| (a[0] as u256) + (a[1] as u256) + (a[2] as u256) < 766)
+    let o = check(Config::new(fixed_seed(61)), props::prop_arr_u8x3_sum_lt_766)
     assert!(is_pass(o))
     assert!(g0 - evm.gas() >= 256 * 50)
-}
-
-// ---- user struct: copy this pattern for your own types ----
-/// A user-defined struct becomes testable by delegating Arbitrary, Shrink and Encode to a tuple of its
-/// fields. To copy: (1) `impl Copy for YourStruct {}`; (2) convert to/from a tuple of the fields;
-/// (3) call the tuple's impls generically, as `<(A, B) as Arbitrary>::arbitrary(mut rng)` (never `Type::f`).
-struct Transfer { to: Address, amount: u256 }
-impl Copy for Transfer {}
-
-fn transfer_of(_ p: (Address, u256)) -> Transfer { Transfer { to: p.0, amount: p.1 } }
-fn pair_of(_ t: Transfer) -> (Address, u256) { (t.to, t.amount) }
-
-impl Arbitrary for Transfer {
-    fn arbitrary<R: qc::Rng>(_ rng: mut R) -> Self {
-        transfer_of(<(Address, u256) as Arbitrary>::arbitrary(mut rng))
-    }
-}
-
-impl Shrink for Transfer {
-    fn shrink_step(self, _ i: u256) -> Option<Self> {
-        match pair_of(self).shrink_step(i) {
-            Option::Some(p) => Option::Some(transfer_of(p))
-            Option::None => Option::None
-        }
-    }
-}
-
-impl Encode for Transfer {
-    fn words(self) -> DynArray<u256> { pair_of(self).words() }
 }
 
 // amount <= 500 fails for amount 501; `to` is irrelevant so it shrinks to the zero address
 #[test]
 fn transfer_failing_property_shrinks_to_501_and_zero_address() uses (evm: mut Evm) {
-    let o = check(Config::new(fixed_seed(70)), |t: Transfer| t.amount <= 500)
+    let o = check(Config::new(fixed_seed(70)), props::prop_transfer_amount_le_500)
     assert!(!is_pass(o))
     let m = shrunk_of(o, Transfer { to: Address::zero(), amount: 0 })
     assert!(m.amount == 501)
@@ -309,7 +281,7 @@ fn transfer_failing_property_shrinks_to_501_and_zero_address() uses (evm: mut Ev
 #[test]
 fn transfer_passing_property() uses (evm: mut Evm) {
     let g0 = evm.gas()
-    let o = check(Config::new(fixed_seed(71)), |t: Transfer| t.to.word() < 1461501637330902918203684832716283019655932542976)
+    let o = check(Config::new(fixed_seed(71)), props::prop_transfer_to_any)
     assert!(is_pass(o))
     assert!(g0 - evm.gas() >= 256 * 50)
 }
@@ -329,5 +301,5 @@ fn encode_composites_report_all_words() uses (evm: mut Evm) {
 // PropertyFailed carries all 6 words of an array counterexample
 #[test(should_revert, selector = 0x4c350703)]
 fn revert_reports_array_counterexample() uses (evm: mut Evm) {
-    assert_holds(check(Config::new(fixed_seed(72)), |a: [u64; 6]| (a[0] as u256) + (a[5] as u256) < 10))
+    assert_holds(check(Config::new(fixed_seed(72)), props::prop_arr_u64x6_ends_lt_10))
 }

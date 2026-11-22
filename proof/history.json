@@ -10,5 +10,53 @@
   "rewards": {
     "date": "2026-11-22",
     "commit": "eb27a98"
+  },
+  "erc20_before_l7c": {
+    "commit": "01941fa",
+    "note": "state before joint shrinking, frozen from docs/PROOF.md at that commit",
+    "raw_u8": {
+      "P1": {
+        "found": [
+          21,
+          125,
+          1
+        ],
+        "case": 3,
+        "steps": 13,
+        "gas": 66384537
+      },
+      "P6": {
+        "found": [
+          26,
+          190,
+          1
+        ],
+        "case": 2,
+        "steps": 20,
+        "gas": 100039702
+      }
+    },
+    "index4": {
+      "P1": {
+        "found": [
+          3,
+          3,
+          1
+        ],
+        "case": 1,
+        "steps": 16,
+        "gas": 45408198
+      },
+      "P6": {
+        "found": [
+          0,
+          0,
+          1
+        ],
+        "case": 1,
+        "steps": 16,
+        "gas": 11595001
+      }
+    }
   }
 }

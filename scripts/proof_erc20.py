@@ -20,10 +20,8 @@ def section(run, problems):
         if m:
             h = m.group(1)[2:]
             w = [int(h[i:i + 64], 16) for i in range(0, len(h), 64)]
-            if len(w) >= 13:
-                res[w[0]] = dict(failed=w[1], case=w[2], steps=w[3], original=w[4:8], shrunk=w[8:12], gas=w[12])
-                if len(w) >= 16:   # counters added in L7a
-                    res[w[0]].update(attempted=w[13], accepted=w[14], vacuous=w[15])
+            if len(w) == 16:   # 3 original + 5 shrunk words and the counters (4 + 4 words before L7c)
+                res[w[0]] = dict(failed=w[1], case=w[2], steps=w[3], original=w[4:7], shrunk=w[7:12], gas=w[12], attempted=w[13], accepted=w[14], vacuous=w[15])
     s = ['## ERC20 through contract calls (sonatina only)', '',
          'Contract: the ERC20 test fixture from the Fe compiler repo (`crates/fe/tests/fixtures/fe_test/erc20.fe` at e6e6342), vendored unchanged in `examples/erc20` (Apache-2.0).',
          'It is a compiler test fixture, not a documented or audited token example. Observations about it (not bugs): `transfer` and `transferFrom` return `false` instead of reverting',
@@ -40,10 +38,10 @@ def section(run, problems):
     hist = json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'proof/history.json')))
     h0, h1 = hist['erc20_original'], hist['erc20_index_amendment']
     runs = (
-        (f"Unchanged contract, actors picked with a raw `u8 % 4` (original run, {h0['date']}, commit {h0['commit']})", 100, False, 'u8'),
-        (f"Planted bug, actors picked with a raw `u8 % 4` (original run, {h0['date']}, commit {h0['commit']}; the original \"partly\" result is kept)", 200, True, 'u8'),
-        (f"AMENDMENT {h1['date']} (commit {h1['commit']}): unchanged contract, actors picked with `Index<4>`", 300, False, 'Index<4>'),
-        (f"AMENDMENT {h1['date']} (commit {h1['commit']}): planted bug, actors picked with `Index<4>`", 400, True, 'Index<4>'),
+        (f"Unchanged contract, actors picked with a raw `u8 % 4` (original run {h0['date']}, commit {h0['commit']}; live re-run since L7c)", 100, False, 'u8'),
+        (f"Planted bug, actors picked with a raw `u8 % 4` (original run {h0['date']}, commit {h0['commit']}; live re-run since L7c: the original results are frozen in the table below)", 200, True, 'u8'),
+        (f"AMENDMENT {h1['date']} (commit {h1['commit']}; live re-run since L7c): unchanged contract, actors picked with `Index<4>`", 300, False, 'Index<4>'),
+        (f"AMENDMENT {h1['date']} (commit {h1['commit']}; live re-run since L7c): planted bug, actors picked with `Index<4>`", 400, True, 'Index<4>'),
     )
     for title, base, buggy, mode in runs:
         s += [f'### {title}', '', '| # | property | input | expected | found | as expected | cases | case | shrink steps | calls accepted / attempted | vacuous? | gas | backend | rerun |',
@@ -83,6 +81,15 @@ def section(run, problems):
             steps = '-' if r['failed'] == 0 else str(r['steps'])
             s.append(f"| P{pid} | {text} | {inp} | {expected} | {found} | {ok} | 64 | {case} | {steps} | {r['accepted']} / {r['attempted']} | {'no' if r['vacuous'] == 0 else 'VACUOUS (reason ' + str(r['vacuous']) + ')'} | {r['gas']:,} | sonatina | `{CMD}` |")
         s.append('')
+    f0 = hist['erc20_before_l7c']
+    s += ['### Frozen: the same planted-bug runs before joint shrinking (commit ' + f0['commit'] + ', frozen from docs/PROOF.md at that commit)', '',
+          'The tables above are live re-runs. These are the values they showed before L7c (docs/EXPECTATIONS.md, section "L7c", lists the prediction and the result for each).', '',
+          '| actors | property | found (sender, receiver, amount) | case | shrink steps | gas |', '|---|---|---|---|---|---|']
+    for lab, key in (('raw `u8 % 4`', 'raw_u8'), ('`Index<4>`', 'index4')):
+        for pk in ('P1', 'P6'):
+            v = f0[key][pk]
+            s.append(f"| {lab} | {pk} | {tuple(v['found'])} | {v['case']} | {v['steps']} | {v['gas']:,} |")
+    s.append('')
     d = res.get(701)
     if d is None:
         problems.append('vacuity demo: no result')

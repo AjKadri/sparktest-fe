@@ -9,7 +9,8 @@ def cmds(w):
         if k == 0: out.append(f'Transfer(actor {a} -> actor {b}, {amt})')
         elif k == 1: out.append(f'Approve(owner {a}, spender {b}, {amt})')
         elif k == 2: out.append(f'TransferFrom(spender {a}, owner {b}, to {c}, {amt})')
-        else: out.append(f'Mint(to {a}, {amt})')
+        elif k == 3: out.append(f'Mint(to {a}, {amt})')
+        else: out.append(f'Mint(actor {a} -> to {b}, {amt}, not the owner)')
     return out
 
 def cnt(r):
@@ -27,10 +28,10 @@ def rows(run, problems):
     s = ['### Stateful ERC20 (sonatina only): the ERC20 test fixture from the Fe compiler repo vs a pure reference model', '',
          'Each case deploys a fresh token (supply 16: every actor of four holds 4) plus four actor proxies, replays up to 8 commands through contract calls, and after every call compares the',
          'contract with a reference model (all four balances, totalSupply, the touched allowance) and checks that the balances sum to totalSupply. A command is `((kind, a, b), (c, amount))`',
-         'with `Index<4>` actors and an `Index<9>` amount (0..8): Transfer(a to b), Approve(owner a, spender b), TransferFrom(spender a, owner b, to c), Mint(to a). 64 cases per run.',
+         'with `Index<4>` actors, an `Index<5>` kind and an `Index<9>` amount (0..8): Transfer(a to b), Approve(owner a, spender b), TransferFrom(spender a, owner b, to c), Mint(to a, by the owner), Mint(actor a to b, by an actor that is not the owner; this fixture lets anyone mint, so it succeeds). 64 cases for the unchanged fixture, 128 for the planted bug: with the fifth command kind, 64 cases no longer found it (it was found at case 21 with four kinds; with five, 64 cases found nothing and the bug appeared at case 102).',
          'History: the first encoding packed the amount and the third actor into one `u32` (`% 9`, `/ 16 % 4`). It found the same 2-call shape (amounts 4 and 1 after the modulo) but left the raw packed numbers',
          'unshrunk (for example 407994619, which is 4 mod 9), so the amount became an `Index<9>` and the third actor an `Index<4>`, which shrink to real values.', '',
-         '| scenario | expected | found (shrunk) sequence | length | as expected | case | shrink steps | calls accepted / attempted | commands executed (Transfer, Approve, TransferFrom, Mint) | vacuous? | gas | backend | rerun |', '|---|---|---|---|---|---|---|---|---|---|---|---|---|']
+         '| scenario | expected | found (shrunk) sequence | length | as expected | case | shrink steps | calls accepted / attempted | commands executed (Transfer, Approve, TransferFrom, owner Mint, adversarial Mint) | vacuous? | gas | backend | rerun |', '|---|---|---|---|---|---|---|---|---|---|---|---|---|']
     for rid, title, expect in ((601, 'unchanged fixture', 'passes 64 cases'),
                                (602, 'examples/erc20-stateful-bug (PLANTED: after a transfer takes a holder to 0, the next transfer into it credits twice)',
                                 'length 2: Transfer(a -> b, 4), Transfer(c -> a, 1), b != a, c != a')):

@@ -39,8 +39,8 @@ def parse_evm(out):
             i = off // 32
             return w[i + 1:i + 1 + w[i]]
         r = dict(failed=w[1], case=w[2], steps=w[3], original=arr(w[4]), shrunk=arr(w[5]), gas=w[6])
-        if head >= 14:   # counters added in L7a: attempted, accepted, vacuous, commands executed per kind 0..3
-            r.update(attempted=w[7], accepted=w[8], vacuous=w[9], kinds=w[10:14])
+        if head >= 14:   # counters added in L7a: attempted, accepted, vacuous, commands executed per kind (0..3 until L7c, 0..4 since the adversarial Mint)
+            r.update(attempted=w[7], accepted=w[8], vacuous=w[9], kinds=w[10:head])
         res[w[0]] = r
     return res
 

@@ -1,0 +1,7 @@
+[ingot]
+name = "tests_native"
+version = "0.1.0"
+target = "native"
+
+[dependencies]
+qc = { path = "../qc" }

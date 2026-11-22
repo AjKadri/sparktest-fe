@@ -1,0 +1,10 @@
+use std::io::Stdout
+use qc::{run, Outcome}
+
+#[test]
+fn e2_shrink_native() uses (out: mut Stdout) {
+    let o = run(|x: u256| x < 1000, 12345, 1000, 0)
+    println!("found:", o.found, "min:", o.input, "first_case:", o.first_case, "steps:", o.steps, "evals:", o.evals)
+    assert!(o.found)
+    assert!(o.input == 1000)
+}

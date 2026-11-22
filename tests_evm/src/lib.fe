@@ -1,0 +1,15 @@
+use std::evm::Evm
+use qc::{run, Outcome}
+
+#[event]
+struct Shrunk { min: u256, first_case: u256, steps: u256, evals: u256, gas: u256 }
+
+#[test]
+fn e2_shrink_evm() uses (evm: mut Evm) {
+    let g0 = evm.gas()
+    let o = run(|x: u256| x < 1000, evm.gas(), 1000, 0)
+    let gas = g0 - evm.gas()
+    evm.emit(Shrunk { min: o.input, first_case: o.first_case, steps: o.steps, evals: o.evals, gas })
+    assert!(o.found)
+    assert!(o.input == 1000)
+}

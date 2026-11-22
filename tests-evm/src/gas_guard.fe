@@ -1,0 +1,66 @@
+// Gas-safe shrinking (sonatina): an expensive failing property that would exhaust the 1e9 gas cap while shrinking reports a partially shrunk input
+// with the early flag set (check_gas) instead of ending the whole test with OutOfGas.
+use std::evm::Evm
+use sparktest::{Config, check, summarize}
+use sparktest_evm::{fixed_seed, check_gas, check_gas_with_margin, assert_holds, GAS_MARGIN}
+
+fn zero() -> u256 uses (evm: mut Evm) {
+    if evm.chainid() == 0x1234567890abcdef { 1 } else { 0 }
+}
+
+// holds only for x == 0 (so almost every input fails and the shrinker needs about 64 evaluations to reach the minimum 1); every evaluation burns
+// about 20M gas in a loop whose bound and result the optimizer cannot see. 64 evaluations are far above the 1e9 cap.
+pub fn expensive(_ x: u64) -> bool uses (evm: mut Evm) {
+    var acc: u256 = x as u256   // the loop result depends on the input, so the optimizer cannot drop the loop
+    var i: u256 = 0
+    let n: u256 = 140000 + zero()
+    while i < n {
+        acc = (acc * 31 + i) % 1000003
+        i += 1
+    }
+    // 1 draw in about a million inputs hits acc == 5 and fails too (it does not happen for the seed used, which the assertions below would show)
+    if acc == 5 { return false }
+    x == 0
+}
+
+#[test]
+pub fn expensive_shrink_stops_early_instead_of_running_out_of_gas() uses (evm: mut Evm) {
+    let o = check_gas(Config::new(fixed_seed(7101)).with_cases(64), |x: u64| expensive(x))
+    let left = evm.gas()
+    let s = summarize(o)
+    assert!(s.failed == 1)
+    assert!(s.early == 1)                       // the flag
+    assert!(s.shrunk[0] >= 1)                   // the reported input still fails the property (it is not 0)
+    assert!(s.shrunk[0] < s.original[0])        // it did shrink
+    assert!(s.shrunk[0] > 1)                    // but it is not the minimum 1: shrinking was cut off
+    assert!(s.steps > 0)
+    assert!(left < GAS_MARGIN)                  // it stopped because gas fell below the margin ...
+    assert!(left > GAS_MARGIN - 30000000)       // ... within one evaluation (about 20M) of it, with the margin still to spend
+}
+
+// with a generous budget the guard never fires: same result as plain `check`, early = 0
+#[test]
+fn the_guard_does_not_change_a_cheap_run() uses (evm: mut Evm) {
+    let a = summarize(check(Config::new(fixed_seed(7102)), |x: u64| x < 1000))
+    let b = summarize(check_gas(Config::new(fixed_seed(7102)), |x: u64| x < 1000))
+    assert!(a.failed == 1 && b.failed == 1)
+    assert!(b.early == 0)
+    assert!(a.steps == b.steps && a.shrunk[0] == b.shrunk[0] && a.case == b.case)
+    assert!(b.shrunk[0] == 1000)
+}
+
+// a margin above the gas available stops before the first shrink evaluation: the ORIGINAL failing input comes back, flagged
+#[test]
+fn a_huge_margin_stops_at_once_and_keeps_the_original() uses (evm: mut Evm) {
+    let s = summarize(check_gas_with_margin(Config::new(fixed_seed(7103)), |x: u64| x < 1000, 0xffffffffffffffff))
+    assert!(s.failed == 1 && s.early == 1)
+    assert!(s.steps == 0)
+    assert!(s.shrunk[0] == s.original[0])
+}
+
+// the report: PropertyFailedEarly, not PropertyFailed (selector checked in tools/decode-revert)
+// 0x52e195ec = selector of PropertyFailedEarly(uint256,uint256,uint256,uint256[])
+#[test(should_revert, selector = 0x52e195ec)]
+fn assert_holds_reverts_with_the_early_error() uses (evm: mut Evm) {
+    assert_holds(check_gas_with_margin(Config::new(fixed_seed(7103)), |x: u64| x < 1000, 0xffffffffffffffff))
+}

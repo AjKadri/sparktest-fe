@@ -2,7 +2,7 @@
 use std::evm::{Evm, revert_error}
 use std::abi::DynArray
 pub use isolated::{Isolated, run_prop, eval_isolated, check_isolated, IsoOutcome, reason_text, ISOLATED_GAS, REASON_HELD, REASON_FALSE, REASON_OTHER_REVERT, REASON_NO_DATA, REASON_PANIC_BASE}
-use sparktest::{Outcome, Encode}
+use sparktest::{Outcome, Encode, Config, Arbitrary, Shrink, check_with}
 
 #[error]
 pub struct PropertyFailed {
@@ -12,14 +12,42 @@ pub struct PropertyFailed {
     pub input: DynArray<u256>,
 }
 
-// Returns on Pass; reverts with PropertyFailed (the shrunk input, encoded) on Fail.
+// Same fields as PropertyFailed; reverted INSTEAD of it when shrinking was stopped early because gas ran low (see check_gas), so `input` is the
+// best input found so far (it still fails the property) and not necessarily a minimum. The old PropertyFailed selector is unchanged.
+#[error]
+pub struct PropertyFailedEarly {
+    pub seed: u256,
+    pub case: u256,
+    pub steps: u256,
+    pub input: DynArray<u256>,
+}
+
+// Returns on Pass; reverts with PropertyFailed (the shrunk input, encoded) on Fail, or with PropertyFailedEarly if shrinking was stopped early.
 pub fn assert_holds<T: Encode + Copy>(_ outcome: Outcome<T>) {
     match outcome {
         Outcome::Pass { cases: _ } => {}
-        Outcome::Fail { original: _, shrunk, case, seed, steps, early: _ } => {
+        Outcome::Fail { original: _, shrunk, case, seed, steps, early } => {
+            if early {
+                revert_error(PropertyFailedEarly { seed, case, steps, input: shrunk.words() })
+            }
             revert_error(PropertyFailed { seed, case, steps, input: shrunk.words() })
         }
     }
+}
+
+// Gas that must remain when shrinking stops (the margin of `check_gas`). One evaluation of the most expensive property in this repository
+// (a stateful ERC20 sequence) costs about 1.5M gas, so 50M leaves room for it, for the report and for the revert.
+pub const GAS_MARGIN: u256 = 50000000
+
+// `check`, but shrinking STOPS as soon as the remaining gas drops below `margin` and returns the best input found so far with `early = true`
+// (a failure then keeps its report instead of running out of gas while shrinking). The core stays effect-free: it polls a `stop` closure
+// (`sparktest::check_with`), and this shim supplies `evm.gas() < margin`. Only shrinking is guarded; generating cases is not.
+pub fn check_gas_with_margin<T: Arbitrary + Shrink + Copy, P: Fn(T) -> bool>(_ cfg: Config, _ prop: P, _ margin: u256) -> Outcome<T> uses (P::E, evm: mut Evm) {
+    check_with(cfg, prop, || evm.gas() < margin)
+}
+
+pub fn check_gas<T: Arbitrary + Shrink + Copy, P: Fn(T) -> bool>(_ cfg: Config, _ prop: P) -> Outcome<T> uses (P::E, evm: mut Evm) {
+    check_with(cfg, prop, || evm.gas() < GAS_MARGIN)
 }
 
 // A seed the optimizer cannot see through (depends on remaining gas and prevrandao).

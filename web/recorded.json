@@ -1,7 +1,7 @@
 {
   "generated": {
-    "commit": "1ef3930+dirty",
-    "date": "2026-11-22 14:10 UTC",
+    "commit": "b1d9bb3",
+    "date": "2026-11-22 14:11 UTC",
     "fe": "fe 26.7.0 (e6e6342)"
   },
   "command": "./scripts/record-evm.sh",

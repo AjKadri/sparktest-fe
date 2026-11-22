@@ -1,7 +1,8 @@
 // Native executable that prints the 11 cross-check scenarios (see scripts/cross-check.sh).
 use std::io::Stdout
-use sparktest_native::{opaque_zero, print_summary}
-use props::{scenario_u256_below_1000, scenario_pair_u8_sum, scenario_arr_u64x4_sum, scenario_addr_below_0x1000, scenario_transfer_amount, scenario_late_fail, scenario_digest, scenario_demo_capped_mint, scenario_demo_buggy_sort, scenario_demo_pair_sum, scenario_demo_saturating_add, DEMO_SEED_CAPPED_MINT, DEMO_SEED_BUGGY_SORT, DEMO_SEED_PAIR_SUM, DEMO_SEED_SATURATING_ADD}
+use sparktest::{Config, check, full}
+use sparktest_native::{opaque_zero, print_summary, print_full}
+use props::{scenario_u256_below_1000, scenario_pair_u8_sum, scenario_arr_u64x4_sum, scenario_addr_below_0x1000, scenario_transfer_amount, scenario_late_fail, scenario_digest, scenario_demo_capped_mint, scenario_demo_buggy_sort, scenario_demo_pair_sum, scenario_demo_saturating_add, DEMO_SEED_CAPPED_MINT, DEMO_SEED_BUGGY_SORT, DEMO_SEED_PAIR_SUM, DEMO_SEED_SATURATING_ADD, DEMO_SEED_BANK}
 
 pub fn main() -> i32 uses (out: mut Stdout) {
     let z = opaque_zero()
@@ -16,5 +17,6 @@ pub fn main() -> i32 uses (out: mut Stdout) {
     print_summary("demo_buggy_sort", scenario_demo_buggy_sort(DEMO_SEED_BUGGY_SORT + z))
     print_summary("demo_pair_sum", scenario_demo_pair_sum(DEMO_SEED_PAIR_SUM + z))
     print_summary("demo_saturating_add", scenario_demo_saturating_add(DEMO_SEED_SATURATING_ADD + z))
+    print_full("demo_bank_sequence", full(check(Config::new(DEMO_SEED_BANK + z), props::prop_bank_sequence)))
     0
 }

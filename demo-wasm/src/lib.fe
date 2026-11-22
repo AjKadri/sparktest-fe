@@ -1,14 +1,17 @@
 // Sparktest web demo: each demo property is exported as a scalar-only wasm function.
 //   run_<name>(seed, cases, max_shrinks) -> bool   (true = the property held for every case)
-// Results come back through two JS callbacks (imports):
+// Results come back through JS callbacks (imports):
 //   st_pass(cases)
 //   st_fail(seed, case, steps, w0, w1, w2, w3)   -- w0..w3 are the (shrunk) input's first four words
 // max_shrinks = 0 reports the first counterexample unshrunk; the page raises it 1, 2, 3, .. to animate the shrink.
-use sparktest::{Arbitrary, Shrink, Encode, Config, check, summarize}
+use sparktest::{Arbitrary, Shrink, Encode, Config, check, summarize, Outcome}
 
 extern {
     fn st_pass(_ cases: u64)
     fn st_fail(_ seed: u64, _ case: u64, _ steps: u64, _ w0: u64, _ w1: u64, _ w2: u64, _ w3: u64)
+    // sequences (any number of words): st_word(index, value) once per word of the shrunk input, then st_fail_seq(seed, case, steps, number of words)
+    fn st_word(_ index: u64, _ value: u64)
+    fn st_fail_seq(_ seed: u64, _ case: u64, _ steps: u64, _ nwords: u64)
 }
 
 fn run<T: Arbitrary + Shrink + Encode + Copy, P: Fn(T) -> bool>(_ prop: P, _ seed: u64, _ cases: u64, _ max_shrinks: u64) -> bool uses P::E {
@@ -44,4 +47,31 @@ pub fn run_pair_sum(seed: u64, cases: u64, max_shrinks: u64) -> bool {
 #[unsafe(export)]
 pub fn run_saturating_add(seed: u64, cases: u64, max_shrinks: u64) -> bool {
     run(props::prop_saturating_add, seed, cases, max_shrinks)
+}
+
+// A property over a sequence of commands: the shrunk input has any number of words, so they are reported one by one.
+fn run_seq<T: Arbitrary + Shrink + Encode + Copy, P: Fn(T) -> bool>(_ prop: P, _ seed: u64, _ cases: u64, _ max_shrinks: u64) -> bool uses P::E {
+    let cfg = Config::new(seed as u256).with_cases(cases as u256).with_max_shrinks(max_shrinks as u256)
+    match check(cfg, prop) {
+        Outcome::Pass { cases: n } => {
+            unsafe { st_pass(n.downcast_truncate()) }
+            true
+        }
+        Outcome::Fail { original: _, shrunk, case, seed: _, steps } => {
+            let w = shrunk.words()
+            var i: usize = 0
+            while i < w.len() {
+                let word: u256 = w.get(i)
+                unsafe { st_word((i as u256).downcast_truncate(), word.downcast_truncate()) }
+                i += 1
+            }
+            unsafe { st_fail_seq(seed, case.downcast_truncate(), steps.downcast_truncate(), (w.len() as u256).downcast_truncate()) }
+            false
+        }
+    }
+}
+
+#[unsafe(export)]
+pub fn run_bank_sequence(seed: u64, cases: u64, max_shrinks: u64) -> bool {
+    run_seq(props::prop_bank_sequence, seed, cases, max_shrinks)
 }

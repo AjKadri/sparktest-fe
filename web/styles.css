@@ -125,3 +125,9 @@ button:disabled { opacity: .5; cursor: default; }
 .foot { padding-top: 12px; padding-bottom: 48px; border-top: 1px solid var(--line); color: var(--muted); font-size: .92rem; }
 .foot strong { color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* sequences: a shrinking list of commands */
+.seq { margin: 6px 0 2px; padding-left: 1.6rem; font: .95rem/1.7 var(--mono); }
+.seq li { padding: 0 6px; border-radius: 4px; }
+.seq li.changed { background: var(--accent-soft); }
+.seq.final li { background: var(--bad-soft); margin-bottom: 2px; }

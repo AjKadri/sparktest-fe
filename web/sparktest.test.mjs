@@ -13,6 +13,8 @@ const bytes = fs.readFileSync(here('./' + doc.wasm.file));
 assert.equal(bytes.length, doc.wasm.bytes, 'wasm size matches props.json');
 const st = await loadSparktest(bytes);
 const pad4 = (a) => [...a, 0, 0, 0, 0].slice(0, 4).map(BigInt);
+// sequences carry all their words (length + 4 per command); other properties carry 4
+const words = (p, a) => (p.seq ? a.map(BigInt) : pad4(a));
 const show = (a) => '[' + a.join(', ') + ']';
 
 assert.deepEqual(doc.props.map((p) => p.id), PROPS);
@@ -46,7 +48,7 @@ for (const p of doc.props) {
     console.log(`PASS ${p.id.padEnd(15)} seed ${p.seed}: holds for ${r.cases} cases (wasm = EVM = native; EVM gas ${rec.gas})`);
   } else {
     assert.equal(r.passed, false, `${p.id} must fail`);
-    const wasm = r.words, evm = pad4(rec.input), nat = pad4(p.native.shrunk);
+    const wasm = r.words, evm = words(p, rec.input), nat = words(p, p.native.shrunk);
     assert.deepEqual(wasm, evm, `${p.id}: wasm vs EVM shrunk`);
     assert.deepEqual(wasm, nat, `${p.id}: wasm vs native shrunk`);
     assert.equal(r.caseIndex, rec.case_index, `${p.id}: EVM case`);

@@ -24,6 +24,11 @@ fn rec_pair_sum() uses (evm: mut Evm) {
     assert_holds(check(Config::new(props::DEMO_SEED_PAIR_SUM + zero()), props::prop_pair_sum))
 }
 
+#[test(should_revert, selector = 0xdeadbeef)]
+fn rec_bank_sequence() uses (evm: mut Evm) {
+    assert_holds(check(Config::new(props::DEMO_SEED_BANK + zero()), props::prop_bank_sequence))
+}
+
 #[event]
 struct Held { cases: u256, gas: u256 }
 

@@ -18,7 +18,7 @@ def run(cmd, cwd=None, check=True):
     return r
 
 # seeds and presentation: ids match the exports run_<id>
-SEEDS = {'capped_mint': 11, 'buggy_sort': 22, 'pair_sum': 33, 'saturating_add': 44}
+SEEDS = {'capped_mint': 11, 'buggy_sort': 22, 'pair_sum': 33, 'saturating_add': 44, 'bank_sequence': 55}
 META = {
     'capped_mint': dict(title='Capped mint', blurb='A token must never exceed its supply cap of 1000. The cap is checked against the supply before minting, so the last mint can overshoot.',
                         bug_keywords=['before minting', 'overshoot'],
@@ -28,6 +28,9 @@ META = {
                        property='the output is sorted', labels=['a[0]', 'a[1]', 'a[2]', 'a[3]'], expect='fail'),
     'pair_sum': dict(title='Pair sum', blurb='A deliberately false claim: the sum of two numbers is always below 10.',
                      property='a + b < 10', labels=['a', 'b'], expect='fail'),
+    'bank_sequence': dict(title='Bank sequence', blurb='A tiny bank with three accounts. After an account is drained to zero, its next deposit is credited twice, so the books stop adding up. One command can never show it: it takes a whole sequence.',
+                          bug_keywords=['drained', 'twice'], property='after every command: deposited == balances + withdrawn',
+                          labels=['kind', 'a', 'b', 'amount'], seq=True, expect='fail'),
     'saturating_add': dict(title='Saturating add', blurb='A property that holds: saturating addition never goes below its left operand.',
                            property='saturating_add(x, y) >= x', labels=['x', 'y'], expect='pass'),
 }
@@ -60,17 +63,23 @@ for i, l in enumerate(nat):
         shr = [int(x) for x in nat[i + 2].split('=')[1].split(',')]
         native[m.group(1)] = dict(failed=int(m.group(2)), case_index=int(m.group(3)), steps=int(m.group(4)), shrunk=shr)
 
+for i, l in enumerate(nat):
+    m = re.match(r'XW demo_(\w+) failed=(\d) case=(\d+) steps=(\d+)', l)
+    if m:
+        shr = [int(x) for x in nat[i + 2].split('=')[1].split(',')]
+        native[m.group(1)] = dict(failed=int(m.group(2)), case_index=int(m.group(3)), steps=int(m.group(4)), shrunk=shr)
+
 props = []
-for pid in ['capped_mint', 'buggy_sort', 'pair_sum', 'saturating_add']:
+for pid in ['capped_mint', 'buggy_sort', 'pair_sum', 'saturating_add', 'bank_sequence']:
     # the BUG comment: the line starting `// BUG:` plus its `//` continuation lines
     lines = sources[pid].splitlines()
     bug_lines = []
     for k, l in enumerate(lines):
-        if l.startswith('// BUG:'):
-            bug_lines.append(l[len('// BUG:'):].strip())
+        if l.lstrip().startswith('// BUG:'):
+            bug_lines.append(l.lstrip()[len('// BUG:'):].strip())
             for l2 in lines[k + 1:]:
-                if l2.startswith('//') and not l2.startswith('// Property'):
-                    bug_lines.append(l2[2:].strip())
+                if l2.lstrip().startswith('//') and not l2.lstrip().startswith('// Property'):
+                    bug_lines.append(l2.lstrip()[2:].strip())
                 else:
                     break
     props.append(dict(id=pid, seed=SEEDS[pid], cases=256, source=sources[pid], bug=' '.join(bug_lines), native=native[pid], **META[pid]))

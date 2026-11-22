@@ -1,16 +1,19 @@
 // Sparktest runner: loads the compiled Fe demo module and runs properties. Used by the page (app.js) and the Node test.
 // No dependencies; works in browsers and Node 20+.
 
-export const PROPS = ['capped_mint', 'buggy_sort', 'pair_sum', 'saturating_add'];
+export const PROPS = ['capped_mint', 'buggy_sort', 'pair_sum', 'saturating_add', 'bank_sequence'];
 const U64 = (1n << 64n) - 1n;
 
 // bytes: ArrayBuffer | Uint8Array of the .wasm. Returns { run, shrinkTrace }.
 export async function loadSparktest(bytes) {
   let last = null; // result of the current call, set by the imports
+  let seqWords = []; // words of a sequence counterexample, reported one by one by st_word
   let memory = null;
   const imports = {
     env: {
       st_pass: (cases) => { last = { passed: true, cases }; },
+      st_word: (index, value) => { seqWords[Number(index)] = value; },
+      st_fail_seq: (seed, kase, steps, nwords) => { last = { passed: false, seed, caseIndex: kase, steps, words: seqWords.slice(0, Number(nwords)) }; },
       st_fail: (seed, kase, steps, w0, w1, w2, w3) => { last = { passed: false, seed, caseIndex: kase, steps, words: [w0, w1, w2, w3] }; },
       // Fe panics (overflow, assert) call this with Solidity Panic/Error data
       __fe_revert: (addr, len) => {
@@ -28,6 +31,7 @@ export async function loadSparktest(bytes) {
     const fn = instance.exports['run_' + prop];
     if (!fn) throw new Error('unknown property: ' + prop);
     last = null;
+    seqWords = [];
     const s = BigInt(seed) & U64;
     const held = fn(s, BigInt(cases), BigInt(maxShrinks));
     if (!last) throw new Error('property returned without reporting');

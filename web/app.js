@@ -79,12 +79,31 @@ function setBusy(b) {
   for (const c of $('picker').children) c.disabled = b;
 }
 
+const KINDS = ['deposit', 'withdraw', 'transfer'];
+// a sequence's words are [length, then 4 words per command: kind, a, b, amount]
+function seqCommands(words) {
+  const n = Number(words[0]);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const [k, a, b, amt] = words.slice(1 + 4 * i, 5 + 4 * i).map(Number);
+    out.push(k === 0 ? `deposit(account ${a}, ${amt})` : k === 1 ? `withdraw(account ${a}, ${amt})` : `transfer(account ${a} to account ${b}, ${amt})`);
+  }
+  return out;
+}
+
+function seqHtml(words, prev, cls = '') {
+  const cmds = seqCommands(words);
+  const before = prev ? seqCommands(prev) : null;
+  return `<p class="stepline">${cmds.length} command${cmds.length === 1 ? '' : 's'}</p><ol class="seq ${cls}">${cmds.map((c, i) => `<li class="${before && before[i] !== c ? 'changed' : ''}">${esc(c)}</li>`).join('')}</ol>`;
+}
+
 function fmtInput(words) {
   const n = current.labels.length;
   return current.labels.map((l, i) => ({ label: l, value: words[i].toString() })).slice(0, n);
 }
 
 function valsHtml(words, prev, cls = '') {
+  if (current.seq) return seqHtml(words, prev, cls);
   return `<div class="vals">${fmtInput(words).map((v, i) => {
     const changed = prev && prev[i] !== words[i];
     return `<div class="val ${cls}${changed ? ' changed' : ''}"><span class="n">${esc(v.label)}</span><span class="v">${esc(v.value)}</span></div>`;
@@ -160,7 +179,7 @@ function renderRecorded() {
   const box = $('recorded');
   const rows = [];
   if (current.expect === 'fail') {
-    const input = current.labels.map((l, i) => `${l} = ${e.input[i] ?? 0}`).join(', ');
+    const input = current.seq ? seqCommands(e.input.map(BigInt)).join('; ') : current.labels.map((l, i) => `${l} = ${e.input[i] ?? 0}`).join(', ');
     rows.push(['seed', e.seed], ['failed on case', e.case_index + 1], ['shrink steps', e.steps], ['shrunk input', input]);
   } else {
     rows.push(['seed', current.seed], ['result', `held for ${e.cases} cases`], ['gas for the run', e.gas.toLocaleString()]);

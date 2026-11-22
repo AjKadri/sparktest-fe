@@ -187,6 +187,7 @@ pub const DEMO_SEED_CAPPED_MINT: u256 = 11
 pub const DEMO_SEED_BUGGY_SORT: u256 = 22
 pub const DEMO_SEED_PAIR_SUM: u256 = 33
 pub const DEMO_SEED_SATURATING_ADD: u256 = 44
+pub const DEMO_SEED_BANK: u256 = 55
 
 pub fn scenario_demo_capped_mint(_ seed: u256) -> Summary { summarize(check(Config::new(seed), prop_capped_mint)) }
 pub fn scenario_demo_buggy_sort(_ seed: u256) -> Summary { summarize(check(Config::new(seed), prop_sorted)) }

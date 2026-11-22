@@ -1,15 +1,18 @@
 {
   "wasm": {
     "file": "demo_wasm.wasm",
-    "bytes": 32010,
-    "sha256": "e03a8b7562ab4ef089bd735315e65807265591567479d6803e9b99c919cb3a34",
+    "bytes": 44455,
+    "sha256": "27a0cd5c75495b611c2c239c65e66832908c989eb36bf91c73e534f783a409fa",
     "imports": [
       "env.__fe_revert",
       "env.st_fail",
-      "env.st_pass"
+      "env.st_fail_seq",
+      "env.st_pass",
+      "env.st_word"
     ],
     "exports": [
       "memory",
+      "run_bank_sequence",
       "run_buggy_sort",
       "run_capped_mint",
       "run_pair_sum",
@@ -129,6 +132,48 @@
         "y"
       ],
       "expect": "pass"
+    },
+    {
+      "id": "bank_sequence",
+      "seed": 55,
+      "cases": 256,
+      "source": "// A tiny bank with 3 accounts. A command is (kind, a, b, amount): kind 0 = deposit(a, amount), kind 1 = withdraw(a, amount)\n// (takes at most the balance), kind 2 = transfer(a -> b, amount) (needs the balance, a != b).\n// Invariant, checked after EVERY command: total deposited == sum of balances + total withdrawn.\npub struct Bank {\n    pub bal: [u64; 3],\n    pub drained: [bool; 3],\n    pub deposited: u64,\n    pub withdrawn: u64,\n}\n\npub fn bank_new() -> Bank {\n    Bank { bal: [0, 0, 0], drained: [false, false, false], deposited: 0, withdrawn: 0 }\n}\n\npub fn bank_apply(_ bank: mut Bank, _ cmd: (Index<3>, Index<3>, Index<3>, u16)) {\n    let kind = cmd.0.value\n    let a = cmd.1.value\n    let b = cmd.2.value\n    let amount = cmd.3 as u64\n    if kind == 0 {\n        var credit = amount\n        // BUG: after an account is drained to exactly 0, its next deposit is credited twice (the books still count it once).\n        if bank.drained[a] {\n            credit = amount * 2\n            bank.drained[a] = false\n        }\n        bank.bal[a] += credit\n        bank.deposited += amount\n    } else if kind == 1 {\n        let taken = if amount < bank.bal[a] { amount } else { bank.bal[a] }\n        bank.bal[a] -= taken\n        bank.withdrawn += taken\n        if taken > 0 && bank.bal[a] == 0 {\n            bank.drained[a] = true\n        }\n    } else {\n        if a != b && bank.bal[a] >= amount {\n            bank.bal[a] -= amount\n            bank.bal[b] += amount\n        }\n    }\n}\n\npub fn bank_consistent(_ bank: Bank) -> bool {\n    bank.deposited == bank.bal[0] + bank.bal[1] + bank.bal[2] + bank.withdrawn\n}\n\n// Property: for every sequence of up to 8 commands, the invariant holds after every command.\npub fn prop_bank_sequence(_ s: Seq<(Index<3>, Index<3>, Index<3>, u16), 8>) -> bool {\n    var bank = bank_new()\n    var i: usize = 0\n    while i < s.len {\n        bank_apply(mut bank, s.items[i])\n        if !bank_consistent(bank) { return false }\n        i += 1\n    }\n    true\n}\n",
+      "bug": "after an account is drained to exactly 0, its next deposit is credited twice (the books still count it once).",
+      "native": {
+        "failed": 1,
+        "case_index": 75,
+        "steps": 43,
+        "shrunk": [
+          3,
+          0,
+          2,
+          0,
+          1,
+          1,
+          2,
+          0,
+          1,
+          0,
+          2,
+          0,
+          1
+        ]
+      },
+      "title": "Bank sequence",
+      "blurb": "A tiny bank with three accounts. After an account is drained to zero, its next deposit is credited twice, so the books stop adding up. One command can never show it: it takes a whole sequence.",
+      "bug_keywords": [
+        "drained",
+        "twice"
+      ],
+      "property": "after every command: deposited == balances + withdrawn",
+      "labels": [
+        "kind",
+        "a",
+        "b",
+        "amount"
+      ],
+      "seq": true,
+      "expect": "fail"
     }
   ]
 }

@@ -12,7 +12,7 @@ check_only = '--check' in sys.argv
 def run(cmd, cwd=None):
     return subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True)
 
-EXPECTED_FAILS = ['capped_mint', 'buggy_sort', 'pair_sum']   # rec_<name> tests that must fail with PropertyFailed
+EXPECTED_FAILS = ['capped_mint', 'buggy_sort', 'pair_sum', 'bank_sequence']   # rec_<name> tests that must fail with PropertyFailed
 EXPECTED_PASS = ['saturating_add']                           # rec_<name> test that must pass and emit its stats
 
 out = run(['fe', 'test', '--show-logs'], cwd='evm-recordings').stdout

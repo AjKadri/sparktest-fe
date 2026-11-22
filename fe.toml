@@ -1,0 +1,9 @@
+[workspace]
+name = "sparktest_workspace"
+version = "0.1.0"
+members = [
+  "sparktest", "sparktest-evm", "props", "erc20-actors",
+  "tests-evm", "tests-erc20", "tests-coolcoin", "tests-rewards", "tests-isolated",
+  "examples/quickstart", "examples/erc20", "examples/coolcoin", "examples/rewards",
+]
+exclude = ["target", "spike", "web"]

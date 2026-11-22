@@ -4,7 +4,7 @@
 // Run: node web/sparktest.test.mjs
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import { loadSparktest, PROPS } from './sparktest-runner.mjs';
+import { loadSparktest, PROPS, PANIC_PROPS } from './sparktest-runner.mjs';
 
 const here = (f) => new URL(f, import.meta.url);
 const doc = JSON.parse(fs.readFileSync(here('./props.json'), 'utf8'));
@@ -38,6 +38,30 @@ console.log('PASS card descriptions agree with the BUG comments in the shown Fe 
 
 let n = 0;
 for (const p of doc.props) {
+  if (PANIC_PROPS.includes(p.id)) {
+    // a property that panics: the page finds the first panicking case by bisecting the case limit, then shrinks by replay
+    const rec = recorded.props[p.id];
+    const f = st.findPanic(p.id, p.seed, p.cases);
+    assert.equal(f.passed, false);
+    assert.deepEqual([f.shrunk], p.native.shrunk.map(BigInt), `${p.id}: wasm vs native shrunk`);
+    assert.deepEqual([f.shrunk], rec.input.map(BigInt), `${p.id}: wasm vs EVM (check_isolated) shrunk`);
+    assert.deepEqual([f.original], p.native.original.map(BigInt), `${p.id}: first panicking input, wasm vs native`);
+    assert.deepEqual([f.original], rec.original.map(BigInt), `${p.id}: first panicking input, wasm vs EVM`);
+    assert.equal(f.caseIndex, p.native.case_index, `${p.id}: native case`);
+    assert.equal(f.caseIndex, rec.case_index, `${p.id}: EVM case`);
+    assert.equal(f.steps, p.native.steps, `${p.id}: native steps`);
+    assert.equal(f.steps, rec.steps, `${p.id}: EVM steps`);
+    assert.equal(f.reason, p.native.reason, `${p.id}: reason, wasm vs native`);
+    assert.equal(f.reason, rec.reason, `${p.id}: reason, wasm vs EVM`);
+    assert.equal(f.reason, 'panicked: arithmetic overflow');
+    // replay: same seed, same result
+    assert.deepEqual(st.findPanic(p.id, p.seed, p.cases), f, `${p.id}: replay`);
+    // a limit below the first panicking case finds nothing
+    if (f.caseIndex > 0) assert.equal(st.findPanic(p.id, p.seed, f.caseIndex).passed, true);
+    console.log(`PASS ${p.id.padEnd(15)} seed ${p.seed}: ${f.reason} on case ${f.caseNumber} (bisected in ${f.bisect.length} steps), ${f.steps} shrink steps, ${f.original} -> ${f.shrunk} (wasm = EVM = native)`);
+    n++;
+    continue;
+  }
   const r = st.run(p.id, p.seed, p.cases);
   const rec = recorded.props[p.id];
   if (p.expect === 'pass') {

@@ -110,6 +110,48 @@ function valsHtml(words, prev, cls = '') {
   }).join('')}</div>`;
 }
 
+// A property that PANICS cannot return false: the page catches the trap, bisects the case limit to the first panicking case, and shrinks by replay.
+async function startPanic(s, isReplay) {
+  const stage = $('stage');
+  const t0 = performance.now();
+  const f = st.findPanic(current.id, s, current.cases);
+  const ms = performance.now() - t0;
+  if (f.passed) {
+    stage.innerHTML = `<div class="block"><h3>Result</h3><p class="big"><span class="verdict good">Held</span></p><p class="note">No panic or failure in ${f.cases} cases for this seed. Try a random seed.</p></div>`;
+    lastResult = f; setBusy(false); return;
+  }
+  const one = (v) => `<div class="vals"><div class="val"><span class="n">x</span><span class="v">${esc(v)}</span></div></div>`;
+  stage.innerHTML = '';
+  const b1 = el('div', 'block');
+  b1.innerHTML = `<h3>Panic caught</h3><p class="big"><span class="verdict bad">${esc(f.originalReason)}</span> on case ${f.caseNumber}</p>${one(f.original)}
+    <p class="note">The property did not return: the module trapped. The page found the first panicking case by <strong>bisecting the case limit</strong> (${f.bisect.length} steps: ${f.bisect.map((b) => `limit ${b.cases}: ${b.fails ? 'panic' : 'ok'}`).join(', ')}), ${f.runs} module runs in all, taking ${ms.toFixed(1)} ms (measured in your browser, in WebAssembly).</p>`;
+  stage.appendChild(b1);
+  const b2 = el('div', 'block');
+  b2.innerHTML = `<h3>Shrinking by replay</h3><div id="shr"></div><p class="stepline" id="stepline"></p><div class="bar"><i id="barfill"></i></div>`;
+  stage.appendChild(b2);
+  const total = f.trace.length - 1;
+  const delay = reduceMotion ? 0 : Math.max(12, Math.min(90, 3200 / Math.max(total, 1)));
+  let prev = null;
+  for (let i = 0; i < f.trace.length; i++) {
+    $('shr').innerHTML = `<div class="vals"><div class="val${prev !== null && prev !== f.trace[i] ? ' changed' : ''}"><span class="n">x</span><span class="v">${esc(f.trace[i])}</span></div></div>`;
+    $('stepline').textContent = i === 0 ? 'step 0: the input as first found' : `step ${i} of ${total}: smaller, still fails`;
+    $('barfill').style.width = (total === 0 ? 100 : (i / total) * 100) + '%';
+    prev = f.trace[i];
+    if (!skipRequested && delay) await sleep(delay);
+  }
+  $('shr').innerHTML = `<div class="vals"><div class="val final"><span class="n">x</span><span class="v">${esc(f.shrunk)}</span></div></div>`;
+  $('stepline').textContent = `done after ${total} shrink step${total === 1 ? '' : 's'}`;
+  const b3 = el('div', 'block');
+  const same = lastResult && !lastResult.passed && lastResult.seed === f.seed && lastResult.steps === f.steps && lastResult.caseIndex === f.caseIndex && lastResult.shrunk === f.shrunk;
+  b3.innerHTML = `<h3>Minimal counterexample</h3>${one(f.shrunk)}
+    <p class="note">${esc(f.reason)} · seed <code>${f.seed}</code> · first panic on case ${f.caseNumber} · ${f.steps} shrink steps. 18446744073709552 is the smallest x for which x * 1000 does not fit in 64 bits.</p>
+    ${isReplay ? (same ? '<p class="note ok">Replayed with the same seed: identical panic, identical shrink.</p>' : '<p class="note">Replayed.</p>') : '<p class="note">Press <strong>Replay</strong> to reproduce this exact panic from the seed, or <strong>Random seed</strong> to hunt for another.</p>'}
+    <p class="note small">How Sparktest handles panics: in a wasm or native run a panic is a trap or an abort, so it is found by bisecting and replaying (this page, <code>scripts/find-panic.sh</code>); on the EVM backend each evaluation runs inside a harness contract called through <code>try_call</code>, so a panic is a failed call. Properties here are prebuilt.</p>`;
+  stage.appendChild(b3);
+  lastResult = f;
+  setBusy(false);
+}
+
 function fmtMs(ms) { return ms < 0.01 ? '<0.01 ms' : `${ms.toFixed(ms < 1 ? 2 : 1)} ms`; }
 
 // Browsers coarsen performance.now(), and one run takes well under a millisecond, so: warm up once, time REPS
@@ -128,6 +170,7 @@ async function start(s, isReplay = false) {
   skipRequested = false;
   const stage = $('stage');
   const cases = current.cases;
+  if (current.panic) { await startPanic(s, isReplay); return; }
   const [r, ms] = timed(() => st.run(current.id, s, cases));
 
   if (r.passed) {
@@ -179,7 +222,7 @@ function renderRecorded() {
   const box = $('recorded');
   const rows = [];
   if (current.expect === 'fail') {
-    const input = current.seq ? seqCommands(e.input.map(BigInt)).join('; ') : current.labels.map((l, i) => `${l} = ${e.input[i] ?? 0}`).join(', ');
+    const input = current.panic ? `x = ${e.input[0]}  (${e.reason})` : current.seq ? seqCommands(e.input.map(BigInt)).join('; ') : current.labels.map((l, i) => `${l} = ${e.input[i] ?? 0}`).join(', ');
     rows.push(['seed', e.seed], ['failed on case', e.case_index + 1], ['shrink steps', e.steps], ['shrunk input', input]);
   } else {
     rows.push(['seed', current.seed], ['result', `held for ${e.cases} cases`], ['gas for the run', e.gas.toLocaleString()]);
@@ -188,7 +231,7 @@ function renderRecorded() {
   box.innerHTML = `<span class="badge">Recorded, not computed here</span>
     <dl>${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
     <p class="cmd">to re-record: <code>${esc(recorded.command)}</code></p>
-    <p class="note small">This run happened on the sonatina EVM test backend (not in your browser), with the same seed. The native backend gives the same result (checked by <code>scripts/cross-check.sh</code>).</p>`;
+    <p class="note small">This run happened on the sonatina EVM test backend (not in your browser), with the same seed${current.panic ? ', through check_isolated (each evaluation inside a harness contract, called with try_call)' : ''}. ${current.panic ? 'The native backend (<code>scripts/find-panic.sh</code>) gives the same result.' : 'The native backend gives the same result (checked by <code>scripts/cross-check.sh</code>).'}</p>`;
 }
 
 boot();

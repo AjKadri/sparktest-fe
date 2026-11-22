@@ -36,16 +36,32 @@ for i, l in enumerate(lines):
                 w = [int(h[k:k + 64], 16) for k in range(0, len(h), 64)]
                 recs[m.group(1)] = dict(cases=w[0], gas=w[1])
 
+# the panic property through check_isolated on sonatina (tests-isolated): the shrunk input and the reason read from the revert data
+iso = run(['fe', 'test', '--show-logs'], cwd='tests-isolated').stdout
+for line in iso.splitlines():
+    m = re.search(r'data: (0x[0-9a-f]*) \}', line)
+    if not m:
+        continue
+    h = m.group(1)[2:]
+    w = [int(h[k:k + 64], 16) for k in range(0, len(h), 64)]
+    if len(w) > 9 and w[0] == 1 and w[6] == 9 * 32:   # Pi event id 1 (overflow): id, failed, case, steps, reason, original_reason, off_original, off_shrunk, gas
+        def arr(off):
+            j = off // 32
+            return w[j + 1:j + 1 + w[j]]
+        recs['panic_overflow'] = dict(seed=8101, case_index=w[2], steps=w[3], input=[str(v) for v in arr(w[7])], original=[str(v) for v in arr(w[6])], reason_code=w[4],   # decimal strings: u64 values exceed 2^53
+                                      reason='panicked: arithmetic overflow' if w[4] == 273 else f'reason {w[4]}')
+
 got_fail = [k for k in EXPECTED_FAILS if k in recs and 'revert_data' in recs[k]]
 got_pass = [k for k in EXPECTED_PASS if k in recs and 'gas' in recs[k]]
 print(f"Expected failures: {len(got_fail)}/{len(EXPECTED_FAILS)} recorded")
 print(f"Expected passes:   {len(got_pass)}/{len(EXPECTED_PASS)} recorded")
+print(f"Isolated (try_call) recordings: {1 if 'panic_overflow' in recs else 0}/1")
 for k in got_fail:
     r = recs[k]
     print(f"  {k}: seed {r['seed']}, case {r['case_index'] + 1} (index {r['case_index']}), {r['steps']} shrink steps, shrunk input {r['input']}")
 for k in got_pass:
     print(f"  {k}: held for {recs[k]['cases']} cases, gas {recs[k]['gas']}")
-ok = len(got_fail) == len(EXPECTED_FAILS) and len(got_pass) == len(EXPECTED_PASS)
+ok = len(got_fail) == len(EXPECTED_FAILS) and len(got_pass) == len(EXPECTED_PASS) and 'panic_overflow' in recs
 if not ok:
     print('recording incomplete; fe test output was:\n' + out)
     sys.exit(1)

@@ -4,7 +4,7 @@
 //   st_pass(cases)
 //   st_fail(seed, case, steps, w0, w1, w2, w3)   -- w0..w3 are the (shrunk) input's first four words
 // max_shrinks = 0 reports the first counterexample unshrunk; the page raises it 1, 2, 3, .. to animate the shrink.
-use sparktest::{Arbitrary, Shrink, Encode, Config, check, summarize, Outcome}
+use sparktest::{Arbitrary, Shrink, Encode, Config, check, summarize, Outcome, Xorshift}
 
 extern {
     fn st_pass(_ cases: u64)
@@ -74,4 +74,44 @@ fn run_seq<T: Arbitrary + Shrink + Encode + Copy, P: Fn(T) -> bool>(_ prop: P, _
 #[unsafe(export)]
 pub fn run_bank_sequence(seed: u64, cases: u64, max_shrinks: u64) -> bool {
     run_seq(props::prop_bank_sequence, seed, cases, max_shrinks)
+}
+
+// ---- panic recovery by replay: a panic is a trap (the module calls the __fe_revert import, which throws in JavaScript), so the page catches it. ----
+// The page bisects the case limit of `run_panic_overflow_cases` to find the first panicking case, takes its input from `gen_panic_overflow`,
+// and shrinks by replaying candidates from `cand_panic_overflow` through `eval_panic_overflow`.
+#[unsafe(export)]
+pub fn run_panic_overflow_cases(seed: u64, cases: u64) -> bool {
+    var rng = Xorshift::seeded(seed as u256)
+    var i: u64 = 0
+    while i < cases {
+        let x = <u64 as Arbitrary>::arbitrary(mut rng)
+        if !props::prop_panic_overflow(x) { return false }
+        i += 1
+    }
+    true
+}
+
+#[unsafe(export)]
+pub fn gen_panic_overflow(seed: u64, case: u64) -> u64 {
+    var rng = Xorshift::seeded(seed as u256)
+    var i: u64 = 0
+    while i < case {
+        let _ = <u64 as Arbitrary>::arbitrary(mut rng)
+        i += 1
+    }
+    <u64 as Arbitrary>::arbitrary(mut rng)
+}
+
+#[unsafe(export)]
+pub fn eval_panic_overflow(x: u64) -> bool {
+    props::prop_panic_overflow(x)
+}
+
+// the i-th shrink candidate of x, or x itself when there is none (a candidate is never equal to x)
+#[unsafe(export)]
+pub fn cand_panic_overflow(x: u64, i: u64) -> u64 {
+    match x.shrink_step(i as u256) {
+        Option::Some(c) => c
+        Option::None => x
+    }
 }

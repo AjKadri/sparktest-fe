@@ -24,6 +24,9 @@ erc20() {
 coolcoin() {
   fe_suite examples/coolcoin && fe_suite tests-coolcoin
 }
+isolated() {
+  fe_suite tests-isolated
+}
 rewards() {
   fe_suite tests-rewards
 }
@@ -42,6 +45,7 @@ part "decode-revert (node)"      node tools/decode-revert/test.mjs
 part "cross-check (sonatina vs native)" ./scripts/cross-check.sh
 part "erc20 (sonatina only): vendored example + properties + planted bug" erc20
 part "coolcoin (sonatina only): the Fe Guide ERC-20 unchanged + 10 mutants (results recorded; the proof part checks them)" coolcoin
+part "isolated (sonatina): panic recovery through a harness contract" isolated
 part "rewards (sonatina only): contract panic via try_call vs direct call" rewards
 part "quickstart example (a separate ingot using sparktest as the README says)" fe_suite examples/quickstart
 part "docs (README excerpts verbatim from the quickstart; every API.md example compiles and passes)" ./scripts/check-docs.py

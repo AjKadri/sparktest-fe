@@ -130,6 +130,7 @@ Shrinking is greedy, so it stops at a local minimum. Over seeds 1 to 12 on this 
 - **Seeds and replay**: every failure reports its seed; the same seed gives the same failure on every backend.
 - **Checked helpers**: `checked_add`, `checked_sub`, `checked_mul` for `u8` to `u256`, returning `Option`, so an overflow inside a property is a reported failure instead of a panic.
 - **Contract testing**: properties can call deployed contracts; through `evm.try_call` a contract panic becomes a failed call that is found and shrunk.
+- **Panic recovery**: a property whose code panics (overflow, division by zero) is reported with its reason and shrunk: through a harness contract and `try_call` on sonatina, by bisect-and-replay on native and wasm.
 - **Vacuity guards**: a property records its calls and command kinds in a `Tally` (an effect), and `guard` reports a passing run that never exercised its premise (no call succeeded, or a command kind never ran) as vacuous instead of as a pass.
 - **Stateful testing**: random command sequences, an invariant checked after every command, failing sequences shrunk to the shortest.
 - **Three backends**: sonatina (the EVM test backend), native, and WebAssembly (the demo).
@@ -142,7 +143,7 @@ Each claim below is backed by a check in this repository; the spike reports reco
 - **An effect-free core with per-backend shims.** A test's entry effect is `Evm` on sonatina and `Host` on native, so one file cannot mix them (`error[8-0153]: unsupported entry effect`). The core (`sparktest/`) has no effects; `sparktest-evm/` and `sparktest-native/` are thin shims, and test ingots are separate. Spike 1 check D, spike 2 check E6.
 - **Generic traits, including const-generic arrays.** `Arbitrary`, `Shrink` and `Encode` are implemented generically for tuples and `[T; N]`, and `Seq<C, N>` builds on them. Spike 2, check E3; `sparktest/src/composite.fe`.
 - **A revert as a value.** Through `evm.try_call` a panicking contract call comes back as a result; through a direct `evm.call` the panic bubbles up and ends the whole test with no report. Both are shown side by side in [docs/PROOF.md](docs/PROOF.md) (the `examples/rewards` section).
-- **Cross-backend determinism as a compiler check.** The same seed gives identical results on sonatina and native, and on wasm in the demo, so a disagreement between backends is a finding. `scripts/cross-check.sh` compares 11 scenarios (11/11 identical), and the demo test compares all five demo properties.
+- **Cross-backend determinism as a compiler check.** The same seed gives identical results on sonatina and native, and on wasm in the demo, so a disagreement between backends is a finding. `scripts/cross-check.sh` compares 11 scenarios (11/11 identical), and the demo test compares all six demo properties.
 
 ## Proof
 
@@ -153,6 +154,7 @@ Each claim below is backed by a check in this repository; the spike reports reco
 | planted bugs (pure code, sonatina and native) | vault rounding, fee overflow, balance underflow, packing shift, bounds off-by-one; each with a fixed version | 5 of 5 bugs found and shrunk (vault to 3 assets, 1 share, deposit 1; withdraw to balance 0, amount 1; pack to a=1, b=0; bounds to i=0, len=0); 5 of 5 fixed versions pass 256 cases; both backends identical |
 | ERC20 through contract calls (sonatina) | the ERC20 test fixture from the Fe compiler repo (`crates/fe/tests/fixtures/fe_test/erc20.fe` at e6e6342), 4 actor contracts, 64 cases per property | 6 of 6 properties hold on the unchanged fixture; a planted self-transfer bug is caught by 2 properties (one shrinks to (0, 0, 1), the other to (3, 3, 1), a local minimum) |
 | the Fe Guide's ERC-20 and a mutation test (sonatina) | the "Complete ERC20" example from https://fe-lang.org/examples/erc20/ (vendored unchanged), the 6 ERC20 properties and the stateful model check, then 10 single-change mutants | all 7 checks pass on the unchanged contract (none vacuous); 7 of 10 mutants caught, 3 missed with a probe-backed explanation each (an equivalent mutant, a dropped event, a missing access check no command exercises); 9 of 10 matched the pre-registered expectation exactly, 1 partly (M09) |
+| panic recovery (sonatina, native, wasm) | a property that overflows (`u64`), one that divides by zero, and a normal false-returning one, through `check_isolated`, `scripts/find-panic.sh` and the demo page | overflow shrunk to exactly 18446744073709552 and division by zero to (0, 0), each with the panic reason; the false-returning property gives the same result as `check`; first case, shrink steps and shrunk input identical on sonatina and native, and on wasm for the overflow property; one isolated evaluation costs about 1,500 gas |
 | a contract that panics (sonatina) | `examples/rewards`, overflow in `claim` | through `try_call`: found and shrunk to exactly 18446744073709552, the smallest overflowing stake; through a direct call the whole test reverts with Panic(0x11) and reports nothing |
 | stateful (sonatina and native; ERC20 on sonatina) | a bank model with a bug that needs three commands; the ERC20 fixture vs a reference model, with a planted bug that needs two calls | bank bug shrunk to 3 commands, identical on both backends; ERC20 planted bug shrunk to 2 calls (found on case 21); the unchanged fixture passes 64 cases |
 | std (sonatina and native) | integer wrapping/saturating ops, `mul_div`, `addmod`, `isqrt`, `core::sort`, the std ABI codec round trip | 12 of 12 properties hold; no Fe bug found by them |
@@ -210,9 +212,10 @@ erc20 (sonatina only)                   vendored bodies byte-identical to upstre
 coolcoin (sonatina only)                3 + 83 passed (the Guide ERC-20 and 10 mutants)
 rewards (sonatina only)                 3 passed
 quickstart example                      8 passed
-docs                                    README excerpts verbatim; 20 + 1 API examples compiled and passed
+docs                                    README excerpts verbatim; 23 + 1 API examples compiled and passed
 proof suites                            proof: all expectations met and docs/PROOF.md is current
-web demo                                all 5 demo properties agree across wasm, sonatina (EVM) and native
+isolated (sonatina)                     5 passed (panic recovery through a harness contract)
+web demo                                all 6 demo properties agree across wasm, sonatina (EVM) and native
 evm recordings are current              Expected failures: 4/4 recorded
 freshness (generated files)             PART OK
 ALL PARTS PASSED
@@ -230,7 +233,7 @@ cd web && python3 -m http.server 8765   # serve the demo at http://localhost:876
 ## Limitations
 
 - Shrinking is greedy and finds a local minimum, not always the smallest input. A tuple shrinks one component at a time, so coupled components stop early: the ERC20 self-transfer bug shrinks to (3, 3, 1) for one property, not (0, 0, 1).
-- A property must not panic unless it calls the code under test through `try_call`: a panic inside a property ends the whole test with no report. Use the checked helpers for arithmetic inside properties.
+- With plain `check`, a property must not panic: a panic inside it ends the whole test with no report (use the checked helpers for arithmetic). Panics are recovered by new paths instead: on sonatina `check_isolated` runs each evaluation inside a harness contract through `try_call` (you write the harness: one contract, one line per property, because Fe contracts cannot be generic); on native `scripts/find-panic.sh` bisects to the first aborting case and shrinks by replay; the demo page does the same for a wasm trap. Not covered: properties that loop forever or run out of gas, panics in the generator or shrinker, `Seq` inputs on the isolated path (no `Decode` for `Seq`), and native recovery inside a test (it is a script around a separate executable). Details: [docs/DESIGN-panic-recovery.md](docs/DESIGN-panic-recovery.md).
 - Contract testing needs the EVM test backend (sonatina); native and wasm test pure code.
 - A guard only knows what a property records: calls and command kinds must be reported to the `Tally`, and the vacuity check does not judge whether a premise is strong enough (for example 7 of 64 transfers succeed in one ERC20 property; that is reported, not flagged).
 - The web demo's inputs are at most 64 bits (they cross the wasm boundary as scalars), and its properties are prebuilt: the page cannot compile your own Fe.

@@ -1,8 +1,8 @@
 {
   "wasm": {
     "file": "demo_wasm.wasm",
-    "bytes": 44455,
-    "sha256": "27a0cd5c75495b611c2c239c65e66832908c989eb36bf91c73e534f783a409fa",
+    "bytes": 46157,
+    "sha256": "bc71390eae9d4d4667289858d053bd92b0e6740aa01d2151ab846d5de59c39f9",
     "imports": [
       "env.__fe_revert",
       "env.st_fail",
@@ -11,11 +11,15 @@
       "env.st_word"
     ],
     "exports": [
+      "cand_panic_overflow",
+      "eval_panic_overflow",
+      "gen_panic_overflow",
       "memory",
       "run_bank_sequence",
       "run_buggy_sort",
       "run_capped_mint",
       "run_pair_sum",
+      "run_panic_overflow_cases",
       "run_saturating_add"
     ]
   },
@@ -173,6 +177,37 @@
         "amount"
       ],
       "seq": true,
+      "expect": "fail"
+    },
+    {
+      "id": "panic_overflow",
+      "seed": 8101,
+      "cases": 256,
+      "source": "// Property: multiplying by 1000 and dividing back gives x again.\n// BUG: x * 1000 is computed in u64 and overflows (the code panics) for x >= 18446744073709552. A panic cannot be returned as false, so this property needs panic recovery.\npub fn prop_panic_overflow(_ x: u64) -> bool {\n    x * 1000 / 1000 == x\n}\n",
+      "bug": "x * 1000 is computed in u64 and overflows (the code panics) for x >= 18446744073709552. A panic cannot be returned as false, so this property needs panic recovery.",
+      "native": {
+        "failed": 1,
+        "case_index": 0,
+        "steps": 35,
+        "original": [
+          "6334624726056120055"
+        ],
+        "shrunk": [
+          "18446744073709552"
+        ],
+        "reason": "panicked: arithmetic overflow"
+      },
+      "title": "Overflow panic",
+      "blurb": "The code multiplies by 1000 in 64-bit arithmetic and overflows for large inputs: the property panics instead of returning false. The page catches the panic, finds the first panicking case by bisecting the case limit, and shrinks by replaying candidates.",
+      "bug_keywords": [
+        "overflow",
+        "panic"
+      ],
+      "property": "x * 1000 / 1000 == x (a panic counts as a failure)",
+      "labels": [
+        "x"
+      ],
+      "panic": true,
       "expect": "fail"
     }
   ]

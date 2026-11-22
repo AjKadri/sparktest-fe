@@ -203,6 +203,51 @@ Caught 7 of 10, missed 3 of 10; 9 of 10 matched the pre-registered expectation e
 Not exercised by any command, so no claim is made about them: `burn`, `burnFrom`, `increaseAllowance`, `decreaseAllowance`, `name`, `symbol`, `decimals`. The mutants are a hand-picked sample of single changes, not a measured mutation score. Rerun: `./scripts/proof.sh`.
 
 
+## Panic recovery: properties whose code panics (new APIs; `check` is unchanged)
+
+A panic inside a property used to end the whole test with no report. Expected results were written before the runs (docs/EXPECTATIONS.md, section "L7b"). The same seed gives the same input stream on every backend,
+so the first failing case, the shrunk input and the number of shrink steps are expected to be identical. Case numbers are 1-based.
+
+- **sonatina**: `check_isolated` runs each evaluation inside a harness contract called through `evm.try_call`; a panic is a failed call, and the reason is read from the revert data (`Panic(0x11)`, `Panic(0x12)`).
+- **native**: a panic aborts the process, so `scripts/find-panic.sh` drives the replay executable: it bisects the case limit to the first aborting case, then shrinks by replaying candidates as single-case runs (the reason is the process's stderr text).
+- **wasm** (the demo page): the panic is a trap thrown into JavaScript; the page bisects and replays the same way (overflow property only).
+
+| property | expected | sonatina (isolated) | native (find-panic.sh) | wasm (demo page) | agree |
+|---|---|---|---|---|---|
+| overflow: `x * 1000 / 1000 == x` over `u64` | x = 18446744073709552, panicked: arithmetic overflow | case 1, 35 steps, shrunk 18446744073709552, panicked: arithmetic overflow; 1,831,693 gas | case 1, 35 steps, shrunk 18446744073709552, panicked: arithmetic overflow; 897 native runs | case 1, 35 steps, 18446744073709552, panicked: arithmetic overflow; bisect 8 steps, 898 module runs | yes |
+| divzero: `a / b * b <= a` over `(u32, u32)` | (a, b) = (0, 0), panicked: division by zero | case 42, 1 steps, shrunk (0, 0), panicked: division by zero; 204,123 gas | case 42, 1 steps, shrunk (0, 0), panicked: division by zero; 10 native runs | - | yes |
+| a normal false-returning property: `x < 1000` over `u256` | x = 1000, returned false (identical to `check`) | case 1, 249 steps, shrunk 1000, returned false; 1,026,110 gas | case 1, 249 steps, shrunk 1000, returned false; 537 native runs | - | yes |
+
+Gas of ONE isolated evaluation on sonatina (encode the input, `try_call` the harness, decode the result): **1,576** gas when the property holds, **1,585** when it returns false, **1,516** when it panics (a reverting call).
+The whole isolated runs above cost 1,831,693 (overflow), 204,123 (divzero) and 1,026,110 gas (false-returning, 249 shrink steps), far below the 1,000,000,000 per-test cap.
+
+The native bisect, as printed by `./scripts/find-panic.sh divzero 8102 256` (the first panicking case is deep enough to show the bisection):
+
+```
+property: divzero   seed: 8102   case limit: 256
+  bisect: cases=128 -> fails   (window 1..128)
+  bisect: cases=64 -> fails   (window 1..64)
+  bisect: cases=32 -> ok   (window 33..64)
+  bisect: cases=48 -> fails   (window 33..48)
+  bisect: cases=40 -> ok   (window 41..48)
+  bisect: cases=44 -> fails   (window 41..44)
+  bisect: cases=42 -> fails   (window 41..42)
+  bisect: cases=41 -> ok   (window 42..42)
+first failing case: 42 (index 41)   input: 836025884 0   reason: panicked: division by zero
+shrunk: 0 0   after 1 shrink steps   reason: panicked: division by zero
+RESULT prop=divzero seed=8102 case=42 steps=1 original="836025884 0" shrunk="0 0" reason="panicked: division by zero" native_runs=10
+```
+
+Rerun: `cd tests-isolated && fe test --show-logs` (sonatina), `./scripts/find-panic.sh overflow 8101 256` (native), `node scripts/panic_wasm.mjs 8101` or the demo page (wasm), or `./scripts/proof.sh`.
+
+#### What the new paths do not cover
+
+- A property that loops forever or runs out of gas: on sonatina the call fails without a panic code and is reported as "failed without data" (a failure of unknown reason); native and wasm would hang until stopped.
+- A panic in the generator or the shrinker themselves (they run in the test, not in the harness).
+- On sonatina the harness is a user-written contract (Fe contracts cannot be generic): one `recv` arm per property, one line each; inputs must have a `Decode` impl (all built-in generators except `Seq` do).
+- Native recovery is a script around a separate executable, not a call inside the test, and reports only the process's stderr text; wasm recovery is shown for one demo property.
+
+
 ## A contract that really panics: `examples/rewards` (2026-11-22, commit eb27a98)
 
 A small staking-rewards contract written for this proof (not a Fe example): `claim` returns `stake * 1000 / 10000` and computes `stake * 1000` in `u64`.

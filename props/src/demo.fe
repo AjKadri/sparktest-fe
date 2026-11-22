@@ -125,3 +125,11 @@ pub fn prop_bank_sequence(_ s: Seq<(Index<3>, Index<3>, Index<3>, u16), 8>) -> b
     true
 }
 // @end
+
+// @demo panic_overflow
+// Property: multiplying by 1000 and dividing back gives x again.
+// BUG: x * 1000 is computed in u64 and overflows (the code panics) for x >= 18446744073709552. A panic cannot be returned as false, so this property needs panic recovery.
+pub fn prop_panic_overflow(_ x: u64) -> bool {
+    x * 1000 / 1000 == x
+}
+// @end

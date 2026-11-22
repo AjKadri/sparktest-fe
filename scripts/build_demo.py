@@ -18,7 +18,7 @@ def run(cmd, cwd=None, check=True):
     return r
 
 # seeds and presentation: ids match the exports run_<id>
-SEEDS = {'capped_mint': 11, 'buggy_sort': 22, 'pair_sum': 33, 'saturating_add': 44, 'bank_sequence': 55}
+SEEDS = {'capped_mint': 11, 'buggy_sort': 22, 'pair_sum': 33, 'saturating_add': 44, 'bank_sequence': 55, 'panic_overflow': 8101}
 META = {
     'capped_mint': dict(title='Capped mint', blurb='A token must never exceed its supply cap of 1000. The cap is checked against the supply before minting, so the last mint can overshoot.',
                         bug_keywords=['before minting', 'overshoot'],
@@ -31,6 +31,8 @@ META = {
     'bank_sequence': dict(title='Bank sequence', blurb='A tiny bank with three accounts. After an account is drained to zero, its next deposit is credited twice, so the books stop adding up. One command can never show it: it takes a whole sequence.',
                           bug_keywords=['drained', 'twice'], property='after every command: deposited == balances + withdrawn',
                           labels=['kind', 'a', 'b', 'amount'], seq=True, expect='fail'),
+    'panic_overflow': dict(title='Overflow panic', blurb='The code multiplies by 1000 in 64-bit arithmetic and overflows for large inputs: the property panics instead of returning false. The page catches the panic, finds the first panicking case by bisecting the case limit, and shrinks by replaying candidates.',
+                           bug_keywords=['overflow', 'panic'], property='x * 1000 / 1000 == x (a panic counts as a failure)', labels=['x'], panic=True, expect='fail'),
     'saturating_add': dict(title='Saturating add', blurb='A property that holds: saturating addition never goes below its left operand.',
                            property='saturating_add(x, y) >= x', labels=['x', 'y'], expect='pass'),
 }
@@ -69,8 +71,15 @@ for i, l in enumerate(nat):
         shr = [int(x) for x in nat[i + 2].split('=')[1].split(',')]
         native[m.group(1)] = dict(failed=int(m.group(2)), case_index=int(m.group(3)), steps=int(m.group(4)), shrunk=shr)
 
+# native result of the panic property: scripts/find-panic.sh drives the native replay driver (bisect + replay shrink)
+fp = run(['scripts/find-panic.sh', 'overflow', str(SEEDS['panic_overflow']), '256']).stdout
+m = re.search(r'RESULT prop=overflow seed=(\d+) case=(\d+) steps=(\d+) original="([^"]*)" shrunk="([^"]*)" reason="([^"]*)"', fp)
+if not m:
+    sys.exit('find-panic.sh gave no RESULT line:\n' + fp)
+native['panic_overflow'] = dict(failed=1, case_index=int(m.group(2)) - 1, steps=int(m.group(3)), original=m.group(4).split(), shrunk=m.group(5).split(), reason=m.group(6))  # decimal STRINGS: u64 values exceed 2^53 and JSON.parse would round them
+
 props = []
-for pid in ['capped_mint', 'buggy_sort', 'pair_sum', 'saturating_add', 'bank_sequence']:
+for pid in ['capped_mint', 'buggy_sort', 'pair_sum', 'saturating_add', 'bank_sequence', 'panic_overflow']:
     # the BUG comment: the line starting `// BUG:` plus its `//` continuation lines
     lines = sources[pid].splitlines()
     bug_lines = []

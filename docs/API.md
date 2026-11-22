@@ -227,6 +227,63 @@ match guard(o, t, true, 0) {
 }
 ```
 
+## Decode (the inverse of Encode)
+
+### `trait Decode { fn decode(_ w: DynArray<u256>, _ pos: usize) -> (Self, usize) }`
+Rebuilds a value from the words `Encode` produced: it reads one value starting at word `pos` and returns it with the position after it, so composites decode their parts in order. Implemented for `u8` to `u256`, `bool`, `Address`, `Index<N>`, tuples of 2 to 4 and `[T; N]` (not for `Seq`).
+```fe
+let w = (7 as u8, 500 as u32).words()
+let (back, next) = <(u8, u32) as Decode>::decode(w, 0)
+assert!(back.0 == 7 && back.1 == 500 && next == 2)
+```
+
+## Panic recovery on the EVM (`sparktest_evm`)
+
+A panic inside a property used to end the whole test. `check_isolated` runs each evaluation inside a harness contract called through `evm.try_call`, so a panic is a failed call that is found, shrunk and reported (with its reason). `check` itself is unchanged. Fe contracts cannot be generic, so you write the harness once: a contract with one `recv Isolated` arm and one line per property.
+
+### `msg Isolated { Run { id, words } -> u256 }` and `run_prop(prop, words) -> u256`
+The message every harness answers: run property `id` on the input given as `Encode` words (reply 1 = held, 0 = returned false; a panic makes the call fail). `run_prop` is the arm's one-liner: it decodes the words and runs the property.
+```fe-item
+fn halves_never_exceed(_ x: u64) -> bool { x / 2 <= x }
+fn thousand_times_round_trips(_ x: u64) -> bool { x * 1000 / 1000 == x }   // panics (overflow) for large x
+
+contract Harness {
+    init() {}
+    recv Isolated {
+        Run { id, words } -> u256 {
+            if id == 0 { return run_prop(halves_never_exceed, words) }
+            if id == 1 { return run_prop(thousand_times_round_trips, words) }
+            0
+        }
+    }
+}
+```
+
+### `check_isolated<T>(cfg, harness, id) -> IsoOutcome<T>`
+Like `check`, but each evaluation is a `try_call` to the harness: it generates inputs in the test, a failed call (returned false or panicked) is a failing case, and the input is shrunk the same way. `IsoOutcome::Pass { cases }` or `IsoOutcome::Fail { original, shrunk, case, seed, steps, reason, original_reason }`.
+```fe
+let harness = evm.create<Harness>(value: Wei::zero(), args: ())
+match check_isolated<u64>(Config::new(fixed_seed(1)), harness, 1) {
+    IsoOutcome::Pass { cases: _ } => { assert!(false) }
+    IsoOutcome::Fail { original: _, shrunk, case: _, seed: _, steps: _, reason, original_reason: _ } => {
+        assert!(shrunk == 18446744073709552)              // the smallest x for which x * 1000 overflows u64
+        assert!(reason == REASON_PANIC_BASE + 0x11)       // Panic(0x11): arithmetic overflow
+    }
+}
+```
+
+### `eval_isolated(harness, id, x) -> u256` and the reason codes
+One isolated evaluation: `REASON_HELD` (0), `REASON_FALSE` (1, the property returned false), `REASON_OTHER_REVERT` (2), `REASON_NO_DATA` (3, for example out of gas) or `REASON_PANIC_BASE + code` for `Panic(code)` (`0x11` overflow, `0x12` division by zero). `reason_text(r)` gives a short description.
+```fe
+let harness = evm.create<Harness>(value: Wei::zero(), args: ())
+assert!(eval_isolated(harness, 0, 10 as u64) == REASON_HELD)
+assert!(eval_isolated(harness, 1, 18446744073709552 as u64) == REASON_PANIC_BASE + 0x11)
+assert!(reason_text(REASON_PANIC_BASE + 0x12) == "panicked: division by zero")
+```
+
+### Native and wasm
+A panic aborts a native process and traps in wasm, so it cannot be caught inside the run. The replay driver `replay-native/` plus `scripts/find-panic.sh` bisect the case limit to the first aborting case and shrink by replaying candidates as single-case runs; the demo page does the same with the wasm trap (see [PROOF.md](PROOF.md), "Panic recovery").
+
 ## Writing your own type
 
 A struct becomes testable by delegating `Arbitrary`, `Shrink` and `Encode` to a tuple of its fields:

@@ -106,6 +106,8 @@ try:
     sections.append(proof_stateful.section(run, problems))
     import proof_coolcoin
     sections.append(proof_coolcoin.section(run, problems))
+    import proof_panic
+    sections.append(proof_panic.section(run, problems))
     import proof_rewards
     sections.append(proof_rewards.section(run, problems))
 except ImportError:

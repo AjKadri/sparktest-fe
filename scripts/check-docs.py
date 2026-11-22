@@ -32,6 +32,8 @@ use sparktest::{Tally, Verdict, guard, vacuity, VACUOUS_NO_CALLS, VACUOUS_NONE_S
 use sparktest::widths::bits_value
 use sparktest::composite::count_candidates
 use sparktest_evm::{assert_holds, runtime_seed, fixed_seed}
+use sparktest_evm::{Isolated, run_prop, check_isolated, eval_isolated, IsoOutcome, reason_text, REASON_HELD, REASON_FALSE, REASON_PANIC_BASE}
+use sparktest::Decode
 '''
 native_header = '''use sparktest_native::{opaque_zero, fixed_seed, ticks}
 '''

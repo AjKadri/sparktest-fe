@@ -109,3 +109,36 @@ cannot be shrunk one at a time, so such indices can stop at a local minimum (as 
 
 ### Demo (5th property = the pure bank model)
 - The shrunk sequence (all words, length included) is identical on wasm, native and sonatina for the same seed; so are case and shrink steps.
+
+## L7a vacuity guards and the Fe Guide ERC-20 (2026-11-22, written BEFORE the runs of this step)
+
+Rows above are unchanged.
+
+### Vacuity guards
+- A property run over contracts or command sequences counts calls attempted, calls that succeeded and (stateful) commands executed per kind. A run that PASSES is reported
+  as vacuous (not as a pass) when no call succeeded where success is expected, or when a command kind was never executed across the whole run. A run that fails is
+  reported as a failure as before (a failure is information whatever the counts).
+- Properties about failing calls (transfer over the balance, transferFrom over the allowance) must not be flagged merely because no call succeeds; their guard is "calls were attempted".
+- Demo: a deliberately vacuous property ("if the transfer succeeds it moves exactly the amount", with every amount above the balance) PASSES unguarded and is reported
+  VACUOUS (reason: no call succeeded) with the guard. Every existing ERC20 and stateful property (the ERC20 test fixture, the Guide's CoolCoin, the planted copies) is expected NOT to be vacuous.
+
+### The Fe Guide ERC-20 (CoolCoin) at https://fe-lang.org/examples/erc20/
+- Expected to compile unchanged on Fe 26.7.0 and to pass its three own tests; expected to pass the 6 ERC20 properties and the stateful model check
+  (differences from the compiler-repo fixture: `transfer`/`transferFrom` revert on a shortfall instead of returning `false`; `mint` requires the MINTER role, granted to the `owner` init argument).
+- Mutation test: 10 single-change mutants of the vendored source. Setup: the owner is the test contract (it holds MINTER), supply 12, each of 4 actors holds 4. Properties P1 to P6 as in PROOF.md,
+  64 cases each; the stateful run uses 8-command sequences over Transfer, Approve, TransferFrom, Mint (64 cases). A mutant counts as caught when any property fails.
+
+| mutant | single change | expected | by which property |
+|---|---|---|---|
+| M01 | `transfer` credits the receiver `amount + 1` | caught | P1 (moves exactly amount) and P6 (balances sum to supply), and stateful |
+| M02 | the `from_balance >= amount` assert in `transfer` removed | MISSED: equivalent mutant (Fe's checked subtraction still reverts, with Panic(0x11) instead of the message; properties see only success or failure) | none |
+| M03 | `TransferFrom` swaps `from` and `to` in the inner transfer | caught | P4 (transferFrom moves exactly amount) and stateful |
+| M04 | `spend_allowance` no longer lowers the allowance | caught | P4 (allowance drops by exactly amount) and stateful |
+| M05 | `transfer` writes the receiver's credit first and then the debit computed from the stale sender balance (a self-transfer destroys `amount`) | caught | P1 (self-transfer moves nothing), P6, and stateful |
+| M06 | balance check `>=` becomes `>` (the full balance cannot be sent) | caught | P1 (amount equal to the balance) and stateful |
+| M07 | allowance check `>=` becomes `>` (the full allowance cannot be spent) | caught, less certainly (needs amount == allowance, reached through edge values such as an allowance of 0) | P4, and stateful |
+| M08 | the Transfer event is no longer emitted in `transfer` | MISSED: the properties read balances, allowances and supply, and cannot observe logs | none |
+| M09 | `mint` no longer increases `total_supply` | caught only by the stateful run (P1 to P6 never mint) | stateful (Mint command: totalSupply compared with the model) |
+| M10 | `mint` no longer requires the MINTER role | MISSED: only the owner (who holds MINTER) ever calls `mint`; detecting it needs a non-owner caller | none |
+
+Not covered by any command, so no mutant of them is claimed: `burn`, `burnFrom`, `increaseAllowance`, `decreaseAllowance`, `name`, `symbol`, `decimals`.

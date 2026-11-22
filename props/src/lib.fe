@@ -2,7 +2,7 @@
 // A property returns true when it HOLDS. Planted bugs fail on a known minimal input (stated per fn).
 use std::evm::Address
 use std::abi::DynArray
-use sparktest::{Arbitrary, Shrink, Encode, Rng, Checked, Outcome, Config, check, Summary, summarize}
+use sparktest::{Xorshift, Arbitrary, Shrink, Encode, Rng, Checked, Outcome, Config, check, Summary, summarize}
 
 // ---- u256 / bool ----
 pub fn prop_below_1000(_ x: u256) -> bool { x < 1000 }               // fails; minimal counterexample 1000
@@ -140,3 +140,39 @@ pub fn scenario_pair_u8_sum(_ seed: u256) -> Summary { summarize(check(Config::n
 pub fn scenario_arr_u64x4_sum(_ seed: u256) -> Summary { summarize(check(Config::new(seed), prop_arr_u64x4_sum_lt_10)) }
 pub fn scenario_addr_below_0x1000(_ seed: u256) -> Summary { summarize(check(Config::new(seed), prop_addr_below_0x1000)) }
 pub fn scenario_transfer_amount(_ seed: u256) -> Summary { summarize(check(Config::new(seed), prop_transfer_amount_le_500)) }
+
+// ---- planted bug that only shows up late: fails on a narrow band (x % 200 == 7, about 1 case in 200) ----
+pub fn prop_not_7_mod_200(_ x: u256) -> bool { x % 200 != 7 }
+
+pub fn scenario_late_fail(_ seed: u256) -> Summary {
+    summarize(check(Config::new(seed).with_cases(1000), prop_not_7_mod_200))
+}
+
+// ---- digest of the generator stream: folds EVERY generated value into one word (shift/xor only, no overflow) ----
+fn fold(_ d: u256, _ x: u256) -> u256 { (d << 5) ^ (d >> 3) ^ x }
+
+fn digest_of<T: Arbitrary + Encode + Copy>(_ rng: mut Xorshift, _ n: u256) -> u256 {
+    var d: u256 = 0
+    var i: u256 = 0
+    while i < n {
+        let v = <T as Arbitrary>::arbitrary(mut rng)
+        let w = v.words()
+        var j: usize = 0
+        while j < w.len() {
+            d = fold(d, w.get(j))
+            j += 1
+        }
+        i += 1
+    }
+    d
+}
+
+// Summary.original = digests of 1000 draws each of u256, (u8, u16), Address, [u64; 4]
+pub fn scenario_digest(_ seed: u256) -> Summary {
+    var rng = Xorshift::seeded(seed)
+    let a = digest_of<u256>(mut rng, 1000)
+    let b = digest_of<(u8, u16)>(mut rng, 1000)
+    let c = digest_of<Address>(mut rng, 1000)
+    let d = digest_of<[u64; 4]>(mut rng, 1000)
+    Summary { failed: 0, case: 4000, steps: 0, original: [a, b, c, d], shrunk: [0, 0, 0, 0] }
+}

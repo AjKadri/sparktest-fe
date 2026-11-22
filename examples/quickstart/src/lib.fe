@@ -92,3 +92,15 @@ fn most_seeds_reach_the_smallest_vault() uses (evm: mut Evm) {
     }
     assert!(exact == 10)
 }
+
+// replay from a failure report: the seed printed by decode-revert goes straight into Config::new
+#[test]
+fn replay_from_the_seed_in_the_failure_report() {
+    match check(Config::new(25286971856348077807), deposit_then_withdraw_never_profits) {
+        Outcome::Pass { cases: _ } => { assert!(false) }
+        Outcome::Fail { original: _, shrunk, case, seed: _, steps } => {
+            assert!(case == 2 && steps == 178)   // "case 3 (index 2)" and "steps 178" in the report
+            assert!(shrunk.0 == 3 && shrunk.1 == 1 && shrunk.2 == 1)
+        }
+    }
+}

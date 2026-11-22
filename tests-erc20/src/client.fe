@@ -3,6 +3,11 @@ use std::abi::sol
 use std::evm::{Evm, Call, Address}
 use ingot::actor::ActorMsg
 
+pub msg TokMint {
+    #[selector = sol("mint(address,uint256)")]
+    Mint { to: Address, amount: u256 } -> bool,
+}
+
 pub msg Tok {
     #[selector = sol("totalSupply()")]
     TotalSupply -> u256,
@@ -31,4 +36,9 @@ pub fn actor_approve(_ actor: Address, _ token: Address, _ spender: Address, _ a
 }
 pub fn actor_transfer_from(_ actor: Address, _ token: Address, _ from: Address, _ to: Address, _ amount: u256) -> u256 uses (evm: mut Evm) {
     evm.call(addr: actor, gas: 5000000, value: Wei::zero(), message: ActorMsg::TransferFrom { token, from, to, amount })
+}
+
+// mint is open to anyone in this fixture, so the test contract itself calls it
+pub fn mint(_ token: Address, _ to: Address, _ amount: u256) -> bool uses (evm: mut Evm) {
+    evm.call(addr: token, gas: 1000000, value: Wei::zero(), message: TokMint::Mint { to, amount })
 }

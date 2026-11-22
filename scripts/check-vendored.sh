@@ -11,3 +11,6 @@ echo "examples/erc20 body is byte-identical to upstream ($want)"
 changed=$(diff <(body examples/erc20/src/lib.fe) <(body examples/erc20-buggy/src/lib.fe) | grep -c '^[<>]' || true)
 [ "$changed" = 4 ] || { echo "examples/erc20-buggy should differ by exactly one planted change (1 line removed, 3 added); diff lines: $changed"; exit 1; }
 echo "examples/erc20-buggy differs from upstream by exactly the one planted change"
+changed2=$(diff <(body examples/erc20/src/lib.fe) <(body examples/erc20-stateful-bug/src/lib.fe) | grep -c '^[<>]' || true)
+[ "$changed2" = 12 ] || { echo "examples/erc20-stateful-bug should differ from upstream only by the planted lines ($changed2 diff lines, want 12)"; exit 1; }
+echo "examples/erc20-stateful-bug differs from upstream only by the planted change (12 diff lines)"

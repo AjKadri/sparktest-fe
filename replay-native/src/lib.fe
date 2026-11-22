@@ -1,0 +1,104 @@
+// Native replay driver: panics abort a native process, so a property that panics cannot be caught inside the run.
+// This executable evaluates properties from its command line; scripts/find-panic.sh drives it (bisecting the case limit to the first
+// aborting case, then shrinking by replaying candidates as single-case runs).
+//
+//   replay_native run  <prop> <seed> <cases>        run cases 0..cases-1; exit 0 if all hold; exit 1 and print "FALSE case=<i>" if one returns false; a panic aborts the process
+//   replay_native gen  <prop> <seed> <case>         print the words of the <case>-th generated input
+//   replay_native eval <prop> <word>...             run the property on that input: exit 0 held, exit 1 returned false, abort if it panics
+//   replay_native cand <prop> <i> <word>...         print the i-th shrink candidate of that input, or NONE
+// props: overflow (u64), divzero ((u32, u32)), false (u256)
+use std::io::Stdout
+use std::env::Args
+use core::text::parse_uint
+use sparktest::{Arbitrary, Shrink, Encode, Decode, Xorshift}
+use std::abi::DynArray
+use core::ptr::MemVec
+
+fn below_1000(_ x: u256) -> bool { x < 1000 }
+
+fn arg_uint(_ a: u256, _ at: usize) -> u256 uses (args: Args) {
+    match parse_uint(args.get(at)) {
+        Option::Some(v) => v
+        Option::None => { core::panic() }
+    }
+}
+
+// the input words given as arguments from index `from`
+fn words_from(_ from: usize) -> DynArray<u256> uses (args: Args) {
+    var v: MemVec<u256> = MemVec::new()
+    var i: usize = from
+    while i < args.count() {
+        v.push(arg_uint(0, i))
+        i += 1
+    }
+    DynArray::from_mem_vec(v)
+}
+
+fn print_words(_ w: DynArray<u256>) uses (out: mut Stdout) {
+    var i: usize = 0
+    while i < w.len() {
+        let x: u256 = w.get(i)
+        if i > 0 { print!(" ") }
+        print!(x)
+        i += 1
+    }
+    println!("")
+}
+
+fn drive<T: Arbitrary + Shrink + Encode + Decode + Copy, P: Fn(T) -> bool>(_ prop: P) -> i32 uses (args: Args, out: mut Stdout, P::E) {
+    // argv: 0 program, 1 command, 2 prop
+    if args.get(1) == "run" {
+        let seed = arg_uint(0, 3)
+        let cases = arg_uint(0, 4)
+        var rng = Xorshift::seeded(seed)
+        var i: u256 = 0
+        while i < cases {
+            let x = <T as Arbitrary>::arbitrary(mut rng)
+            if !prop(x) {
+                println!("FALSE case=", i)
+                return 1
+            }
+            i += 1
+        }
+        println!("PASS ", cases)
+        return 0
+    }
+    if args.get(1) == "gen" {
+        let seed = arg_uint(0, 3)
+        let want = arg_uint(0, 4)
+        var rng = Xorshift::seeded(seed)
+        var i: u256 = 0
+        while i < want {
+            let _ = <T as Arbitrary>::arbitrary(mut rng)
+            i += 1
+        }
+        let x = <T as Arbitrary>::arbitrary(mut rng)
+        print_words(x.words())
+        return 0
+    }
+    if args.get(1) == "eval" {
+        let (x, _) = <T as Decode>::decode(words_from(3), 0)
+        let code: i32 = if prop(x) { 0 } else { 1 }
+        return code
+    }
+    if args.get(1) == "cand" {
+        let i = arg_uint(0, 3)
+        let (x, _) = <T as Decode>::decode(words_from(4), 0)
+        match x.shrink_step(i) {
+            Option::Some(c) => { print_words(c.words()) }
+            Option::None => { println!("NONE") }
+        }
+        return 0
+    }
+    println!("usage: replay_native run|gen|eval|cand <prop> ...")
+    2
+}
+
+pub fn main() -> i32 uses (args: Args, out: mut Stdout) {
+    if args.count() < 3 { return 2 }
+    if args.get(2) == "overflow" { return drive<u64, _>(props::prop_panic_overflow) }
+    if args.get(2) == "divzero" { return drive<(u32, u32), _>(props::prop_panic_divzero) }
+    if args.get(2) == "false" { return drive<u256, _>(below_1000) }
+    println!("unknown property")
+    2
+}

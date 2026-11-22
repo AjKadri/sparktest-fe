@@ -1,0 +1,9 @@
+[ingot]
+name = "replay_native"
+version = "0.1.0"
+target = "native"
+
+[dependencies]
+sparktest = { path = "../sparktest" }
+sparktest_native = { path = "../sparktest-native" }
+props = { path = "../props" }

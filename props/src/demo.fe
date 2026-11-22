@@ -1,0 +1,64 @@
+// Demo properties for the Sparktest web demo. Planted bugs, 64-bit-safe (inputs are u32 so they cross the wasm boundary).
+// The text between `// @demo <name>` and `// @end` is shown verbatim in the demo page (extracted by scripts/build-demo.sh).
+
+// @demo capped_mint
+// A token with a supply cap. mint() must never let the supply exceed CAP.
+pub const CAP: u64 = 1000
+
+// BUG: the cap is checked against the supply BEFORE minting (`>=`), not against the supply AFTER
+// minting (`new_supply > CAP`), so the last mint can overshoot the cap.
+pub fn mint(_ supply: u64, _ amount: u64) -> u64 {
+    if supply >= CAP { return supply }
+    supply + amount
+}
+
+// Property: starting from any supply within the cap, minting any amount never exceeds the cap.
+pub fn prop_capped_mint(_ p: (u32, u32)) -> bool {
+    let supply = p.0 as u64
+    if supply > CAP { return true }
+    mint(supply, p.1 as u64) <= CAP
+}
+// @end
+
+// @demo buggy_sort
+// Sorts four numbers with bubble sort.
+// BUG: sorting 4 elements needs 3 passes, this one stops after 2.
+pub fn sort4(_ input: [u32; 4]) -> [u32; 4] {
+    var a = input
+    var pass: usize = 0
+    while pass < 2 {
+        var i: usize = 0
+        while i < 3 {
+            if a[i] > a[i + 1] {
+                let t = a[i]
+                a[i] = a[i + 1]
+                a[i + 1] = t
+            }
+            i += 1
+        }
+        pass += 1
+    }
+    a
+}
+
+// Property: the output is sorted.
+pub fn prop_sorted(_ input: [u32; 4]) -> bool {
+    let o = sort4(input)
+    o[0] <= o[1] && o[1] <= o[2] && o[2] <= o[3]
+}
+// @end
+
+// @demo pair_sum
+// Property: the sum of two numbers is below 10 (false for many inputs; the smallest is a sum of exactly 10).
+// Sums are widened to u64 first so the property itself cannot overflow.
+pub fn prop_pair_sum(_ p: (u32, u32)) -> bool {
+    (p.0 as u64) + (p.1 as u64) < 10
+}
+// @end
+
+// @demo saturating_add
+// A property that holds: saturating addition never goes below its left operand.
+pub fn prop_saturating_add(_ p: (u32, u32)) -> bool {
+    p.0.saturating_add(p.1) >= p.0
+}
+// @end

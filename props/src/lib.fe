@@ -1,4 +1,5 @@
 // Shared properties and planted-bug examples: plain, effect-free fns used by every backend's tests.
+pub use demo::*
 // A property returns true when it HOLDS. Planted bugs fail on a known minimal input (stated per fn).
 use std::evm::Address
 use std::abi::DynArray

@@ -1,0 +1,52 @@
+// Demo property tests (sonatina). Fixed seeds; each failing property has a stated minimum.
+use std::evm::Evm
+use sparktest::{check, Config, Outcome}
+use sparktest_evm::fixed_seed
+
+// capped_mint: supply + amount == CAP + 1 is the boundary; minimal counterexample (supply 0, amount 1001)
+#[test]
+fn demo_capped_mint_shrinks_to_the_boundary() uses (evm: mut Evm) {
+    match check(Config::new(fixed_seed(500)), props::prop_capped_mint) {
+        Outcome::Pass { cases: _ } => { assert!(false) }
+        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _ } => {
+            assert!(shrunk.0 == 0)
+            assert!(shrunk.1 == 1001)
+            assert!(props::mint(shrunk.0 as u64, shrunk.1 as u64) > props::CAP)
+        }
+    }
+}
+
+// buggy_sort: the smallest unsorted input the shrinker finds is [1, 1, 1, 0]
+#[test]
+fn demo_buggy_sort_shrinks_to_1_1_1_0() uses (evm: mut Evm) {
+    match check(Config::new(fixed_seed(501)), props::prop_sorted) {
+        Outcome::Pass { cases: _ } => { assert!(false) }
+        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _ } => {
+            assert!(shrunk[0] == 1 && shrunk[1] == 1 && shrunk[2] == 1 && shrunk[3] == 0)
+            assert!(!props::prop_sorted(shrunk))
+        }
+    }
+}
+
+// pair_sum: (0, 10)
+#[test]
+fn demo_pair_sum_shrinks_to_0_10() uses (evm: mut Evm) {
+    match check(Config::new(fixed_seed(502)), props::prop_pair_sum) {
+        Outcome::Pass { cases: _ } => { assert!(false) }
+        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _ } => {
+            assert!(shrunk.0 == 0)
+            assert!(shrunk.1 == 10)
+        }
+    }
+}
+
+// saturating_add holds; gas proves the cases ran
+#[test]
+fn demo_saturating_add_passes() uses (evm: mut Evm) {
+    let g0 = evm.gas()
+    match check(Config::new(fixed_seed(503)), props::prop_saturating_add) {
+        Outcome::Pass { cases } => { assert!(cases == 256) }
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _ } => { assert!(false) }
+    }
+    assert!(g0 - evm.gas() >= 256 * 50)
+}

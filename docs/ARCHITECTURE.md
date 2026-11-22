@@ -2,6 +2,8 @@
 
 Sparktest is a set of Fe ingots. One ingot is the library; the others adapt it to a backend, hold properties, or test and demonstrate it. Ingot names use underscores (`sparktest_evm`); directories use hyphens (`sparktest-evm/`), because Fe 26.7.0 rejects hyphens in ingot names (`Invalid ingot name "qc-evm"`).
 
+The repository root has a `fe.toml` workspace listing the sonatina (EVM) ingots, so `fe check` and `fe test` work at the root; the native ingots are not members (a workspace cannot mix targets).
+
 ## The library
 
 | ingot | role | effects |

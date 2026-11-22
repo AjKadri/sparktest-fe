@@ -128,3 +128,11 @@ fn i_replay_reproduces_failure() uses (evm: mut Evm) {
     assert!(r.case == o.case)
     assert!(r.steps == o.steps)
 }
+
+// Step 2 probe: a property that overflows on some case makes the WHOLE test revert with Panic(0x11);
+// check() cannot catch it, and no Outcome is produced.
+#[test(should_revert, panic = 0x11)]
+fn probe_overflow_in_property_reverts_whole_run() uses (evm: mut Evm) {
+    let o = info(check(Config::new(fixed_seed(12)), |x: u256| x + 1 > 0))
+    assert!(!o.failed) // never reached when some case is MAX or the generator yields it
+}

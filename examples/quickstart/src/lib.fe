@@ -1,0 +1,94 @@
+// The vault from the README: deposits mint shares, withdrawals burn them.
+// BUG: the share calculation rounds UP, so a depositor can be credited more than they put in.
+use std::evm::Evm
+use sparktest::{check, Config, Outcome}
+use sparktest_evm::{assert_holds, fixed_seed}
+
+fn shares_for_deposit(_ amount: u128, _ assets: u128, _ shares: u128) -> u128 {
+    (amount * shares + assets - 1) / assets            // BUG: should be amount * shares / assets
+}
+
+fn assets_for_shares(_ burned: u128, _ assets: u128, _ shares: u128) -> u128 {
+    burned * assets / shares
+}
+
+// ---- before: three unit tests, all pass ----
+#[test]
+fn deposit_into_a_one_to_one_vault() {
+    assert!(shares_for_deposit(100, 1000, 1000) == 100)
+}
+
+#[test]
+fn deposit_into_a_vault_worth_two_assets_per_share() {
+    assert!(shares_for_deposit(200, 2000, 1000) == 100)
+}
+
+#[test]
+fn deposit_then_withdraw_gives_back_what_you_put_in() {
+    let minted = shares_for_deposit(500, 1000, 1000)
+    assert!(assets_for_shares(minted, 1500, 1500) == 500)
+}
+
+// ---- after: one property ----
+// deposit `amount` into a vault holding (assets, shares), then withdraw the minted shares: you must never get back more than you put in
+fn deposit_then_withdraw_never_profits(_ p: (u32, u32, u32)) -> bool {
+    let assets = p.0 as u128
+    let shares = p.1 as u128
+    let amount = p.2 as u128
+    if assets == 0 || shares == 0 || amount == 0 { return true }
+    let minted = shares_for_deposit(amount, assets, shares)
+    assets_for_shares(minted, assets + amount, shares + minted) <= amount
+}
+
+#[test]
+fn sparktest_finds_the_bug_and_shrinks_it() uses (evm: mut Evm) {
+    match check(Config::new(fixed_seed(2)), deposit_then_withdraw_never_profits) {
+        Outcome::Pass { cases: _ } => { assert!(false) }
+        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _ } => {
+            // the smallest vault where rounding up pays the depositor: 3 assets, 1 share, deposit 1
+            assert!(shrunk.0 == 3 && shrunk.1 == 1 && shrunk.2 == 1)
+        }
+    }
+}
+
+// replay: the Outcome carries the seed; running again with it gives exactly the same failure
+#[test]
+fn the_seed_replays_the_failure() uses (evm: mut Evm) {
+    match check(Config::new(fixed_seed(2)), deposit_then_withdraw_never_profits) {
+        Outcome::Pass { cases: _ } => { assert!(false) }
+        Outcome::Fail { original, shrunk, case, seed, steps } => {
+            match check(Config::new(seed), deposit_then_withdraw_never_profits) {
+                Outcome::Pass { cases: _ } => { assert!(false) }
+                Outcome::Fail { original: o2, shrunk: s2, case: c2, seed: _, steps: n2 } => {
+                    assert!(o2 == original && s2 == shrunk && c2 == case && n2 == steps)
+                }
+            }
+        }
+    }
+}
+
+// the same property as a plain test that fails the way you would see it in your own project:
+// assert_holds reverts with PropertyFailed (selector 0x4c350703); #[test(should_revert, ...)] keeps this example green
+#[test(should_revert, selector = 0x4c350703)]
+fn assert_holds_reverts_with_the_shrunk_input() uses (evm: mut Evm) {
+    assert_holds(check(Config::new(fixed_seed(2)), deposit_then_withdraw_never_profits))
+}
+
+// Shrinking is greedy, so it stops at a local minimum, which is not always the smallest vault. Measured over seeds 1 to 12:
+// 10 reach (3, 1, 1); the other two (seeds 1 and 12) stop at (18, 1, 271) and (8, 1, 41), still tiny single-share vaults.
+#[test]
+fn most_seeds_reach_the_smallest_vault() uses (evm: mut Evm) {
+    var exact: u256 = 0
+    var s: u256 = 1
+    while s <= 12 {
+        match check(Config::new(fixed_seed(s)), deposit_then_withdraw_never_profits) {
+            Outcome::Pass { cases: _ } => { assert!(false) }
+            Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _ } => {
+                if shrunk.0 == 3 && shrunk.1 == 1 && shrunk.2 == 1 { exact += 1 }
+                assert!(shrunk.1 == 1)   // always a single share
+            }
+        }
+        s += 1
+    }
+    assert!(exact == 10)
+}

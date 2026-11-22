@@ -3,3 +3,4 @@ HANDOFF.md
 out/
 out_*/
 .DS_Store
+.docs-check/

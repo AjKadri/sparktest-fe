@@ -1,0 +1,7 @@
+[ingot]
+name = "quickstart"
+version = "0.1.0"
+
+[dependencies]
+sparktest = { path = "../../sparktest" }
+sparktest_evm = { path = "../../sparktest-evm" }

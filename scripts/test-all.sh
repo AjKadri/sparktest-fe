@@ -39,6 +39,8 @@ part "decode-revert (node)"      node tools/decode-revert/test.mjs
 part "cross-check (sonatina vs native)" ./scripts/cross-check.sh
 part "erc20 (sonatina only): vendored example + properties + planted bug" erc20
 part "rewards (sonatina only): contract panic via try_call vs direct call" rewards
+part "quickstart example (a separate ingot using sparktest as the README says)" fe_suite examples/quickstart
+part "docs (README excerpts verbatim from the quickstart; every API.md example compiles and passes)" ./scripts/check-docs.py
 part "proof suites (planted bugs, std, erc20 -> docs/PROOF.md --check)" proof
 part "web demo (build wasm + node test)" demo_web
 part "evm recordings are current (record-evm.sh --check)" recordings

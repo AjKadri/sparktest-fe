@@ -262,7 +262,7 @@ cd web && python3 -m http.server 8765   # serve the demo at http://localhost:876
 
 Live: **https://ajkadri.github.io/sparktest-fe/** (a static page; to serve it locally: `cd web && python3 -m http.server 8765`).
 
-What to click: pick one of the six properties (*Capped mint*, *Buggy sort*, *Pair sum*, *Saturating add*, *Bank sequence*, *Overflow panic*), press **Run**, and watch the counterexample shrink; **Skip** jumps to the end, **Replay** reproduces the failure from the same seed. *Saturating add* holds, and shows a pass. *Bank sequence* shrinks a list of commands.
+What to click: pick one of the six properties (*Capped mint*, *Buggy sort*, *Pair sum*, *Saturating add*, *Bank sequence*, *Overflow panic*), press **Run**, and watch the counterexample shrink; **Skip animation** jumps to the end, **Random seed** tries another seed, **Replay** reproduces the failure from the same seed. *Saturating add* holds, and shows a pass. *Bank sequence* shrinks a list of commands.
 
 The panic-recovery property is *Overflow panic*: its code overflows `u64` and traps in WebAssembly. The page catches the trap, bisects the case limit to find the first case that panics (8 steps), and shrinks by replay to exactly 18446744073709552 with the reason "arithmetic overflow".
 

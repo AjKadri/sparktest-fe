@@ -1,7 +1,7 @@
 // The vault from the README: deposits mint shares, withdrawals burn them.
 // BUG: the share calculation rounds UP, so a depositor can be credited more than they put in.
 use std::evm::Evm
-use sparktest::{check, Config, Outcome}
+use sparktest::{check, Config, Outcome, summarize, Tally, vacuity}
 use sparktest_evm::{assert_holds, fixed_seed}
 
 fn shares_for_deposit(_ amount: u128, _ assets: u128, _ shares: u128) -> u128 {
@@ -145,4 +145,20 @@ fn replay_from_the_seed_in_the_failure_report() {
             assert!(shrunk.0 == 3 && shrunk.1 == 1 && shrunk.2 == 1)
         },
     }
+}
+
+// a property can RECORD what it did into a `Tally` (an effect); `check` forwards it (`uses P::E`), the caller provides it with `with`
+fn deposit_is_recorded(_ amount: u32) -> bool uses (tally: mut Tally) {
+    tally.call(amount > 0)
+    shares_for_deposit(amount as u128 + 1, 1000, 1000) >= amount as u128
+}
+
+#[test]
+fn the_tally_travels_from_the_property_to_its_caller() uses (evm: mut Evm) {
+    var tally = Tally::new()
+    let cfg = Config::new(fixed_seed(5)).with_cases(64)
+    let o = with (mut tally) {
+        check(cfg, deposit_is_recorded)
+    }
+    assert!(summarize(o).failed == 0 && vacuity(tally, true, 0) == 0)
 }

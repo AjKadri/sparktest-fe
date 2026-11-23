@@ -33,10 +33,23 @@ rewards() {
 proof() {
   ./scripts/proof.sh --check
 }
+# first-party ingots that are formatted with `fe fmt` (the vendored upstream files, their planted-bug copies and the generated mutants are NOT:
+# they must stay byte-identical to their sources)
+FMT_DIRS="sparktest sparktest-evm sparktest-native props erc20-actors tests-evm tests-native tests-erc20 tests-coolcoin tests-rewards tests-isolated examples/quickstart examples/rewards evm-recordings demo-wasm bench-native proof-native replay-native xcheck-native"
+format() {
+  local bad=0
+  for d in $FMT_DIRS; do
+    if ! fe fmt --check "$d" >/dev/null 2>&1; then echo "not formatted: $d (run: fe fmt $d)"; bad=1; fi
+  done
+  [ "$bad" -eq 0 ] && echo "fe fmt --check: all first-party ingots are formatted"
+  return $bad
+}
 freshness() {
   python3 scripts/gen_widths.py && python3 scripts/gen_composite.py && python3 scripts/gen_checked.py && python3 scripts/gen_proof.py && python3 scripts/gen_erc20_tests.py && python3 scripts/gen_mutants.py \
-    && git diff --exit-code -- sparktest/src/widths.fe sparktest/src/composite.fe sparktest/src/checked.fe props/src/proof_scenarios.fe tests-evm/src/proof.fe proof-native/src/lib.fe tests-erc20/src/original.fe tests-erc20/src/buggy.fe tests-erc20/src/original_idx.fe tests-erc20/src/buggy_idx.fe tests-erc20/src/stateful_orig.fe tests-erc20/src/stateful_bug.fe tests-erc20/src/vacuous_demo.fe tests-coolcoin/src examples/coolcoin-mutants \
-    && echo "generated files are up to date"
+    && python3 scripts/gen_heldout_mutants.py && python3 scripts/gen_hunt.py \
+    && for d in sparktest props tests-evm proof-native tests-erc20 tests-coolcoin; do fe fmt "$d" >/dev/null 2>&1; done \
+    && git diff --exit-code -- sparktest/src/widths.fe sparktest/src/composite.fe sparktest/src/checked.fe props/src/proof_scenarios.fe props/src/hunt_map.fe tests-evm/src/proof.fe proof-native/src/lib.fe tests-erc20/src/original.fe tests-erc20/src/buggy.fe tests-erc20/src/original_idx.fe tests-erc20/src/buggy_idx.fe tests-erc20/src/stateful_orig.fe tests-erc20/src/stateful_bug.fe tests-erc20/src/vacuous_demo.fe tests-coolcoin/src examples/coolcoin-mutants examples/coolcoin-heldout \
+    && echo "generated files are up to date (regenerated, formatted, identical to the committed files)"
 }
 
 part "tests-evm (sonatina)"      fe_suite tests-evm
@@ -52,6 +65,7 @@ part "docs (README excerpts verbatim from the quickstart; every API.md example c
 part "proof suites (planted bugs, std, erc20 -> docs/PROOF.md --check)" proof
 part "web demo (build wasm + node test)" demo_web
 part "evm recordings are current (record-evm.sh --check)" recordings
+part "format (fe fmt --check on every first-party ingot)" format
 part "freshness (generated files)" freshness
 
 if [ "$failed" -eq 0 ]; then echo "ALL PARTS PASSED"; else echo "SOME PARTS FAILED"; fi

@@ -35,7 +35,7 @@ A vault mints shares for deposits. The share calculation rounds up, which pays t
 
 ```fe-excerpt
 fn shares_for_deposit(_ amount: u128, _ assets: u128, _ shares: u128) -> u128 {
-    (amount * shares + assets - 1) / assets            // BUG: should be amount * shares / assets
+    (amount * shares + assets - 1) / assets // BUG: should be amount * shares / assets
 }
 ```
 
@@ -56,7 +56,9 @@ fn deposit_then_withdraw_never_profits(_ p: (u32, u32, u32)) -> bool {
     let assets = p.0 as u128
     let shares = p.1 as u128
     let amount = p.2 as u128
-    if assets == 0 || shares == 0 || amount == 0 { return true }
+    if assets == 0 || shares == 0 || amount == 0 {
+        return true
+    }
     let minted = shares_for_deposit(amount, assets, shares)
     assets_for_shares(minted, assets + amount, shares + minted) <= amount
 }
@@ -65,12 +67,17 @@ fn deposit_then_withdraw_never_profits(_ p: (u32, u32, u32)) -> bool {
 ```fe-excerpt
 #[test]
 fn sparktest_finds_the_bug_and_shrinks_it() uses (evm: mut Evm) {
-    match check(Config::new(fixed_seed(2)), deposit_then_withdraw_never_profits) {
-        Outcome::Pass { cases: _ } => { assert!(false) }
+    match check(
+        Config::new(fixed_seed(2)),
+        deposit_then_withdraw_never_profits,
+    ) {
+        Outcome::Pass { cases: _ } => {
+            assert!(false)
+        },
         Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _, early: _ } => {
             // the smallest vault where rounding up pays the depositor: 3 assets, 1 share, deposit 1
             assert!(shrunk.0 == 3 && shrunk.1 == 1 && shrunk.2 == 1)
-        }
+        },
     }
 }
 ```
@@ -102,7 +109,12 @@ sparktest_evm = { source = "https://github.com/AjKadri/sparktest-fe", rev = "v0.
 ```fe-excerpt
 #[test(should_revert, selector = 0x4c350703)]
 fn assert_holds_reverts_with_the_shrunk_input() uses (evm: mut Evm) {
-    assert_holds(check(Config::new(fixed_seed(2)), deposit_then_withdraw_never_profits))
+    assert_holds(
+        check(
+            Config::new(fixed_seed(2)),
+            deposit_then_withdraw_never_profits,
+        ),
+    )
 }
 ```
 
@@ -125,12 +137,19 @@ input     3 word(s): [3, 1, 1]
 ```fe-excerpt
 #[test]
 fn replay_from_the_seed_in_the_failure_report() {
-    match check(Config::new(25286971856348077807), deposit_then_withdraw_never_profits) {
-        Outcome::Pass { cases: _ } => { assert!(false) }
+    match check(
+        Config::new(25286971856348077807),
+        deposit_then_withdraw_never_profits,
+    ) {
+        Outcome::Pass { cases: _ } => {
+            assert!(false)
+        },
         Outcome::Fail { original: _, shrunk, case, seed: _, steps, early: _ } => {
-            assert!(case == 2 && steps == 178)   // "case 3 (index 2)" and "steps 178" in the report
+            assert!(
+                case == 2 && steps == 178,
+            ) // "case 3 (index 2)" and "steps 178" in the report
             assert!(shrunk.0 == 3 && shrunk.1 == 1 && shrunk.2 == 1)
-        }
+        },
     }
 }
 ```
@@ -153,22 +172,23 @@ Shrinking is greedy, so it stops at a local minimum. Over seeds 1 to 12 on this 
 
 ## Fe highlight
 
-**An effect-polymorphic runner that carries a `Tally` from a property to its caller.** `check` is declared `uses P::E`: whatever effects the property closure needs become effects of `check` itself, so the same runner accepts a pure property, a property that calls contracts (`Evm`) and a property that records into a `Tally`. The core has no effects of its own; the caller provides the `Tally` with `with (mut tally) { ... }`:
+**An effect-polymorphic runner that carries a `Tally` from a property to its caller.** `check` is declared `uses P::E`: whatever effects the property closure needs become effects of `check` itself, so the same runner accepts a pure property, a property that calls contracts (`Evm`) and a property that records into a `Tally`. The core has no effects of its own. Below, the property declares `uses (tally: mut Tally)`, and the test provides the `Tally` with `with (mut tally) { ... }` around `check`; afterwards the test reads what the property recorded (`examples/quickstart/src/lib.fe`):
 
-```fe-excerpt sparktest/src/lib.fe
-pub fn check<T: Arbitrary + Shrink + Copy, P: Fn(T) -> bool>(_ cfg: Config, _ prop: P) -> Outcome<T> uses P::E {
-    check_with(cfg, prop, || false)
+```fe-excerpt
+fn deposit_is_recorded(_ amount: u32) -> bool uses (tally: mut Tally) {
+    tally.call(amount > 0)
+    shares_for_deposit(amount as u128 + 1, 1000, 1000) >= amount as u128
 }
-```
 
-```fe-excerpt tests-erc20/src/original_idx.fe
-fn p1(_ actors: [Address; 4], _ p: (Index<4>, Index<4>, Index<251>)) -> bool uses (evm: mut Evm, tally: mut Tally) {
-```
-
-```fe-excerpt tests-erc20/src/original_idx.fe
+#[test]
+fn the_tally_travels_from_the_property_to_its_caller() uses (evm: mut Evm) {
     var tally = Tally::new()
-    let g0 = evm.gas()
-    let o = with (mut tally) { check(Config::new(fixed_seed(2107)).with_cases(64), |p: (Index<4>, Index<4>, Index<251>)| p1(actors, p)) }
+    let cfg = Config::new(fixed_seed(5)).with_cases(64)
+    let o = with (mut tally) {
+        check(cfg, deposit_is_recorded)
+    }
+    assert!(summarize(o).failed == 0 && vacuity(tally, true, 0) == 0)
+}
 ```
 
 A runner that omits `uses P::E` is rejected: `error[8-0106]: missing effect row 'P::E' required by 'call'` (spike 2, check E5). The other Fe-specific points, each backed by a check in this repository (the spike reports record the compiler output: [spike/SPIKE_REPORT.md](spike/SPIKE_REPORT.md), [spike/SPIKE2_REPORT.md](spike/SPIKE2_REPORT.md)):
@@ -220,31 +240,32 @@ cd sparktest-fe
 
 # 3. check and test at the repository root
 fe check              # no output, exit code 0
-fe test               # test result: ok. 228 passed; 0 failed
+fe test               # test result: ok. 293 passed; 0 failed
 
 # 4. run every part of the suite
 ./scripts/test-all.sh   # exit code 0 when every part passes
 ```
 
-The root `fe.toml` is a workspace of the sonatina (EVM) ingots: the library, its EVM shim, the properties, the ERC20 and CoolCoin suites, and the quickstart. The native test ingot is not a member, because a workspace cannot mix targets (with it, `fe check` fails with `error[8-0153]: unsupported entry effect`); run it with `cd tests-native && fe test`, and the rest with `./scripts/test-all.sh`. `fe build` has no contracts to build in a library, so it is not used here; `fe check` is the compile check.
+The root `fe.toml` is a workspace of the sonatina (EVM) ingots: the library, its EVM shim, the properties, the ERC20 and CoolCoin suites, and the quickstart. The native test ingot is not a member, because a workspace cannot mix targets (with it, `fe check` fails with `error[8-0153]: unsupported entry effect`); run it with `cd tests-native && fe test`, and the rest with `./scripts/test-all.sh`. `fe build` has no contracts to build in a library, so it is not used here; `fe check` is the compile check. The first-party code is formatted with `fe fmt` (the vendored upstream files and the generated mutants are left as they are), and `test-all.sh` checks it with `fe fmt --check`.
 
 `test-all.sh` runs these parts and prints `ALL PARTS PASSED` at the end (counts from the last run):
 
 ```
-tests-evm (sonatina)                    97 passed
-tests-native (native)                   65 passed
+tests-evm (sonatina)                    124 passed
+tests-native (native)                   87 passed
 decode-revert (node)                    all decode-revert tests passed
 cross-check (sonatina vs native)        CROSS-CHECK: IDENTICAL (11/11)
 erc20 (sonatina only)                   vendored bodies byte-identical to upstream; 1 + 28 passed
-coolcoin (sonatina only)                3 + 83 passed (the Guide ERC-20 and 10 mutants)
+coolcoin (sonatina only)                3 + 120 passed (the Guide ERC-20, 10 mutants, 5 held-out mutants)
 rewards (sonatina only)                 3 passed
-quickstart example                      8 passed
+quickstart example                      9 passed
 docs                                    README excerpts verbatim; 26 + 1 API examples compiled and passed
 proof suites                            proof: all expectations met and docs/PROOF.md is current
 isolated (sonatina)                     5 passed (panic recovery through a harness contract)
 web demo                                all 6 demo properties agree across wasm, sonatina (EVM) and native
 evm recordings are current              Expected failures: 4/4 recorded
-freshness (generated files)             PART OK
+format (fe fmt --check)                 fe fmt --check: all first-party ingots are formatted
+freshness (generated files)             PART OK (regenerated, formatted, identical)
 ALL PARTS PASSED
 ```
 
@@ -277,10 +298,12 @@ Two kinds of result are labelled differently on the page. The counterexample and
 | planted bugs (pure code, sonatina and native) | vault rounding, fee overflow, balance underflow, packing shift, bounds off-by-one; each with a fixed version | 5 of 5 bugs found and shrunk (vault to 3 assets, 1 share, deposit 1; withdraw to balance 0, amount 1; pack to a=1, b=0; bounds to i=0, len=0); 5 of 5 fixed versions pass 256 cases; both backends identical |
 | ERC20 through contract calls (sonatina) | the ERC20 test fixture from the Fe compiler repo (`crates/fe/tests/fixtures/fe_test/erc20.fe` at e6e6342), 4 actor contracts, 64 cases per property | 6 of 6 properties hold on the unchanged fixture; a planted self-transfer bug is caught by 2 properties, both shrunk to exactly (0, 0, 1) with `Index<4>` actors (with raw `u8` actors, 1 of the 2 stops at (1, 1, 1); before joint shrinking one `Index<4>` result stopped at (3, 3, 1)) |
 | the Fe Guide's ERC-20 and a mutation test (sonatina) | the "Complete ERC20" example from https://fe-lang.org/examples/erc20/ (vendored unchanged), the 6 ERC20 properties and the stateful model check, then 10 single-change mutants | all 7 checks pass on the unchanged contract (none vacuous); 8 of 10 mutants caught, 2 missed with a probe-backed explanation each (an equivalent mutant, a dropped event); M10 (no MINTER check) was missed until the stateful command set got a Mint from any actor, and is now caught; 7 of 10 matched the pre-registered expectation exactly, 3 partly (M03 and M04 are now caught by P4 only: the stateful check lost power with a fifth command kind; M09 caught by more than the stateful run) |
+| held-out mutants (sonatina) | five NEW single changes of the Guide ERC-20 written after the tests were frozen (allowance raised instead of lowered, `transferFrom` debiting the spender, `mint` off by one, `approve` under the wrong key, `burn` not lowering the supply), expectations committed before they ran | 4 of 5 caught, 5 of 5 as predicted; the miss is `burn`, which no property or command calls (a probe shows it is a real difference); reported separately from M01 to M10 |
 | panic recovery (sonatina, native, wasm) | a property that overflows (`u64`), one that divides by zero, and a normal false-returning one, through `check_isolated`, `scripts/find-panic.sh` and the demo page | overflow shrunk to exactly 18446744073709552 and division by zero to (0, 0), each with the panic reason; the false-returning property gives the same result as `check`; first case, shrink steps and shrunk input identical on sonatina and native, and on wasm for the overflow property; one isolated evaluation costs about 1,500 gas |
 | a contract that panics (sonatina) | `examples/rewards`, overflow in `claim` | through `try_call`: found and shrunk to exactly 18446744073709552, the smallest overflowing stake; through a direct call the whole test reverts with Panic(0x11) and reports nothing |
 | stateful (sonatina and native; ERC20 on sonatina) | a bank model with a bug that needs three commands; the ERC20 fixture vs a reference model, with a planted bug that needs two calls | bank bug shrunk to 3 commands, identical on both backends; ERC20 planted bug shrunk to 2 calls (found on case 102; 64 cases no longer find it since the command set has five kinds, so that run uses 128); the unchanged fixture passes 64 cases |
 | std (sonatina and native) | integer wrapping/saturating ops, `mul_div`, `addmod`, `isqrt`, `core::sort`, the std ABI codec round trip | 12 of 12 properties hold; no Fe bug found by them |
+| std hunt (sonatina and native) | a stateful model test of `core::map::HashMap` (spread keys and keys that all hash alike, growth past the first capacity), 12 properties of `core::fixed` against a widened integer model, 8 round-trip and length laws of `core::text`, 5 properties of `std::evm::random` (sonatina only); expected results written before the runs | 27 properties pass on sonatina and 22 on native; no divergence, so no Fe bug found (one of my own properties was wrong first and was fixed; see docs/PROOF.md) |
 
 ## Limitations
 

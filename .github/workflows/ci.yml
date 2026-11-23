@@ -1,0 +1,40 @@
+# CI: installs Fe 26.7.0 (commit e6e6342) and runs the whole suite. Not run locally: it first runs on GitHub after a push.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      # feup downloads the release asset fe_linux_amd64 (fe_linux_arm64 on ARM); it installs to $HOME/.fe/bin
+      - name: Install Fe 26.7.0
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/argotorg/fe/master/feup/feup.sh | bash -s -- --version v26.7.0
+          echo "$HOME/.fe/bin" >> "$GITHUB_PATH"
+
+      - name: Versions
+        run: |
+          fe --version
+          node --version
+          python3 --version
+          fe --version | grep -F "fe 26.7.0 (e6e6342)"
+
+      - name: fe check at the repository root
+        run: fe check
+
+      - name: Whole suite
+        run: ./scripts/test-all.sh

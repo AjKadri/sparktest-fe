@@ -1,5 +1,7 @@
 # Sparktest
 
+[![CI](https://github.com/AjKadri/sparktest-fe/actions/workflows/ci.yml/badge.svg)](https://github.com/AjKadri/sparktest-fe/actions/workflows/ci.yml)
+
 **Pitch:** Sparktest is a property-testing library written in Fe that finds the input that breaks your code, shrinks it to a minimal case and replays it from a seed, on the EVM, natively and in the browser.
 
 **[Live demo](https://ajkadri.github.io/sparktest-fe/)** (the properties run in your browser as compiled Fe, via WebAssembly).
@@ -226,7 +228,7 @@ The repository root has a `fe.toml` workspace of the sonatina (EVM) ingots (see 
 
 ## Build and test
 
-Tested on macOS (Apple Silicon) only. You need Fe 26.7.0, Node 20 or newer (tested with 24.15.0), Python 3 (standard library only; tested with 3.9.6) and git.
+Tested on macOS (Apple Silicon) only; `.github/workflows/ci.yml` runs the same commands on `ubuntu-latest`. You need Fe 26.7.0, Node 20 or newer (tested with 24.15.0), Python 3 (standard library only; tested with 3.9.6) and git.
 
 ```bash
 # 1. install Fe 26.7.0 (commit e6e6342)

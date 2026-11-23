@@ -1,6 +1,6 @@
 // Demo property tests (native). Fixed seeds; each failing property has a stated minimum.
-use sparktest::{check, Config, Outcome}
-use sparktest_native::{fixed_seed, ticks}
+use sparktest::{check, Config, Outcome, Tally}
+use sparktest_native::fixed_seed
 
 // capped_mint: supply + amount == CAP + 1 is the boundary; minimal counterexample (supply 0, amount 1001)
 #[test]
@@ -47,14 +47,22 @@ fn demo_pair_sum_shrinks_to_0_10() {
     }
 }
 
-// saturating_add holds; CPU ticks prove the 100k cases ran
+// evaluates `props::prop_saturating_add` and records the evaluation
+fn counted_saturating_add(_ p: (u32, u32)) -> bool uses (tally: mut Tally) {
+    tally.call(true)
+    props::prop_saturating_add(p)
+}
+
+// saturating_add holds; the exact evaluation count proves the 100k cases ran
 #[test]
 fn demo_saturating_add_passes() {
-    let g0 = ticks()
-    match check(
-        Config::new(fixed_seed(503)).with_cases(100000),
-        props::prop_saturating_add,
-    ) {
+    var tally = Tally::new()
+    match with (mut tally) {
+        check(
+            Config::new(fixed_seed(503)).with_cases(100000),
+            counted_saturating_add,
+        )
+    } {
         Outcome::Pass { cases } => {
             assert!(cases == 100000)
         },
@@ -62,7 +70,5 @@ fn demo_saturating_add_passes() {
             assert!(false)
         },
     }
-    assert!(
-        ticks() - g0 > 1000,
-    ) // proof of work: >1 ms CPU for 100k cases
+    assert!(tally.attempted == 100000)
 }

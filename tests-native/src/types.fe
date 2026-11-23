@@ -2,8 +2,8 @@
 use std::evm::Address
 use std::io::Stdout
 use std::abi::DynArray
-use sparktest::{check, Config, Outcome, Arbitrary, Shrink, Encode}
-use sparktest_native::{assert_holds, fixed_seed, ticks}
+use sparktest::{check, Config, Outcome, Arbitrary, Shrink, Encode, Tally}
+use sparktest_native::{assert_holds, fixed_seed}
 use props::Transfer
 
 fn is_pass<T>(_ o: Outcome<T>) -> bool {
@@ -27,20 +27,87 @@ fn case_of<T>(_ o: Outcome<T>) -> u256 {
     }
 }
 
+// evaluates `props::prop_u8_any` and records the evaluation: the test asserts the exact number of evaluations
+fn counted_prop_u8_any(_ x: u8) -> bool uses (tally: mut Tally) {
+    tally.call(true)
+    props::prop_u8_any(x)
+}
+
+// evaluates `props::prop_u16_any` and records the evaluation: the test asserts the exact number of evaluations
+fn counted_prop_u16_any(_ x: u16) -> bool uses (tally: mut Tally) {
+    tally.call(true)
+    props::prop_u16_any(x)
+}
+
+// evaluates `props::prop_u32_any` and records the evaluation: the test asserts the exact number of evaluations
+fn counted_prop_u32_any(_ x: u32) -> bool uses (tally: mut Tally) {
+    tally.call(true)
+    props::prop_u32_any(x)
+}
+
+// evaluates `props::prop_u64_any` and records the evaluation: the test asserts the exact number of evaluations
+fn counted_prop_u64_any(_ x: u64) -> bool uses (tally: mut Tally) {
+    tally.call(true)
+    props::prop_u64_any(x)
+}
+
+// evaluates `props::prop_u128_any` and records the evaluation: the test asserts the exact number of evaluations
+fn counted_prop_u128_any(_ x: u128) -> bool uses (tally: mut Tally) {
+    tally.call(true)
+    props::prop_u128_any(x)
+}
+
+// evaluates `props::prop_addr_any` and records the evaluation: the test asserts the exact number of evaluations
+fn counted_prop_addr_any(_ x: Address) -> bool uses (tally: mut Tally) {
+    tally.call(true)
+    props::prop_addr_any(x)
+}
+
+// evaluates `props::prop_pair_u8_sum_lt_511` and records the evaluation: the test asserts the exact number of evaluations
+fn counted_prop_pair_u8_sum_lt_511(_ x: (u8, u8)) -> bool
+uses (tally: mut Tally)
+{
+    tally.call(true)
+    props::prop_pair_u8_sum_lt_511(x)
+}
+
+// evaluates `props::prop_mixed_any` and records the evaluation: the test asserts the exact number of evaluations
+fn counted_prop_mixed_any(_ x: (bool, u8, Address)) -> bool
+uses (tally: mut Tally)
+{
+    tally.call(true)
+    props::prop_mixed_any(x)
+}
+
+// evaluates `props::prop_arr_u8x3_sum_lt_766` and records the evaluation: the test asserts the exact number of evaluations
+fn counted_prop_arr_u8x3_sum_lt_766(_ x: [u8; 3]) -> bool
+uses (tally: mut Tally)
+{
+    tally.call(true)
+    props::prop_arr_u8x3_sum_lt_766(x)
+}
+
+// evaluates `props::prop_transfer_to_any` and records the evaluation: the test asserts the exact number of evaluations
+fn counted_prop_transfer_to_any(_ x: Transfer) -> bool uses (tally: mut Tally) {
+    tally.call(true)
+    props::prop_transfer_to_any(x)
+}
+
 // ---- u8 ----
 #[test]
 fn u8_passing_property() {
-    let g0 = ticks()
-    let o = check(
-        Config::new(fixed_seed(20)).with_cases(100000),
-        props::prop_u8_any,
-    )
+    var tally = Tally::new()
+    let o = with (mut tally) {
+        check(
+            Config::new(fixed_seed(20)).with_cases(100000),
+            counted_prop_u8_any,
+        )
+    }
     assert!(is_pass(o))
     assert!(case_of(o) == 100000)
     // proof the cases actually ran: gas used is at least 50 per case
-    assert!(
-        ticks() - g0 > 1000,
-    ) // proof of work: >1ms CPU for 100k cases
+    // exact proof of work: the property was evaluated once per case, 100000 times
+    assert!(tally.attempted == 100000)
 }
 
 // x < 200 fails; the minimal counterexample is exactly 200
@@ -64,17 +131,18 @@ fn u8_edge_bias_finds_max() {
 // ---- u16 ----
 #[test]
 fn u16_passing_property() {
-    let g0 = ticks()
-    let o = check(
-        Config::new(fixed_seed(23)).with_cases(100000),
-        props::prop_u16_any,
-    )
+    var tally = Tally::new()
+    let o = with (mut tally) {
+        check(
+            Config::new(fixed_seed(23)).with_cases(100000),
+            counted_prop_u16_any,
+        )
+    }
     assert!(is_pass(o))
     assert!(case_of(o) == 100000)
     // proof the cases actually ran: gas used is at least 50 per case
-    assert!(
-        ticks() - g0 > 1000,
-    ) // proof of work: >1ms CPU for 100k cases
+    // exact proof of work: the property was evaluated once per case, 100000 times
+    assert!(tally.attempted == 100000)
 }
 
 // x < 40000 fails; the minimal counterexample is exactly 40000
@@ -98,17 +166,18 @@ fn u16_edge_bias_finds_max() {
 // ---- u32 ----
 #[test]
 fn u32_passing_property() {
-    let g0 = ticks()
-    let o = check(
-        Config::new(fixed_seed(26)).with_cases(100000),
-        props::prop_u32_any,
-    )
+    var tally = Tally::new()
+    let o = with (mut tally) {
+        check(
+            Config::new(fixed_seed(26)).with_cases(100000),
+            counted_prop_u32_any,
+        )
+    }
     assert!(is_pass(o))
     assert!(case_of(o) == 100000)
     // proof the cases actually ran: gas used is at least 50 per case
-    assert!(
-        ticks() - g0 > 1000,
-    ) // proof of work: >1ms CPU for 100k cases
+    // exact proof of work: the property was evaluated once per case, 100000 times
+    assert!(tally.attempted == 100000)
 }
 
 // x < 3000000000 fails; the minimal counterexample is exactly 3000000000
@@ -132,17 +201,18 @@ fn u32_edge_bias_finds_max() {
 // ---- u64 ----
 #[test]
 fn u64_passing_property() {
-    let g0 = ticks()
-    let o = check(
-        Config::new(fixed_seed(29)).with_cases(100000),
-        props::prop_u64_any,
-    )
+    var tally = Tally::new()
+    let o = with (mut tally) {
+        check(
+            Config::new(fixed_seed(29)).with_cases(100000),
+            counted_prop_u64_any,
+        )
+    }
     assert!(is_pass(o))
     assert!(case_of(o) == 100000)
     // proof the cases actually ran: gas used is at least 50 per case
-    assert!(
-        ticks() - g0 > 1000,
-    ) // proof of work: >1ms CPU for 100k cases
+    // exact proof of work: the property was evaluated once per case, 100000 times
+    assert!(tally.attempted == 100000)
 }
 
 // x < 1152921504606846976 fails; the minimal counterexample is exactly 2^60
@@ -166,17 +236,18 @@ fn u64_edge_bias_finds_max() {
 // ---- u128 ----
 #[test]
 fn u128_passing_property() {
-    let g0 = ticks()
-    let o = check(
-        Config::new(fixed_seed(32)).with_cases(100000),
-        props::prop_u128_any,
-    )
+    var tally = Tally::new()
+    let o = with (mut tally) {
+        check(
+            Config::new(fixed_seed(32)).with_cases(100000),
+            counted_prop_u128_any,
+        )
+    }
     assert!(is_pass(o))
     assert!(case_of(o) == 100000)
     // proof the cases actually ran: gas used is at least 50 per case
-    assert!(
-        ticks() - g0 > 1000,
-    ) // proof of work: >1ms CPU for 100k cases
+    // exact proof of work: the property was evaluated once per case, 100000 times
+    assert!(tally.attempted == 100000)
 }
 
 // x < 1267650600228229401496703205376 fails; the minimal counterexample is exactly 2^100
@@ -202,15 +273,16 @@ fn u128_edge_bias_finds_max() {
 // ---- Address ----
 #[test]
 fn address_passing_property() {
-    let g0 = ticks()
-    let o = check(
-        Config::new(fixed_seed(40)).with_cases(100000),
-        props::prop_addr_any,
-    )
+    var tally = Tally::new()
+    let o = with (mut tally) {
+        check(
+            Config::new(fixed_seed(40)).with_cases(100000),
+            counted_prop_addr_any,
+        )
+    }
     assert!(is_pass(o))
-    assert!(
-        ticks() - g0 > 1000,
-    ) // proof of work: >1ms CPU for 100k cases
+    // exact proof of work: the property was evaluated once per case, 100000 times
+    assert!(tally.attempted == 100000)
 }
 
 // word(a) < 0x1000 fails; minimal counterexample is the address 0x1000
@@ -245,15 +317,16 @@ fn tuple2_u8_failing_property_sum_is_10() {
 
 #[test]
 fn tuple2_passing_property() {
-    let g0 = ticks()
-    let o = check(
-        Config::new(fixed_seed(51)).with_cases(100000),
-        props::prop_pair_u8_sum_lt_511,
-    )
+    var tally = Tally::new()
+    let o = with (mut tally) {
+        check(
+            Config::new(fixed_seed(51)).with_cases(100000),
+            counted_prop_pair_u8_sum_lt_511,
+        )
+    }
     assert!(is_pass(o))
-    assert!(
-        ticks() - g0 > 1000,
-    ) // proof of work: >1ms CPU for 100k cases
+    // exact proof of work: the property was evaluated once per case, 100000 times
+    assert!(tally.attempted == 100000)
 }
 
 #[test]
@@ -276,15 +349,16 @@ fn tuple4_failing_property_sum_is_10() {
 
 #[test]
 fn tuple3_passing_property() {
-    let g0 = ticks()
-    let o = check(
-        Config::new(fixed_seed(54)).with_cases(100000),
-        props::prop_mixed_any,
-    )
+    var tally = Tally::new()
+    let o = with (mut tally) {
+        check(
+            Config::new(fixed_seed(54)).with_cases(100000),
+            counted_prop_mixed_any,
+        )
+    }
     assert!(is_pass(o))
-    assert!(
-        ticks() - g0 > 1000,
-    ) // proof of work: >1ms CPU for 100k cases
+    // exact proof of work: the property was evaluated once per case, 100000 times
+    assert!(tally.attempted == 100000)
 }
 
 // ---- arrays ----
@@ -305,15 +379,16 @@ fn array_u64x4_failing_property_sum_is_10() {
 
 #[test]
 fn array_passing_property() {
-    let g0 = ticks()
-    let o = check(
-        Config::new(fixed_seed(61)).with_cases(100000),
-        props::prop_arr_u8x3_sum_lt_766,
-    )
+    var tally = Tally::new()
+    let o = with (mut tally) {
+        check(
+            Config::new(fixed_seed(61)).with_cases(100000),
+            counted_prop_arr_u8x3_sum_lt_766,
+        )
+    }
     assert!(is_pass(o))
-    assert!(
-        ticks() - g0 > 1000,
-    ) // proof of work: >1ms CPU for 100k cases
+    // exact proof of work: the property was evaluated once per case, 100000 times
+    assert!(tally.attempted == 100000)
 }
 
 // amount <= 500 fails for amount 501; `to` is irrelevant so it shrinks to the zero address
@@ -331,15 +406,16 @@ fn transfer_failing_property_shrinks_to_501_and_zero_address() {
 
 #[test]
 fn transfer_passing_property() {
-    let g0 = ticks()
-    let o = check(
-        Config::new(fixed_seed(71)).with_cases(100000),
-        props::prop_transfer_to_any,
-    )
+    var tally = Tally::new()
+    let o = with (mut tally) {
+        check(
+            Config::new(fixed_seed(71)).with_cases(100000),
+            counted_prop_transfer_to_any,
+        )
+    }
     assert!(is_pass(o))
-    assert!(
-        ticks() - g0 > 1000,
-    ) // proof of work: >1ms CPU for 100k cases
+    // exact proof of work: the property was evaluated once per case, 100000 times
+    assert!(tally.attempted == 100000)
 }
 
 // ---- Encode: composites report in full (no truncation at 4 words) ----

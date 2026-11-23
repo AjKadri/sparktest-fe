@@ -456,11 +456,11 @@ let r = runtime_seed()
 Returns on `Pass`; on `Fail` prints the seed, case, steps and the shrunk input words with `println!`, then fails the test. Needs the `Stdout` effect.
 
 ### `opaque_zero()`, `fixed_seed(salt)`, `ticks()`
-`opaque_zero()` is a zero the optimizer cannot see (it depends on the CPU clock host call); `fixed_seed(salt)` is a deterministic seed built on it (a different number from the sonatina `fixed_seed(salt)`); `ticks()` reads process CPU time in clock ticks.
+`opaque_zero()` is a zero the optimizer cannot see (it depends on the CPU clock host call); `fixed_seed(salt)` is a deterministic seed built on it (a different number from the sonatina `fixed_seed(salt)`); `ticks()` reads process CPU time in clock ticks, for benchmarks only (the repository's tests assert exact evaluation counts through a `Tally`, never time).
 ```fe-native
 assert!(opaque_zero() == 0)
 assert!(fixed_seed(5) == fixed_seed(5))
-assert!(ticks() >= 0)
+let _ = ticks()   // for benchmarks only: print it, never assert on it
 ```
 
 ### `print_summary(name, summary)` and `print_full(name, full)`

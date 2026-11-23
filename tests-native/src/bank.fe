@@ -1,6 +1,6 @@
 // Bank model tests (native): the planted bug needs 3 commands; the fixed bank passes.
-use sparktest::{check, Config, Outcome}
-use sparktest_native::{fixed_seed, ticks}
+use sparktest::{check, Config, Outcome, Seq, Index, Tally}
+use sparktest_native::fixed_seed
 
 #[test]
 fn bank_bug_is_found_and_shrunk_to_three_commands() {
@@ -36,13 +36,23 @@ fn bank_bug_is_found_and_shrunk_to_three_commands() {
     }
 }
 
+// evaluates `props::prop_bank_fixed` and records the evaluation: the test asserts the exact number of evaluations
+fn counted_bank_fixed(_ s: Seq<(Index<3>, Index<3>, Index<3>, u16), 8>) -> bool
+uses (tally: mut Tally)
+{
+    tally.call(true)
+    props::prop_bank_fixed(s)
+}
+
 #[test]
 fn bank_fixed_passes() {
-    let g0 = ticks()
-    match check(
-        Config::new(fixed_seed(961)).with_cases(100000),
-        props::prop_bank_fixed,
-    ) {
+    var tally = Tally::new()
+    match with (mut tally) {
+        check(
+            Config::new(fixed_seed(961)).with_cases(100000),
+            counted_bank_fixed,
+        )
+    } {
         Outcome::Pass { cases } => {
             assert!(cases == 100000)
         },
@@ -50,7 +60,6 @@ fn bank_fixed_passes() {
             assert!(false)
         },
     }
-    assert!(
-        ticks() - g0 > 1000,
-    ) // proof of work: more than 1 ms of CPU for 100k cases
+    // exact proof of work: the property was evaluated once per case, 100000 times
+    assert!(tally.attempted == 100000)
 }

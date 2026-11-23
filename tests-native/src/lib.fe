@@ -1,6 +1,6 @@
 use std::io::Stdout
-use sparktest::{check, Config, Outcome, Checked, MAX}
-use sparktest_native::{assert_holds, fixed_seed, ticks, opaque_zero}
+use sparktest::{check, Config, Outcome, Checked, MAX, Tally}
+use sparktest_native::{assert_holds, fixed_seed, opaque_zero}
 
 struct Info {
     failed: bool,
@@ -110,18 +110,38 @@ fn e3_always_false_shrinks_to_zero() {
     assert!(i.case == 0)
 }
 
-// native "gas" is CPU ticks: 100k cases must cost at least 20x what 2k cases cost (so the loop really ran)
+// `x != s`, recording the evaluation: the tests assert exact evaluation counts
+fn counted_ne(_ x: u256, _ s: u256) -> bool uses (tally: mut Tally) {
+    tally.call(true)
+    x != s
+}
+
+// the loop really ran: 2000 cases evaluate the property exactly 2000 times, 100000 cases exactly 100000 times
 #[test]
-fn f_gas_scales_with_cases() {
+fn f_evaluations_equal_the_cases() {
     let s = fixed_seed(8)
-    let t0 = ticks()
-    let a = info(check(Config::new(s).with_cases(2000), |x: u256| x != s))
-    let t1 = ticks()
-    let b = info(check(Config::new(s).with_cases(100000), |x: u256| x != s))
-    let t2 = ticks()
+    var t1 = Tally::new()
+    var t2 = Tally::new()
+    let a = info(
+        with (mut t1) {
+            check(
+                Config::new(s).with_cases(2000),
+                |x: u256| counted_ne(x, s),
+            )
+        },
+    )
+    let b = info(
+        with (mut t2) {
+            check(
+                Config::new(s).with_cases(100000),
+                |x: u256| counted_ne(x, s),
+            )
+        },
+    )
     assert!(!a.failed && !b.failed)
     assert!(b.cases == 100000)
-    assert!((t2 - t1) >= 20 * (t1 - t0))
+    assert!(t1.attempted == 2000)
+    assert!(t2.attempted == 100000)
 }
 
 #[test]
@@ -184,17 +204,20 @@ fn checked_add_none_instead_of_panic() {
     assert!(!m.checked_sub(1).is_none())
 }
 
-// 1M cases (the wall time is the PASS line's duration; also run with `time`, see scripts/native-1m.sh)
+// 1M cases: the property is evaluated exactly 1,000,000 times (the wall time is the PASS line's duration; bench-native prints timing)
 #[test]
 fn million_cases_native() {
     let s = fixed_seed(99)
-    let t0 = ticks()
+    var tally = Tally::new()
     let o = info(
-        check(Config::new(s).with_cases(1000000), |x: u256| x != s),
+        with (mut tally) {
+            check(
+                Config::new(s).with_cases(1000000),
+                |x: u256| counted_ne(x, s),
+            )
+        },
     )
     assert!(!o.failed)
     assert!(o.cases == 1000000)
-    assert!(
-        ticks() - t0 > 10000,
-    ) // > 10 ms of CPU: far more than a folded-away loop would cost
+    assert!(tally.attempted == 1000000)
 }

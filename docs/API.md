@@ -443,7 +443,7 @@ With a margin above the gas available it stops before the first shrink evaluatio
 Same fields as `PropertyFailed`; `assert_holds` reverts with it instead (selector `0x52e195ec`) when `early` is true, so the input is the best found so far, not necessarily a minimum. `tools/decode-revert` decodes it and prints "shrink stopped early (gas)".
 
 ### `runtime_seed() -> u256` and `fixed_seed(salt) -> u256`
-`runtime_seed()` mixes the remaining gas and `prevrandao`, so each run differs (a seed the optimizer cannot fold). `fixed_seed(salt)` mixes `salt` with the chain id: the same value on every run in a fresh test EVM, but opaque to the optimizer.
+`runtime_seed()` mixes the remaining gas and `prevrandao`, so each run differs (a seed the optimizer cannot fold). `fixed_seed(salt)` mixes `salt` with the chain id: the same value on every run in a fresh test EVM, but opaque to the optimizer. The native `fixed_seed` is built differently, so `fixed_seed(5)` is NOT the same number on sonatina and native: test suites that use it have backend-specific seeds on purpose, and their individual runs differ. The same NUMERIC seed (for example `Config::new(25286971856348077807)`) gives identical results on every backend; `scripts/cross-check.sh` compares them that way.
 ```fe
 assert!(fixed_seed(5) == fixed_seed(5))
 assert!(fixed_seed(5) != fixed_seed(6))
@@ -456,7 +456,7 @@ let r = runtime_seed()
 Returns on `Pass`; on `Fail` prints the seed, case, steps and the shrunk input words with `println!`, then fails the test. Needs the `Stdout` effect.
 
 ### `opaque_zero()`, `fixed_seed(salt)`, `ticks()`
-`opaque_zero()` is a zero the optimizer cannot see (it depends on the CPU clock host call); `fixed_seed(salt)` is a deterministic seed built on it; `ticks()` reads process CPU time in clock ticks.
+`opaque_zero()` is a zero the optimizer cannot see (it depends on the CPU clock host call); `fixed_seed(salt)` is a deterministic seed built on it (a different number from the sonatina `fixed_seed(salt)`); `ticks()` reads process CPU time in clock ticks.
 ```fe-native
 assert!(opaque_zero() == 0)
 assert!(fixed_seed(5) == fixed_seed(5))

@@ -27,7 +27,7 @@ flowchart LR
 
 ## How one `check` runs
 
-1. `Xorshift::seeded(cfg.seed)` gives a deterministic stream (64-bit xorshift; the same seed gives the same stream on every backend).
+1. `Xorshift::seeded(cfg.seed)` gives a deterministic stream (64-bit xorshift; the same numeric seed gives the same stream on every backend; some test suites use backend-specific `fixed_seed`s on purpose, so their runs differ).
 2. For each of `cfg.cases` cases, `<T as Arbitrary>::arbitrary` draws an input (edge values about 1 draw in 4).
 3. The property runs. On the first `false`, shrinking starts in two phases that repeat while anything improves: (A) `shrink_step(cur, 0), shrink_step(cur, 1), ...` until a candidate still fails; that candidate becomes `cur`; repeat until no component candidate fails (a fixed point); (B) the same walk over `joint_step` as a finishing pass, returning to (A) after an accepted joint candidate. It ends when nothing improves, when `cfg.max_shrinks` steps were accepted, or when the `stop` closure of `check_with` says so (then `early = true`).
 4. The result is `Outcome::Pass { cases }` or `Outcome::Fail { original, shrunk, case, seed, steps, early }`.
@@ -70,7 +70,7 @@ flowchart LR
 ```
 
 - `demo-wasm/` exports scalar-only functions (`run_<name>(seed, cases, max_shrinks) -> bool`) and reports results through JavaScript callbacks (`st_pass`, `st_fail`, and `st_word` / `st_fail_seq` for sequences). The page raises `max_shrinks` 0, 1, 2, ... to animate the shrink.
-- `web/` is static (no framework, no build step, relative paths). `sparktest-runner.mjs` is used by both the page and the Node test, which asserts that wasm, native and EVM give the same shrunk value for the same seed.
+- `web/` is static (no framework, no build step, relative paths). `sparktest-runner.mjs` is used by both the page and the Node test, which asserts that wasm, native and EVM give the same shrunk value for the same numeric seed.
 - `evm-recordings/` holds tests that fail on purpose so the runner prints real revert data; `scripts/record-evm.sh` decodes it with `tools/decode-revert` into `web/recorded.json`.
 - `scripts/proof.sh` runs the proof suites on both backends (and ERC20 and rewards on sonatina) and generates [PROOF.md](PROOF.md) from `proof/registry.json` and `proof/stateful.json`; expected minimums are in [EXPECTATIONS.md](EXPECTATIONS.md), committed before the runs.
 

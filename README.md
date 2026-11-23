@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/AjKadri/sparktest-fe/actions/workflows/ci.yml/badge.svg)](https://github.com/AjKadri/sparktest-fe/actions/workflows/ci.yml)
 
-**Pitch:** Sparktest is a property-testing library written in Fe that finds the input that breaks your code, shrinks it to a minimal case and replays it from a seed, on the EVM, natively and in the browser.
+**Pitch:** Sparktest is a property-testing library written in Fe: you state a rule, and it searches for the input that breaks it in plain values, contract calls and call sequences, shrinks the failure to a minimal case (even when the code panics) and replays it from a seed, on the EVM, natively and in the browser.
 
 **[Live demo](https://ajkadri.github.io/sparktest-fe/)** (the properties run in your browser as compiled Fe, via WebAssembly).
 
@@ -22,7 +22,7 @@ Sparktest was built during the contest (22 to 24 November 2026): two feasibility
 
 - **Generators with edge bias.** One `Arbitrary` implementation per type; about 1 draw in 4 is an edge value (0, 1, 2, max, 2^k and its neighbours).
 - **Shrinking.** Greedy: the first simpler candidate that still fails is taken. Component candidates run to a fixed point, then joint candidates (all components together, equal components together, moving an amount to a later slot) as a finishing pass, repeated while anything improves.
-- **Seeds and replay.** Every failure reports its seed; the same seed gives the same failure on every backend.
+- **Seeds and replay.** Every failure reports its seed; the same numeric seed gives identical results on every backend (`scripts/cross-check.sh` compares them). Some test suites deliberately use backend-specific `fixed_seed`s, so their individual runs differ.
 - **Checked helpers.** `checked_add`, `checked_sub`, `checked_mul` return `Option`, so an overflow inside a property is a reported failure.
 - **Contract testing.** Properties call deployed contracts through actor contracts and `evm.try_call`, so a contract panic becomes a failed call that is found and shrunk.
 - **Panic recovery.** `check_isolated` runs each evaluation inside a harness contract (sonatina); bisect-and-replay does the same on native and wasm.
@@ -192,7 +192,7 @@ uses (evm: mut Evm)
 - **Generators**: `u8`, `u16`, `u32`, `u64`, `u128`, `u256`, `bool`, `Address`, tuples of 2 to 4, fixed arrays `[T; N]` (generic over element type and length), `Index<N>` (a value in 0..N-1 for picking from a small set) and `Seq<C, N>` (a sequence of up to N commands). User structs work by delegating to a tuple of their fields.
 - **Edge bias**: about 1 draw in 4 is an edge value (0, 1, 2, max, max-1, 2^k, 2^k-1, 2^k+1), the rest are uniform.
 - **Shrinking**: greedy, per type (integers toward 0, sequences shorter first, then simpler commands), then joint candidates for coupled components.
-- **Seeds and replay**: every failure reports its seed; the same seed gives the same failure on every backend.
+- **Seeds and replay**: every failure reports its seed; the same numeric seed gives identical results on every backend (`scripts/cross-check.sh`). Some test suites deliberately use backend-specific `fixed_seed`s, so their individual runs differ.
 - **Checked helpers**: `checked_add`, `checked_sub`, `checked_mul` for `u8` to `u256`, returning `Option`, so an overflow inside a property is a reported failure instead of a panic.
 - **Contract testing**: properties can call deployed contracts; through `evm.try_call` a contract panic becomes a failed call that is found and shrunk.
 - **Panic recovery**: a property whose code panics (overflow, division by zero) is reported with its reason and shrunk: through a harness contract and `try_call` on sonatina, by bisect-and-replay on native and wasm.
@@ -231,7 +231,7 @@ A runner that omits `uses P::E` is rejected: `error[8-0106]: missing effect row 
 - **An effect-free core with per-backend shims.** A test's entry effect is `Evm` on sonatina and `Host` on native, so one file cannot mix them (`error[8-0153]: unsupported entry effect`). The core (`sparktest/`) has no effects; `sparktest-evm/` and `sparktest-native/` are thin shims, and test ingots are separate. Spike 1 check D, spike 2 check E6.
 - **Generic traits, including const-generic arrays.** `Arbitrary`, `Shrink` and `Encode` are implemented generically for tuples and `[T; N]`, and `Seq<C, N>` builds on them. Spike 2, check E3; `sparktest/src/composite.fe`.
 - **A revert as a value.** Through `evm.try_call` a panicking contract call comes back as a result (and `check_isolated` builds on it); through a direct `evm.call` the panic bubbles up and ends the whole test with no report. Both are shown side by side in [docs/PROOF.md](docs/PROOF.md) (the `examples/rewards` section).
-- **Cross-backend determinism as a compiler check.** The same seed gives identical results on sonatina and native, and on wasm in the demo, so a disagreement between backends is a finding. `scripts/cross-check.sh` compares 11 scenarios (11/11 identical), and the demo test compares all six demo properties.
+- **Cross-backend determinism as a compiler check.** The same numeric seed gives identical results on sonatina and native, and on wasm in the demo, so a disagreement between backends is a finding. (Some test suites deliberately use backend-specific `fixed_seed`s, so their individual runs differ; the comparison is made with explicit seeds.) `scripts/cross-check.sh` compares 11 scenarios (11/11 identical), and the demo test compares all six demo properties.
 
 ## Architecture
 
@@ -261,7 +261,7 @@ The repository root has a `fe.toml` workspace of the sonatina (EVM) ingots (see 
 
 ## Build and test
 
-Tested on macOS (Apple Silicon) only; `.github/workflows/ci.yml` runs the same commands on `ubuntu-latest`. You need Fe 26.7.0, Node 20 or newer (tested with 24.15.0), Python 3 (standard library only; tested with 3.9.6) and git.
+Tested on macOS (Apple Silicon) locally and on Linux in CI (GitHub Actions, ubuntu-latest). You need Fe 26.7.0, Node 20 or newer (tested with 24.15.0), Python 3 (standard library only; tested with 3.9.6) and git.
 
 ```bash
 # 1. install Fe 26.7.0 (commit e6e6342)
@@ -362,7 +362,13 @@ Two kinds of result are labelled differently on the page. The counterexample and
 
 ## Roadmap
 
-Planned, not implemented: signed integers (they exist in Fe 26.7.0) and more std and contract examples.
+Not implemented (each is a limit found while building, not a plan):
+
+- `check_gen` has no isolated variant: a generator-driven property that panics is not recovered on the EVM (`check_isolated` takes the built-in generators).
+- `Seq` has no `Decode`, so it cannot be a component of a tuple input or go through `check_isolated`.
+- A discarded case (`assume`) is not replaced, so a weak premise tests fewer cases than the budget; regression seeds are not honoured by `check_assume`.
+- `between` and `one_of` produce `u256` values (narrower types need a cast), and joint shrinking sees a negative signed value as a large word.
+- The stateful ERC20 command set has no Burn command, so a mutant that breaks `burn` is invisible (held-out mutant H05).
 
 ## Declaration
 

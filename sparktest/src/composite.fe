@@ -9,8 +9,12 @@ pub fn count_candidates<T: Shrink + Copy>(_ x: T) -> u256 {
     var more = true
     while more {
         match x.shrink_step(k) {
-            Option::None => { more = false }
-            Option::Some(_) => { k += 1 }
+            Option::None => {
+                more = false
+            },
+            Option::Some(_) => {
+                k += 1
+            },
         }
     }
     k
@@ -32,17 +36,23 @@ impl<A: Shrink + Encode + Decode + Copy, B: Shrink + Encode + Decode + Copy> Shr
         let na = count_candidates(a)
         if rest < na {
             match a.shrink_step(rest) {
-                Option::Some(a2) => { return Option::Some((a2, b)) }
-                Option::None => { return Option::None }
+                Option::Some(a2) => {
+                    return Option::Some((a2, b))
+                },
+                Option::None => {
+                    return Option::None
+                },
             }
         }
         rest -= na
         match b.shrink_step(rest) {
-            Option::Some(b2) => Option::Some((a, b2))
-            Option::None => Option::None
+            Option::Some(b2) => Option::Some((a, b2)),
+            Option::None => Option::None,
         }
     }
-    fn joint_step(self, _ i: u256) -> Option<Self> { joint_candidate(self, i) }
+    fn joint_step(self, _ i: u256) -> Option<Self> {
+        joint_candidate(self, i)
+    }
 }
 
 impl<A: Decode, B: Decode> Decode for (A, B) {
@@ -82,32 +92,46 @@ impl<A: Arbitrary, B: Arbitrary, C: Arbitrary> Arbitrary for (A, B, C) {
 }
 
 // candidates: all of the first component's (others fixed), then the second's, ...
-impl<A: Shrink + Encode + Decode + Copy, B: Shrink + Encode + Decode + Copy, C: Shrink + Encode + Decode + Copy> Shrink for (A, B, C) {
+impl<
+    A: Shrink + Encode + Decode + Copy,
+    B: Shrink + Encode + Decode + Copy,
+    C: Shrink + Encode + Decode + Copy,
+> Shrink for (A, B, C) {
     fn shrink_step(self, _ i: u256) -> Option<Self> {
         let (a, b, c) = self
         var rest = i
         let na = count_candidates(a)
         if rest < na {
             match a.shrink_step(rest) {
-                Option::Some(a2) => { return Option::Some((a2, b, c)) }
-                Option::None => { return Option::None }
+                Option::Some(a2) => {
+                    return Option::Some((a2, b, c))
+                },
+                Option::None => {
+                    return Option::None
+                },
             }
         }
         rest -= na
         let nb = count_candidates(b)
         if rest < nb {
             match b.shrink_step(rest) {
-                Option::Some(b2) => { return Option::Some((a, b2, c)) }
-                Option::None => { return Option::None }
+                Option::Some(b2) => {
+                    return Option::Some((a, b2, c))
+                },
+                Option::None => {
+                    return Option::None
+                },
             }
         }
         rest -= nb
         match c.shrink_step(rest) {
-            Option::Some(c2) => Option::Some((a, b, c2))
-            Option::None => Option::None
+            Option::Some(c2) => Option::Some((a, b, c2)),
+            Option::None => Option::None,
         }
     }
-    fn joint_step(self, _ i: u256) -> Option<Self> { joint_candidate(self, i) }
+    fn joint_step(self, _ i: u256) -> Option<Self> {
+        joint_candidate(self, i)
+    }
 }
 
 impl<A: Decode, B: Decode, C: Decode> Decode for (A, B, C) {
@@ -152,40 +176,59 @@ impl<A: Arbitrary, B: Arbitrary, C: Arbitrary, D: Arbitrary> Arbitrary for (A, B
 }
 
 // candidates: all of the first component's (others fixed), then the second's, ...
-impl<A: Shrink + Encode + Decode + Copy, B: Shrink + Encode + Decode + Copy, C: Shrink + Encode + Decode + Copy, D: Shrink + Encode + Decode + Copy> Shrink for (A, B, C, D) {
+impl<
+    A: Shrink + Encode + Decode + Copy,
+    B: Shrink + Encode + Decode + Copy,
+    C: Shrink + Encode + Decode + Copy,
+    D: Shrink + Encode + Decode + Copy,
+> Shrink for (A, B, C, D) {
     fn shrink_step(self, _ i: u256) -> Option<Self> {
         let (a, b, c, d) = self
         var rest = i
         let na = count_candidates(a)
         if rest < na {
             match a.shrink_step(rest) {
-                Option::Some(a2) => { return Option::Some((a2, b, c, d)) }
-                Option::None => { return Option::None }
+                Option::Some(a2) => {
+                    return Option::Some((a2, b, c, d))
+                },
+                Option::None => {
+                    return Option::None
+                },
             }
         }
         rest -= na
         let nb = count_candidates(b)
         if rest < nb {
             match b.shrink_step(rest) {
-                Option::Some(b2) => { return Option::Some((a, b2, c, d)) }
-                Option::None => { return Option::None }
+                Option::Some(b2) => {
+                    return Option::Some((a, b2, c, d))
+                },
+                Option::None => {
+                    return Option::None
+                },
             }
         }
         rest -= nb
         let nc = count_candidates(c)
         if rest < nc {
             match c.shrink_step(rest) {
-                Option::Some(c2) => { return Option::Some((a, b, c2, d)) }
-                Option::None => { return Option::None }
+                Option::Some(c2) => {
+                    return Option::Some((a, b, c2, d))
+                },
+                Option::None => {
+                    return Option::None
+                },
             }
         }
         rest -= nc
         match d.shrink_step(rest) {
-            Option::Some(d2) => Option::Some((a, b, c, d2))
-            Option::None => Option::None
+            Option::Some(d2) => Option::Some((a, b, c, d2)),
+            Option::None => Option::None,
         }
     }
-    fn joint_step(self, _ i: u256) -> Option<Self> { joint_candidate(self, i) }
+    fn joint_step(self, _ i: u256) -> Option<Self> {
+        joint_candidate(self, i)
+    }
 }
 
 impl<A: Decode, B: Decode, C: Decode, D: Decode> Decode for (A, B, C, D) {
@@ -211,7 +254,12 @@ impl<A: Decode, B: Decode, C: Decode, D: Decode> Decode for (A, B, C, D) {
     }
 }
 
-impl<A: Encode + Copy, B: Encode + Copy, C: Encode + Copy, D: Encode + Copy> Encode for (A, B, C, D) {
+impl<A: Encode + Copy, B: Encode + Copy, C: Encode + Copy, D: Encode + Copy> Encode for (
+    A,
+    B,
+    C,
+    D,
+) {
     fn words(self) -> DynArray<u256> {
         let (a, b, c, d) = self
         var out: MemVec<u256> = MemVec::new()
@@ -248,8 +296,10 @@ impl<T: Shrink + Encode + Decode + Copy, const N: usize> Shrink for [T; N] {
                         var out = self
                         out[j] = e
                         return Option::Some(out)
-                    }
-                    Option::None => { return Option::None }
+                    },
+                    Option::None => {
+                        return Option::None
+                    },
                 }
             }
             rest -= n
@@ -258,7 +308,9 @@ impl<T: Shrink + Encode + Decode + Copy, const N: usize> Shrink for [T; N] {
         Option::None
     }
     // joint candidates (see joint.fe), tried by `check` after the element-wise candidates reach a fixed point
-    fn joint_step(self, _ i: u256) -> Option<Self> { joint_candidate(self, i) }
+    fn joint_step(self, _ i: u256) -> Option<Self> {
+        joint_candidate(self, i)
+    }
 }
 
 impl<T: Decode + Copy, const N: usize> Decode for [T; N] {

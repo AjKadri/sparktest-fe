@@ -10,16 +10,22 @@ pub trait Checked {
 impl Checked for u8 {
     fn checked_add(self, _ other: Self) -> Option<Self> {
         let s = (self as u256) + (other as u256)
-        if s > 255 { return Option::None }
+        if s > 255 {
+            return Option::None
+        }
         Option::Some(s.downcast_truncate())
     }
     fn checked_sub(self, _ other: Self) -> Option<Self> {
-        if other > self { return Option::None }
+        if other > self {
+            return Option::None
+        }
         Option::Some(self - other)
     }
     fn checked_mul(self, _ other: Self) -> Option<Self> {
         let p = (self as u256) * (other as u256)
-        if p > 255 { return Option::None }
+        if p > 255 {
+            return Option::None
+        }
         Option::Some(p.downcast_truncate())
     }
 }
@@ -27,16 +33,22 @@ impl Checked for u8 {
 impl Checked for u16 {
     fn checked_add(self, _ other: Self) -> Option<Self> {
         let s = (self as u256) + (other as u256)
-        if s > 65535 { return Option::None }
+        if s > 65535 {
+            return Option::None
+        }
         Option::Some(s.downcast_truncate())
     }
     fn checked_sub(self, _ other: Self) -> Option<Self> {
-        if other > self { return Option::None }
+        if other > self {
+            return Option::None
+        }
         Option::Some(self - other)
     }
     fn checked_mul(self, _ other: Self) -> Option<Self> {
         let p = (self as u256) * (other as u256)
-        if p > 65535 { return Option::None }
+        if p > 65535 {
+            return Option::None
+        }
         Option::Some(p.downcast_truncate())
     }
 }
@@ -44,16 +56,22 @@ impl Checked for u16 {
 impl Checked for u32 {
     fn checked_add(self, _ other: Self) -> Option<Self> {
         let s = (self as u256) + (other as u256)
-        if s > 4294967295 { return Option::None }
+        if s > 4294967295 {
+            return Option::None
+        }
         Option::Some(s.downcast_truncate())
     }
     fn checked_sub(self, _ other: Self) -> Option<Self> {
-        if other > self { return Option::None }
+        if other > self {
+            return Option::None
+        }
         Option::Some(self - other)
     }
     fn checked_mul(self, _ other: Self) -> Option<Self> {
         let p = (self as u256) * (other as u256)
-        if p > 4294967295 { return Option::None }
+        if p > 4294967295 {
+            return Option::None
+        }
         Option::Some(p.downcast_truncate())
     }
 }
@@ -61,16 +79,22 @@ impl Checked for u32 {
 impl Checked for u64 {
     fn checked_add(self, _ other: Self) -> Option<Self> {
         let s = (self as u256) + (other as u256)
-        if s > 18446744073709551615 { return Option::None }
+        if s > 18446744073709551615 {
+            return Option::None
+        }
         Option::Some(s.downcast_truncate())
     }
     fn checked_sub(self, _ other: Self) -> Option<Self> {
-        if other > self { return Option::None }
+        if other > self {
+            return Option::None
+        }
         Option::Some(self - other)
     }
     fn checked_mul(self, _ other: Self) -> Option<Self> {
         let p = (self as u256) * (other as u256)
-        if p > 18446744073709551615 { return Option::None }
+        if p > 18446744073709551615 {
+            return Option::None
+        }
         Option::Some(p.downcast_truncate())
     }
 }
@@ -78,16 +102,22 @@ impl Checked for u64 {
 impl Checked for u128 {
     fn checked_add(self, _ other: Self) -> Option<Self> {
         let s = (self as u256) + (other as u256)
-        if s > 340282366920938463463374607431768211455 { return Option::None }
+        if s > 340282366920938463463374607431768211455 {
+            return Option::None
+        }
         Option::Some(s.downcast_truncate())
     }
     fn checked_sub(self, _ other: Self) -> Option<Self> {
-        if other > self { return Option::None }
+        if other > self {
+            return Option::None
+        }
         Option::Some(self - other)
     }
     fn checked_mul(self, _ other: Self) -> Option<Self> {
         let p = (self as u256) * (other as u256)
-        if p > 340282366920938463463374607431768211455 { return Option::None }
+        if p > 340282366920938463463374607431768211455 {
+            return Option::None
+        }
         Option::Some(p.downcast_truncate())
     }
 }
@@ -95,17 +125,25 @@ impl Checked for u128 {
 impl Checked for u256 {
     fn checked_add(self, _ other: Self) -> Option<Self> {
         let s = self.wrapping_add(other)
-        if s < self { return Option::None }
+        if s < self {
+            return Option::None
+        }
         Option::Some(s)
     }
     fn checked_sub(self, _ other: Self) -> Option<Self> {
-        if other > self { return Option::None }
+        if other > self {
+            return Option::None
+        }
         Option::Some(self - other)
     }
     fn checked_mul(self, _ other: Self) -> Option<Self> {
-        if self == 0 || other == 0 { return Option::Some(0) }
+        if self == 0 || other == 0 {
+            return Option::Some(0)
+        }
         let p = self.wrapping_mul(other)
-        if p / self != other { return Option::None }
+        if p / self != other {
+            return Option::None
+        }
         Option::Some(p)
     }
 }

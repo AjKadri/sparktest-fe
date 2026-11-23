@@ -4,133 +4,242 @@ use sparktest_native::fixed_seed
 
 #[test]
 fn hunt_a_hashmap_spread_keys_matches_the_model() {
-    let s = summarize(check(Config::new(fixed_seed(9101)).with_cases(64), props::prop_hunt_hashmap_spread_keys))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9101)).with_cases(64),
+            props::prop_hunt_hashmap_spread_keys,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_a_hashmap_colliding_keys_matches_the_model() {
-    let s = summarize(check(Config::new(fixed_seed(9102)).with_cases(64), props::prop_hunt_hashmap_colliding_keys))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9102)).with_cases(64),
+            props::prop_hunt_hashmap_colliding_keys,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_raw_round_trip() {
-    let s = summarize(check(Config::new(fixed_seed(9201)).with_cases(64), props::prop_hunt_fixed_raw_round_trip))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9201)).with_cases(64),
+            props::prop_hunt_fixed_raw_round_trip,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_int_parts() {
-    let s = summarize(check(Config::new(fixed_seed(9202)).with_cases(64), props::prop_hunt_fixed_int_parts))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9202)).with_cases(64),
+            props::prop_hunt_fixed_int_parts,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_add_sub_inverse() {
-    let s = summarize(check(Config::new(fixed_seed(9203)).with_cases(64), props::prop_hunt_fixed_add_sub_inverse))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9203)).with_cases(64),
+            props::prop_hunt_fixed_add_sub_inverse,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_mul_matches_the_model() {
-    let s = summarize(check(Config::new(fixed_seed(9204)).with_cases(64), props::prop_hunt_fixed_mul_matches_the_model))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9204)).with_cases(64),
+            props::prop_hunt_fixed_mul_matches_the_model,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_div_matches_the_model() {
-    let s = summarize(check(Config::new(fixed_seed(9205)).with_cases(64), props::prop_hunt_fixed_div_matches_the_model))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9205)).with_cases(64),
+            props::prop_hunt_fixed_div_matches_the_model,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_full_range_mul_agrees_with_mul_div() {
-    let s = summarize(check(Config::new(fixed_seed(9206)).with_cases(64), props::prop_hunt_fixed_full_range_mul_agrees_with_mul_div))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9206)).with_cases(64),
+            props::prop_hunt_fixed_full_range_mul_agrees_with_mul_div,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_mul_is_monotonic() {
-    let s = summarize(check(Config::new(fixed_seed(9207)).with_cases(64), props::prop_hunt_fixed_mul_is_monotonic))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9207)).with_cases(64),
+            props::prop_hunt_fixed_mul_is_monotonic,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_rescale_matches_the_model() {
-    let s = summarize(check(Config::new(fixed_seed(9208)).with_cases(64), props::prop_hunt_fixed_rescale_matches_the_model))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9208)).with_cases(64),
+            props::prop_hunt_fixed_rescale_matches_the_model,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_sqrt_is_the_integer_root() {
-    let s = summarize(check(Config::new(fixed_seed(9209)).with_cases(64), props::prop_hunt_fixed_sqrt_is_the_integer_root))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9209)).with_cases(64),
+            props::prop_hunt_fixed_sqrt_is_the_integer_root,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_sqrt_full_range() {
-    let s = summarize(check(Config::new(fixed_seed(9210)).with_cases(64), props::prop_hunt_fixed_sqrt_full_range))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9210)).with_cases(64),
+            props::prop_hunt_fixed_sqrt_full_range,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_signed_mul_div_truncate_toward_zero() {
-    let s = summarize(check(Config::new(fixed_seed(9211)).with_cases(64), props::prop_hunt_fixed_signed_mul_div_truncate_toward_zero))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9211)).with_cases(64),
+            props::prop_hunt_fixed_signed_mul_div_truncate_toward_zero,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_order_agrees_with_raw() {
-    let s = summarize(check(Config::new(fixed_seed(9212)).with_cases(64), props::prop_hunt_fixed_order_agrees_with_raw))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9212)).with_cases(64),
+            props::prop_hunt_fixed_order_agrees_with_raw,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_c_text_decimal_round_trip() {
-    let s = summarize(check(Config::new(fixed_seed(9301)).with_cases(64), props::prop_hunt_text_decimal_round_trip))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9301)).with_cases(64),
+            props::prop_hunt_text_decimal_round_trip,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_c_text_decimal_has_exactly_the_digits() {
-    let s = summarize(check(Config::new(fixed_seed(9302)).with_cases(64), props::prop_hunt_text_decimal_has_exactly_the_digits))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9302)).with_cases(64),
+            props::prop_hunt_text_decimal_has_exactly_the_digits,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_c_text_hex_length_round_trip_and_case() {
-    let s = summarize(check(Config::new(fixed_seed(9303)).with_cases(64), props::prop_hunt_text_hex_length_round_trip_and_case))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9303)).with_cases(64),
+            props::prop_hunt_text_hex_length_round_trip_and_case,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_c_text_decode_hex_gives_the_bytes() {
-    let s = summarize(check(Config::new(fixed_seed(9304)).with_cases(64), props::prop_hunt_text_decode_hex_gives_the_bytes))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9304)).with_cases(64),
+            props::prop_hunt_text_decode_hex_gives_the_bytes,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_c_text_base64_round_trip() {
-    let s = summarize(check(Config::new(fixed_seed(9305)).with_cases(64), props::prop_hunt_text_base64_round_trip))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9305)).with_cases(64),
+            props::prop_hunt_text_base64_round_trip,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_c_text_base58_round_trip() {
-    let s = summarize(check(Config::new(fixed_seed(9306)).with_cases(64), props::prop_hunt_text_base58_round_trip))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9306)).with_cases(64),
+            props::prop_hunt_text_base58_round_trip,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_c_text_split_then_join_round_trips() {
-    let s = summarize(check(Config::new(fixed_seed(9307)).with_cases(64), props::prop_hunt_text_split_then_join_round_trips))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9307)).with_cases(64),
+            props::prop_hunt_text_split_then_join_round_trips,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_c_text_wad_parse_reads_what_decimal_wrote() {
-    let s = summarize(check(Config::new(fixed_seed(9308)).with_cases(64), props::prop_hunt_text_wad_parse_reads_what_decimal_wrote))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9308)).with_cases(64),
+            props::prop_hunt_text_wad_parse_reads_what_decimal_wrote,
+        ),
+    )
     assert!(s.failed == 0)
 }
-

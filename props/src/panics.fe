@@ -2,4 +2,6 @@
 // A property returns true when it holds; these also panic: Panic(0x11) arithmetic overflow (`prop_panic_overflow`, in demo.fe), Panic(0x12) division by zero.
 
 // a / b panics when b == 0, whatever a is
-pub fn prop_panic_divzero(_ p: (u32, u32)) -> bool { p.0 / p.1 * p.1 <= p.0 }
+pub fn prop_panic_divzero(_ p: (u32, u32)) -> bool {
+    p.0 / p.1 * p.1 <= p.0
+}

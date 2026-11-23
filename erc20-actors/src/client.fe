@@ -20,27 +20,78 @@ pub msg Tok {
 // Views use the plain typed call API (`evm.call`), which decodes the return value. State-changing calls go through the
 // actors, which use `try_*` (non-reverting) and report 1 = succeeded and returned true, 0 = anything else.
 pub fn total_supply(_ token: Address) -> u256 uses (evm: mut Evm) {
-    evm.call(addr: token, gas: 1000000, value: Wei::zero(), message: Tok::TotalSupply {})
+    evm.call(
+        addr: token,
+        gas: 1000000,
+        value: Wei::zero(),
+        message: Tok::TotalSupply {},
+    )
 }
 pub fn balance_of(_ token: Address, _ who: Address) -> u256 uses (evm: mut Evm) {
-    evm.call(addr: token, gas: 1000000, value: Wei::zero(), message: Tok::BalanceOf { account: who })
+    evm.call(
+        addr: token,
+        gas: 1000000,
+        value: Wei::zero(),
+        message: Tok::BalanceOf { account: who },
+    )
 }
-pub fn allowance(_ token: Address, _ owner: Address, _ spender: Address) -> u256 uses (evm: mut Evm) {
-    evm.call(addr: token, gas: 1000000, value: Wei::zero(), message: Tok::Allowance { owner, spender })
+pub fn allowance(_ token: Address, _ owner: Address, _ spender: Address) -> u256
+uses (evm: mut Evm)
+{
+    evm.call(
+        addr: token,
+        gas: 1000000,
+        value: Wei::zero(),
+        message: Tok::Allowance { owner, spender },
+    )
 }
-pub fn actor_transfer(_ actor: Address, _ token: Address, _ to: Address, _ amount: u256) -> u256 uses (evm: mut Evm) {
-    evm.call(addr: actor, gas: 5000000, value: Wei::zero(), message: ActorMsg::Transfer { token, to, amount })
+pub fn actor_transfer(_ actor: Address, _ token: Address, _ to: Address, _ amount: u256) -> u256
+uses (evm: mut Evm)
+{
+    evm.call(
+        addr: actor,
+        gas: 5000000,
+        value: Wei::zero(),
+        message: ActorMsg::Transfer { token, to, amount },
+    )
 }
-pub fn actor_approve(_ actor: Address, _ token: Address, _ spender: Address, _ amount: u256) -> u256 uses (evm: mut Evm) {
-    evm.call(addr: actor, gas: 5000000, value: Wei::zero(), message: ActorMsg::Approve { token, spender, amount })
+pub fn actor_approve(_ actor: Address, _ token: Address, _ spender: Address, _ amount: u256) -> u256
+uses (evm: mut Evm)
+{
+    evm.call(
+        addr: actor,
+        gas: 5000000,
+        value: Wei::zero(),
+        message: ActorMsg::Approve { token, spender, amount },
+    )
 }
-pub fn actor_transfer_from(_ actor: Address, _ token: Address, _ from: Address, _ to: Address, _ amount: u256) -> u256 uses (evm: mut Evm) {
-    evm.call(addr: actor, gas: 5000000, value: Wei::zero(), message: ActorMsg::TransferFrom { token, from, to, amount })
+pub fn actor_transfer_from(
+    _ actor: Address,
+    _ token: Address,
+    _ from: Address,
+    _ to: Address,
+    _ amount: u256,
+) -> u256
+uses (evm: mut Evm)
+{
+    evm.call(
+        addr: actor,
+        gas: 5000000,
+        value: Wei::zero(),
+        message: ActorMsg::TransferFrom { token, from, to, amount },
+    )
 }
 
 // mint is open to anyone in this fixture, so the test contract itself calls it
-pub fn mint(_ token: Address, _ to: Address, _ amount: u256) -> bool uses (evm: mut Evm) {
-    evm.call(addr: token, gas: 1000000, value: Wei::zero(), message: TokMint::Mint { to, amount })
+pub fn mint(_ token: Address, _ to: Address, _ amount: u256) -> bool
+uses (evm: mut Evm)
+{
+    evm.call(
+        addr: token,
+        gas: 1000000,
+        value: Wei::zero(),
+        message: TokMint::Mint { to, amount },
+    )
 }
 
 // the test contract itself calls transfer (used by the Fe Guide setup, where the test contract is the owner)
@@ -48,11 +99,25 @@ pub msg TokTransfer {
     #[selector = sol("transfer(address,uint256)")]
     Transfer { to: Address, amount: u256 } -> bool,
 }
-pub fn direct_transfer(_ token: Address, _ to: Address, _ amount: u256) -> bool uses (evm: mut Evm) {
-    evm.call(addr: token, gas: 1000000, value: Wei::zero(), message: TokTransfer::Transfer { to, amount })
+pub fn direct_transfer(_ token: Address, _ to: Address, _ amount: u256) -> bool
+uses (evm: mut Evm)
+{
+    evm.call(
+        addr: token,
+        gas: 1000000,
+        value: Wei::zero(),
+        message: TokTransfer::Transfer { to, amount },
+    )
 }
 
 // an actor (not the owner) tries to mint: 1 = the token accepted it
-pub fn actor_mint(_ actor: Address, _ token: Address, _ to: Address, _ amount: u256) -> u256 uses (evm: mut Evm) {
-    evm.call(addr: actor, gas: 5000000, value: Wei::zero(), message: ActorMsg::Mint { token, to, amount })
+pub fn actor_mint(_ actor: Address, _ token: Address, _ to: Address, _ amount: u256) -> u256
+uses (evm: mut Evm)
+{
+    evm.call(
+        addr: actor,
+        gas: 5000000,
+        value: Wei::zero(),
+        message: ActorMsg::Mint { token, to, amount },
+    )
 }

@@ -6,27 +6,51 @@ use sparktest::{check, Config, Outcome}
 use sparktest_evm::assert_holds
 
 fn zero() -> u256 uses (evm: mut Evm) {
-    if evm.chainid() == 0x1234567890abcdef { 1 } else { 0 }
+    if evm.chainid() == 0x1234567890abcdef {
+        1
+    } else {
+        0
+    }
 }
 
 #[test(should_revert, selector = 0xdeadbeef)]
 fn rec_capped_mint() uses (evm: mut Evm) {
-    assert_holds(check(Config::new(props::DEMO_SEED_CAPPED_MINT + zero()), props::prop_capped_mint))
+    assert_holds(
+        check(
+            Config::new(props::DEMO_SEED_CAPPED_MINT + zero()),
+            props::prop_capped_mint,
+        ),
+    )
 }
 
 #[test(should_revert, selector = 0xdeadbeef)]
 fn rec_buggy_sort() uses (evm: mut Evm) {
-    assert_holds(check(Config::new(props::DEMO_SEED_BUGGY_SORT + zero()), props::prop_sorted))
+    assert_holds(
+        check(
+            Config::new(props::DEMO_SEED_BUGGY_SORT + zero()),
+            props::prop_sorted,
+        ),
+    )
 }
 
 #[test(should_revert, selector = 0xdeadbeef)]
 fn rec_pair_sum() uses (evm: mut Evm) {
-    assert_holds(check(Config::new(props::DEMO_SEED_PAIR_SUM + zero()), props::prop_pair_sum))
+    assert_holds(
+        check(
+            Config::new(props::DEMO_SEED_PAIR_SUM + zero()),
+            props::prop_pair_sum,
+        ),
+    )
 }
 
 #[test(should_revert, selector = 0xdeadbeef)]
 fn rec_bank_sequence() uses (evm: mut Evm) {
-    assert_holds(check(Config::new(props::DEMO_SEED_BANK + zero()), props::prop_bank_sequence))
+    assert_holds(
+        check(
+            Config::new(props::DEMO_SEED_BANK + zero()),
+            props::prop_bank_sequence,
+        ),
+    )
 }
 
 #[event]
@@ -36,8 +60,15 @@ struct Held { cases: u256, gas: u256 }
 #[test]
 fn rec_saturating_add() uses (evm: mut Evm) {
     let g0 = evm.gas()
-    match check(Config::new(props::DEMO_SEED_SATURATING_ADD + zero()), props::prop_saturating_add) {
-        Outcome::Pass { cases } => { evm.emit(Held { cases, gas: g0 - evm.gas() }) }
-        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => { assert!(false) }
+    match check(
+        Config::new(props::DEMO_SEED_SATURATING_ADD + zero()),
+        props::prop_saturating_add,
+    ) {
+        Outcome::Pass { cases } => {
+            evm.emit(Held { cases, gas: g0 - evm.gas() })
+        },
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => {
+            assert!(false)
+        },
     }
 }

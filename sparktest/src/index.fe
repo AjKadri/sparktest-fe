@@ -11,7 +11,9 @@ impl<const N: usize> Arbitrary for Index<N> {
     fn arbitrary<R: Rng>(_ rng: mut R) -> Self {
         // about 1 draw in 4 is an edge: 0 or N-1
         if rng.next() % 4 == 0 {
-            if rng.next() % 2 == 0 { return Index { value: 0 } }
+            if rng.next() % 2 == 0 {
+                return Index { value: 0 }
+            }
             return Index { value: N - 1 }
         }
         let v: usize = (rng.next() % (N as u256)).downcast_truncate()
@@ -23,21 +25,31 @@ impl<const N: usize> Shrink for Index<N> {
     // the u256 candidates of the value (0, then ever smaller steps, then value - 1): all strictly below the value, so below N
     fn shrink_step(self, _ i: u256) -> Option<Self> {
         match (self.value as u256).shrink_step(i) {
-            Option::Some(w) => Option::Some(Index { value: w.downcast_truncate() })
-            Option::None => Option::None
+            Option::Some(w) => Option::Some(Index { value: w.downcast_truncate() }),
+            Option::None => Option::None,
         }
     }
 }
 
 impl<const N: usize> Encode for Index<N> {
-    fn words(self) -> DynArray<u256> { one_word(self.value as u256) }
+    fn words(self) -> DynArray<u256> {
+        one_word(self.value as u256)
+    }
 }
 
 impl<const N: usize> Decode for Index<N> {
     fn decode(_ w: DynArray<u256>, _ pos: usize) -> (Self, usize) {
         var v: usize = w.get(pos).downcast_truncate()
-        if v >= N { v = N - 1 }   // out of range: not a valid Index (re-encoding differs, so joint shrinking rejects it)
+        if v >= N {
+            v = N - 1
+        } // out of range: not a valid Index (re-encoding differs, so joint shrinking rejects it)
         (Index { value: v }, pos + 1)
     }
-    fn fits(_ w: [u256; 64], _ pos: usize) -> usize { if pos < 64 && w[pos] < (N as u256) { pos + 1 } else { 0 } }
+    fn fits(_ w: [u256; 64], _ pos: usize) -> usize {
+        if pos < 64 && w[pos] < (N as u256) {
+            pos + 1
+        } else {
+            0
+        }
+    }
 }

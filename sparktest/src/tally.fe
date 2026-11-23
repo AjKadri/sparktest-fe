@@ -3,11 +3,7 @@
 // (check forwards the property's effects: `uses P::E`), then asks `guard` whether a PASSING run actually exercised anything.
 use ingot::Outcome
 
-pub struct Tally {
-    pub attempted: u256,
-    pub accepted: u256,
-    pub kinds: [u256; 8],
-}
+pub struct Tally { pub attempted: u256, pub accepted: u256, pub kinds: [u256; 8] }
 
 impl Tally {
     pub fn new() -> Self {
@@ -29,16 +25,25 @@ impl Tally {
 // ---- vacuity guards ----
 // A run that PASSES proves nothing if the property never exercised its premise (a conditional property whose condition never held,
 // a command kind that was never generated). `vacuity` returns 0 for a non-vacuous run, else the reason:
-pub const VACUOUS_NO_CALLS: u256 = 1        // no call was attempted at all
-pub const VACUOUS_NONE_SUCCEEDED: u256 = 2  // calls were attempted, but none succeeded where success is expected (need_accepted)
-pub const VACUOUS_KIND_BASE: u256 = 3       // 3 + k: no command of kind k was executed across the whole run
+pub const VACUOUS_NO_CALLS: u256 = 1
+// no call was attempted at all
+pub const VACUOUS_NONE_SUCCEEDED: u256 = 2
+// calls were attempted, but none succeeded where success is expected (need_accepted)
+pub const VACUOUS_KIND_BASE: u256 = 3
+// 3 + k: no command of kind k was executed across the whole run
 
 pub fn vacuity(_ t: Tally, _ need_accepted: bool, _ kinds: usize) -> u256 {
-    if t.attempted == 0 { return VACUOUS_NO_CALLS }
-    if need_accepted && t.accepted == 0 { return VACUOUS_NONE_SUCCEEDED }
+    if t.attempted == 0 {
+        return VACUOUS_NO_CALLS
+    }
+    if need_accepted && t.accepted == 0 {
+        return VACUOUS_NONE_SUCCEEDED
+    }
     var k: usize = 0
     while k < kinds {
-        if t.kinds[k] == 0 { return VACUOUS_KIND_BASE + (k as u256) }
+        if t.kinds[k] == 0 {
+            return VACUOUS_KIND_BASE + (k as u256)
+        }
         k += 1
     }
     0
@@ -54,10 +59,21 @@ pub enum Verdict {
 
 pub fn guard<T>(_ o: Outcome<T>, _ t: Tally, _ need_accepted: bool, _ kinds: usize) -> Verdict {
     match o {
-        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => Verdict::Failed
+        Outcome::Fail {
+            original: _,
+            shrunk: _,
+            case: _,
+            seed: _,
+            steps: _,
+            early: _,
+        } => Verdict::Failed,
         Outcome::Pass { cases: _ } => {
             let r = vacuity(t, need_accepted, kinds)
-            if r == 0 { Verdict::Held } else { Verdict::Vacuous { reason: r } }
-        }
+            if r == 0 {
+                Verdict::Held
+            } else {
+                Verdict::Vacuous { reason: r }
+            }
+        },
     }
 }

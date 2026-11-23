@@ -7,22 +7,22 @@ use props::Transfer
 
 fn is_pass<T>(_ o: Outcome<T>) -> bool {
     match o {
-        Outcome::Pass { cases: _ } => true
-        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => false
+        Outcome::Pass { cases: _ } => true,
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => false,
     }
 }
 
 fn shrunk_of<T: Copy>(_ o: Outcome<T>, _ d: T) -> T {
     match o {
-        Outcome::Pass { cases: _ } => d
-        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _, early: _ } => shrunk
+        Outcome::Pass { cases: _ } => d,
+        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _, early: _ } => shrunk,
     }
 }
 
 fn case_of<T>(_ o: Outcome<T>) -> u256 {
     match o {
-        Outcome::Pass { cases } => cases
-        Outcome::Fail { original: _, shrunk: _, case, seed: _, steps: _, early: _ } => case
+        Outcome::Pass { cases } => cases,
+        Outcome::Fail { original: _, shrunk: _, case, seed: _, steps: _, early: _ } => case,
     }
 }
 
@@ -158,7 +158,9 @@ fn u128_passing_property() uses (evm: mut Evm) {
 fn u128_failing_property_shrinks_to_minimum() uses (evm: mut Evm) {
     let o = check(Config::new(fixed_seed(33)), props::prop_u128_below_lim)
     assert!(!is_pass(o))
-    assert!((shrunk_of(o, 0) as u256) == 1267650600228229401496703205376)
+    assert!(
+        (shrunk_of(o, 0) as u256) == 1267650600228229401496703205376,
+    )
 }
 
 // edge bias: the max value is found within 256 cases
@@ -217,7 +219,10 @@ fn tuple2_u8_failing_property_sum_is_10() uses (evm: mut Evm) {
 #[test]
 fn tuple2_passing_property() uses (evm: mut Evm) {
     let g0 = evm.gas()
-    let o = check(Config::new(fixed_seed(51)), props::prop_pair_u8_sum_lt_511)
+    let o = check(
+        Config::new(fixed_seed(51)),
+        props::prop_pair_u8_sum_lt_511,
+    )
     assert!(is_pass(o))
     assert!(g0 - evm.gas() >= 256 * 50)
 }
@@ -227,7 +232,9 @@ fn tuple3_failing_property_sum_is_10() uses (evm: mut Evm) {
     let o = check(Config::new(fixed_seed(52)), props::prop_triple_sum_lt_10)
     assert!(!is_pass(o))
     let m = shrunk_of(o, (0, 0, 0))
-    evm.emit(Shape { e0: m.0 as u256, e1: m.1 as u256, e2: m.2 as u256, e3: 0 })
+    evm.emit(
+        Shape { e0: m.0 as u256, e1: m.1 as u256, e2: m.2 as u256, e3: 0 },
+    )
     assert!((m.0 as u256) + (m.1 as u256) + (m.2 as u256) == 10)
 }
 
@@ -236,8 +243,12 @@ fn tuple4_failing_property_sum_is_10() uses (evm: mut Evm) {
     let o = check(Config::new(fixed_seed(53)), props::prop_quad_u8_sum_lt_10)
     assert!(!is_pass(o))
     let m = shrunk_of(o, (0, 0, 0, 0))
-    evm.emit(Shape { e0: m.0 as u256, e1: m.1 as u256, e2: m.2 as u256, e3: m.3 as u256 })
-    assert!((m.0 as u256) + (m.1 as u256) + (m.2 as u256) + (m.3 as u256) == 10)
+    evm.emit(
+        Shape { e0: m.0 as u256, e1: m.1 as u256, e2: m.2 as u256, e3: m.3 as u256 },
+    )
+    assert!(
+        (m.0 as u256) + (m.1 as u256) + (m.2 as u256) + (m.3 as u256) == 10,
+    )
 }
 
 #[test]
@@ -253,25 +264,40 @@ fn tuple3_passing_property() uses (evm: mut Evm) {
 // observed minimal shape (logged in `Shape`): [0, 0, 0, 10], i.e. the whole 10 sits in the last element.
 #[test]
 fn array_u64x4_failing_property_sum_is_10() uses (evm: mut Evm) {
-    let o = check(Config::new(fixed_seed(60)), props::prop_arr_u64x4_sum_lt_10)
+    let o = check(
+        Config::new(fixed_seed(60)),
+        props::prop_arr_u64x4_sum_lt_10,
+    )
     assert!(!is_pass(o))
     let m = shrunk_of(o, [0, 0, 0, 0])
-    evm.emit(Shape { e0: m[0] as u256, e1: m[1] as u256, e2: m[2] as u256, e3: m[3] as u256 })
-    assert!((m[0] as u256) + (m[1] as u256) + (m[2] as u256) + (m[3] as u256) == 10)
+    evm.emit(
+        Shape { e0: m[0] as u256, e1: m[1] as u256, e2: m[2] as u256, e3: m[3] as u256 },
+    )
+    assert!(
+        (m[0] as u256) + (m[1] as u256) + (m[2] as u256) + (m[3] as u256) == 10,
+    )
 }
 
 #[test]
 fn array_passing_property() uses (evm: mut Evm) {
     let g0 = evm.gas()
-    let o = check(Config::new(fixed_seed(61)), props::prop_arr_u8x3_sum_lt_766)
+    let o = check(
+        Config::new(fixed_seed(61)),
+        props::prop_arr_u8x3_sum_lt_766,
+    )
     assert!(is_pass(o))
     assert!(g0 - evm.gas() >= 256 * 50)
 }
 
 // amount <= 500 fails for amount 501; `to` is irrelevant so it shrinks to the zero address
 #[test]
-fn transfer_failing_property_shrinks_to_501_and_zero_address() uses (evm: mut Evm) {
-    let o = check(Config::new(fixed_seed(70)), props::prop_transfer_amount_le_500)
+fn transfer_failing_property_shrinks_to_501_and_zero_address()
+uses (evm: mut Evm)
+{
+    let o = check(
+        Config::new(fixed_seed(70)),
+        props::prop_transfer_amount_le_500,
+    )
     assert!(!is_pass(o))
     let m = shrunk_of(o, Transfer { to: Address::zero(), amount: 0 })
     assert!(m.amount == 501)
@@ -295,11 +321,18 @@ fn encode_composites_report_all_words() uses (evm: mut Evm) {
     assert!(w.get(5) == 6)
     let w2 = (7 as u8, true, Address::from_word_truncate(9), 10 as u256).words()
     assert!(w2.len() == 4)
-    assert!(w2.get(0) == 7 && w2.get(1) == 1 && w2.get(2) == 9 && w2.get(3) == 10)
+    assert!(
+        w2.get(0) == 7 && w2.get(1) == 1 && w2.get(2) == 9 && w2.get(3) == 10,
+    )
 }
 
 // PropertyFailed carries all 6 words of an array counterexample
 #[test(should_revert, selector = 0x4c350703)]
 fn revert_reports_array_counterexample() uses (evm: mut Evm) {
-    assert_holds(check(Config::new(fixed_seed(72)), props::prop_arr_u64x6_ends_lt_10))
+    assert_holds(
+        check(
+            Config::new(fixed_seed(72)),
+            props::prop_arr_u64x6_ends_lt_10,
+        ),
+    )
 }

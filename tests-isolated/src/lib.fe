@@ -2,10 +2,25 @@
 use std::evm::Evm
 use std::abi::DynArray
 use sparktest::{check, Config, Outcome, Encode}
-use sparktest_evm::{Isolated, run_prop, check_isolated, eval_isolated, IsoOutcome, reason_text, fixed_seed, REASON_HELD, REASON_FALSE, REASON_PANIC_BASE}
+use sparktest_evm::{
+    Isolated,
+    run_prop,
+    check_isolated,
+    eval_isolated,
+    IsoOutcome,
+    reason_text,
+    fixed_seed,
+    REASON_HELD,
+    REASON_FALSE,
+    REASON_PANIC_BASE,
+}
 
-fn below_1000(_ x: u256) -> bool { x < 1000 }
-fn holds_u64(_ x: u64) -> bool { x / 2 <= x }
+fn below_1000(_ x: u256) -> bool {
+    x < 1000
+}
+fn holds_u64(_ x: u64) -> bool {
+    x / 2 <= x
+}
 
 // The one piece of boilerplate: a harness contract with one recv arm per property (each arm is one line).
 contract Harness {
@@ -13,20 +28,42 @@ contract Harness {
 
     recv Isolated {
         Run { id, words } -> u256 {
-            if id == 0 { return run_prop(props::prop_panic_overflow, words) }
-            if id == 1 { return run_prop(props::prop_panic_divzero, words) }
-            if id == 2 { return run_prop(below_1000, words) }
-            if id == 3 { return run_prop(holds_u64, words) }
+            if id == 0 {
+                return run_prop(props::prop_panic_overflow, words)
+            }
+            if id == 1 {
+                return run_prop(props::prop_panic_divzero, words)
+            }
+            if id == 2 {
+                return run_prop(below_1000, words)
+            }
+            if id == 3 {
+                return run_prop(holds_u64, words)
+            }
             0
         }
     }
 }
 
 #[event]
-struct Pi { id: u256, failed: u256, case: u256, steps: u256, reason: u256, original_reason: u256, original: DynArray<u256>, shrunk: DynArray<u256>, gas: u256 }
+struct Pi {
+    id: u256,
+    failed: u256,
+    case: u256,
+    steps: u256,
+    reason: u256,
+    original_reason: u256,
+    original: DynArray<u256>,
+    shrunk: DynArray<u256>,
+    gas: u256,
+}
 
 fn zero() -> u256 uses (evm: mut Evm) {
-    if evm.chainid() == 0x1234567890abcdef { 1 } else { 0 }
+    if evm.chainid() == 0x1234567890abcdef {
+        1
+    } else {
+        0
+    }
 }
 
 #[test]
@@ -36,47 +73,102 @@ fn overflow_panic_is_found_and_shrunk_to_the_boundary() uses (evm: mut Evm) {
     let o = check_isolated<u64>(Config::new(8101 + zero()), h, 0)
     let gas = g0 - evm.gas()
     match o {
-        IsoOutcome::Pass { cases: _ } => { assert!(false) }
+        IsoOutcome::Pass { cases: _ } => {
+            assert!(false)
+        },
         IsoOutcome::Fail { original, shrunk, case, seed: _, steps, reason, original_reason } => {
-            assert!(shrunk == 18446744073709552)               // pre-registered: the smallest overflowing x
-            assert!(reason == REASON_PANIC_BASE + 0x11)        // Panic(0x11)
+            assert!(
+                shrunk == 18446744073709552,
+            ) // pre-registered: the smallest overflowing x
+            assert!(reason == REASON_PANIC_BASE + 0x11) // Panic(0x11)
             assert!(original_reason == REASON_PANIC_BASE + 0x11)
-            evm.emit(Pi { id: 1, failed: 1, case, steps, reason, original_reason, original: original.words(), shrunk: shrunk.words(), gas })
-        }
+            evm.emit(
+                Pi {
+                    id: 1,
+                    failed: 1,
+                    case,
+                    steps,
+                    reason,
+                    original_reason,
+                    original: original.words(),
+                    shrunk: shrunk.words(),
+                    gas,
+                },
+            )
+        },
     }
 }
 
 #[test]
-fn division_by_zero_panic_is_found_and_shrunk_to_zero_zero() uses (evm: mut Evm) {
+fn division_by_zero_panic_is_found_and_shrunk_to_zero_zero()
+uses (evm: mut Evm)
+{
     let h = evm.create<Harness>(value: Wei::zero(), args: ())
     let g0 = evm.gas()
     let o = check_isolated<(u32, u32)>(Config::new(8102 + zero()), h, 1)
     let gas = g0 - evm.gas()
     match o {
-        IsoOutcome::Pass { cases: _ } => { assert!(false) }
+        IsoOutcome::Pass { cases: _ } => {
+            assert!(false)
+        },
         IsoOutcome::Fail { original, shrunk, case, seed: _, steps, reason, original_reason } => {
-            assert!(shrunk.0 == 0 && shrunk.1 == 0)            // pre-registered: (a = 0, b = 0)
-            assert!(reason == REASON_PANIC_BASE + 0x12)        // Panic(0x12)
-            evm.emit(Pi { id: 2, failed: 1, case, steps, reason, original_reason, original: original.words(), shrunk: shrunk.words(), gas })
-        }
+            assert!(
+                shrunk.0 == 0 && shrunk.1 == 0,
+            ) // pre-registered: (a = 0, b = 0)
+            assert!(reason == REASON_PANIC_BASE + 0x12) // Panic(0x12)
+            evm.emit(
+                Pi {
+                    id: 2,
+                    failed: 1,
+                    case,
+                    steps,
+                    reason,
+                    original_reason,
+                    original: original.words(),
+                    shrunk: shrunk.words(),
+                    gas,
+                },
+            )
+        },
     }
 }
 
 // a normal false-returning property gives the same result through the isolated path as through check()
 #[test]
-fn a_false_returning_property_works_through_the_same_path() uses (evm: mut Evm) {
+fn a_false_returning_property_works_through_the_same_path()
+uses (evm: mut Evm)
+{
     let h = evm.create<Harness>(value: Wei::zero(), args: ())
     let g0 = evm.gas()
     let o = check_isolated<u256>(Config::new(8103 + zero()), h, 2)
     let gas = g0 - evm.gas()
     let plain = check(Config::new(8103 + zero()), below_1000)
     match (o, plain) {
-        (IsoOutcome::Fail { original, shrunk, case, seed: _, steps, reason, original_reason }, Outcome::Fail { original: po, shrunk: ps, case: pc, seed: _, steps: pn, early: _ }) => {
+        (
+            IsoOutcome::Fail { original, shrunk, case, seed: _, steps, reason, original_reason },
+            Outcome::Fail { original: po, shrunk: ps, case: pc, seed: _, steps: pn, early: _ },
+        ) => {
             assert!(shrunk == 1000 && reason == REASON_FALSE)
-            assert!(original == po && shrunk == ps && case == pc && steps == pn)   // identical to check()
-            evm.emit(Pi { id: 3, failed: 1, case, steps, reason, original_reason, original: original.words(), shrunk: shrunk.words(), gas })
-        }
-        _ => { assert!(false) }
+            assert!(
+                original == po && shrunk == ps && case == pc && steps == pn,
+            ) // identical to check()
+            evm.emit(
+                Pi {
+                    id: 3,
+                    failed: 1,
+                    case,
+                    steps,
+                    reason,
+                    original_reason,
+                    original: original.words(),
+                    shrunk: shrunk.words(),
+                    gas,
+                },
+            )
+        },
+        _ => {
+            assert!(false)
+        },
     }
 }
 
@@ -86,8 +178,20 @@ fn a_holding_property_passes_isolated() uses (evm: mut Evm) {
     let h = evm.create<Harness>(value: Wei::zero(), args: ())
     let g0 = evm.gas()
     match check_isolated<u64>(Config::new(8104 + zero()).with_cases(64), h, 3) {
-        IsoOutcome::Pass { cases } => { assert!(cases == 64) }
-        IsoOutcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, reason: _, original_reason: _ } => { assert!(false) }
+        IsoOutcome::Pass { cases } => {
+            assert!(cases == 64)
+        },
+        IsoOutcome::Fail {
+            original: _,
+            shrunk: _,
+            case: _,
+            seed: _,
+            steps: _,
+            reason: _,
+            original_reason: _,
+        } => {
+            assert!(false)
+        },
     }
     assert!(evm.gas() < g0 && g0 - evm.gas() >= 64 * 1000)
 }
@@ -104,7 +208,11 @@ fn gas_per_isolated_evaluation() uses (evm: mut Evm) {
     let g1 = evm.gas()
     assert!(eval_isolated(h, 2, 5000 as u256) == REASON_FALSE)
     let g2 = evm.gas()
-    assert!(eval_isolated(h, 0, 18446744073709552 as u64) == REASON_PANIC_BASE + 0x11)
+    assert!(
+        eval_isolated(h, 0, 18446744073709552 as u64) == REASON_PANIC_BASE + 0x11,
+    )
     let g3 = evm.gas()
-    evm.emit(GasOne { held: g0 - g1, false_: g1 - g2, panicked: g2 - g3 })
+    evm.emit(
+        GasOne { held: g0 - g1, false_: g1 - g2, panicked: g2 - g3 },
+    )
 }

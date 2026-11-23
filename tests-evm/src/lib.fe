@@ -2,12 +2,36 @@ use std::evm::Evm
 use sparktest::{check, Config, Outcome, Checked, MAX}
 use sparktest_evm::{assert_holds, fixed_seed}
 
-struct Info { failed: bool, original: u256, shrunk: u256, case: u256, steps: u256, cases: u256, seed: u256 }
+struct Info {
+    failed: bool,
+    original: u256,
+    shrunk: u256,
+    case: u256,
+    steps: u256,
+    cases: u256,
+    seed: u256,
+}
 
 fn info(_ o: Outcome<u256>) -> Info {
     match o {
-        Outcome::Pass { cases } => Info { failed: false, original: 0, shrunk: 0, case: 0, steps: 0, cases, seed: 0 }
-        Outcome::Fail { original, shrunk, case, seed, steps, early: _ } => Info { failed: true, original, shrunk, case, steps, cases: 0, seed }
+        Outcome::Pass { cases } => Info {
+            failed: false,
+            original: 0,
+            shrunk: 0,
+            case: 0,
+            steps: 0,
+            cases,
+            seed: 0,
+        },
+        Outcome::Fail { original, shrunk, case, seed, steps, early: _ } => Info {
+            failed: true,
+            original,
+            shrunk,
+            case,
+            steps,
+            cases: 0,
+            seed,
+        },
     }
 }
 
@@ -59,14 +83,24 @@ struct EdgeProbe { case: u256 }
 
 #[test]
 fn e1_zero_cases_passes_with_zero() uses (evm: mut Evm) {
-    let i = info(check(Config::new(fixed_seed(5)).with_cases(0), props::prop_false))
+    let i = info(
+        check(
+            Config::new(fixed_seed(5)).with_cases(0),
+            props::prop_false,
+        ),
+    )
     assert!(!i.failed)
     assert!(i.cases == 0)
 }
 
 #[test]
 fn e2_zero_max_shrinks_keeps_original() uses (evm: mut Evm) {
-    let i = info(check(Config::new(fixed_seed(6)).with_max_shrinks(0), props::prop_below_1000))
+    let i = info(
+        check(
+            Config::new(fixed_seed(6)).with_max_shrinks(0),
+            props::prop_below_1000,
+        ),
+    )
     assert!(i.failed)
     assert!(i.steps == 0)
     assert!(i.shrunk == i.original)
@@ -102,11 +136,13 @@ fn f_gas_scales_with_cases() uses (evm: mut Evm) {
 #[test]
 fn g_bool_shrinks_to_true() uses (evm: mut Evm) {
     match check(Config::new(fixed_seed(9)), props::prop_bool_false) {
-        Outcome::Pass { cases: _ } => { assert!(false) }
+        Outcome::Pass { cases: _ } => {
+            assert!(false)
+        },
         Outcome::Fail { original, shrunk, case: _, seed: _, steps: _, early: _ } => {
             assert!(original == true)
             assert!(shrunk == true)
-        }
+        },
     }
 }
 
@@ -133,15 +169,23 @@ fn i_replay_reproduces_failure() uses (evm: mut Evm) {
 // check() cannot catch it, and no Outcome is produced.
 #[test(should_revert, panic = 0x11)]
 fn probe_overflow_in_property_reverts_whole_run() uses (evm: mut Evm) {
-    let o = info(check(Config::new(fixed_seed(12)), props::prop_overflows_at_max))
-    assert!(!o.failed) // never reached when some case is MAX or the generator yields it
+    let o = info(
+        check(Config::new(fixed_seed(12)), props::prop_overflows_at_max),
+    )
+    assert!(
+        !o.failed,
+    ) // never reached when some case is MAX or the generator yields it
 }
 
 // checked_add/sub/mul boundaries: `z` is an opaque zero (chain id compared against an impossible value),
 // so the helpers run at runtime. props::checked_boundaries returns 0 when every boundary is right,
 // otherwise the number of the first wrong case.
 fn opaque_zero() -> u256 uses (evm: mut Evm) {
-    if evm.chainid() == 0x1234567890abcdef { 1 } else { 0 }
+    if evm.chainid() == 0x1234567890abcdef {
+        1
+    } else {
+        0
+    }
 }
 
 #[test]

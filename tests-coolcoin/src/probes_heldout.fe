@@ -13,14 +13,28 @@ pub msg TokBurn {
 #[test]
 fn probe_burn_lowers_total_supply_on_the_original() uses (evm: mut Evm) {
     let token = evm.create<CoolCoin>(value: Wei::zero(), args: (13 as u256, evm.address()))
-    assert!(evm.call(addr: token, gas: 1000000, value: Wei::zero(), message: TokBurn::Burn { amount: 3 }))
+    assert!(
+        evm.call(
+            addr: token,
+            gas: 1000000,
+            value: Wei::zero(),
+            message: TokBurn::Burn { amount: 3 },
+        ),
+    )
     assert!(total_supply(token) == 10)
 }
 
 #[test]
 fn probe_burn_leaves_total_supply_on_mutant_h05() uses (evm: mut Evm) {
     let token = evm.create<CoolCoinH05>(value: Wei::zero(), args: (13 as u256, evm.address()))
-    assert!(evm.call(addr: token, gas: 1000000, value: Wei::zero(), message: TokBurn::Burn { amount: 3 }))
+    assert!(
+        evm.call(
+            addr: token,
+            gas: 1000000,
+            value: Wei::zero(),
+            message: TokBurn::Burn { amount: 3 },
+        ),
+    )
     assert!(balance_of(token, evm.address()) == 10)
     assert!(total_supply(token) == 13)
 }

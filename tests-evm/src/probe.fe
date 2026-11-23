@@ -29,29 +29,60 @@ fn probe_revert_comes_back_as_a_value() uses (evm: mut Evm) {
     let addr = evm.create2<Adder>(value: Wei::zero(), args: (), salt: 1)
 
     let g0 = evm.gas()
-    let ok = evm.try_call(addr: addr, gas: 100000, value: Wei::zero(), message: AdderMsg::AddU8 { a: 100, b: 100 })
+    let ok = evm
+        .try_call(
+            addr: addr,
+            gas: 100000,
+            value: Wei::zero(),
+            message: AdderMsg::AddU8 { a: 100, b: 100 },
+        )
     let g1 = evm.gas()
-    let bad = evm.try_call(addr: addr, gas: 100000, value: Wei::zero(), message: AdderMsg::AddU8 { a: 200, b: 100 })
+    let bad = evm
+        .try_call(
+            addr: addr,
+            gas: 100000,
+            value: Wei::zero(),
+            message: AdderMsg::AddU8 { a: 200, b: 100 },
+        )
     let g2 = evm.gas()
 
-    assert!(ok.success())          // 100 + 100 = 200 fits
-    assert!(!bad.success())        // 200 + 100 overflows: the contract reverted, our test did not
-    evm.emit(CallGas { ok_gas: g0 - g1, revert_gas: g1 - g2, revert_len: bad.returndata().len() as u256 })
+    assert!(ok.success()) // 100 + 100 = 200 fits
+    assert!(
+        !bad.success(),
+    ) // 200 + 100 overflows: the contract reverted, our test did not
+    evm.emit(
+        CallGas {
+            ok_gas: g0 - g1,
+            revert_gas: g1 - g2,
+            revert_len: bad.returndata().len() as u256,
+        },
+    )
 }
 
 #[test]
 fn probe_check_shrinks_through_contract_call() uses (evm: mut Evm) {
     let addr = evm.create2<Adder>(value: Wei::zero(), args: (), salt: 2)
-    let o = check(Config::new(fixed_seed(300)).with_cases(64), |p: (u8, u8)| {
-        evm.try_call(addr: addr, gas: 100000, value: Wei::zero(), message: AdderMsg::AddU8 { a: p.0, b: p.1 }).success()
-    })
+    let o = check(
+        Config::new(fixed_seed(300)).with_cases(64),
+        |p: (u8, u8)| {
+            evm.try_call(
+                addr: addr,
+                gas: 100000,
+                value: Wei::zero(),
+                message: AdderMsg::AddU8 { a: p.0, b: p.1 },
+            )
+                .success()
+        },
+    )
     match o {
-        Outcome::Pass { cases: _ } => { assert!(false) }
+        Outcome::Pass { cases: _ } => {
+            assert!(false)
+        },
         Outcome::Fail { original, shrunk, case: _, seed: _, steps: _, early: _ } => {
             // minimal failing sums are exactly 256
             assert!((original.0 as u256) + (original.1 as u256) > 255)
             assert!((shrunk.0 as u256) + (shrunk.1 as u256) == 256)
-        }
+        },
     }
 }
 
@@ -63,14 +94,27 @@ struct ShrunkViaContract { a: u256, b: u256, steps: u256, gas: u256 }
 fn probe_check_via_contract_reports_shrunk_and_gas() uses (evm: mut Evm) {
     let addr = evm.create2<Adder>(value: Wei::zero(), args: (), salt: 3)
     let g0 = evm.gas()
-    let o = check(Config::new(fixed_seed(300)).with_cases(64), |p: (u8, u8)| {
-        evm.try_call(addr: addr, gas: 100000, value: Wei::zero(), message: AdderMsg::AddU8 { a: p.0, b: p.1 }).success()
-    })
+    let o = check(
+        Config::new(fixed_seed(300)).with_cases(64),
+        |p: (u8, u8)| {
+            evm.try_call(
+                addr: addr,
+                gas: 100000,
+                value: Wei::zero(),
+                message: AdderMsg::AddU8 { a: p.0, b: p.1 },
+            )
+                .success()
+        },
+    )
     let gas = g0 - evm.gas()
     match o {
-        Outcome::Pass { cases: _ } => { assert!(false) }
+        Outcome::Pass { cases: _ } => {
+            assert!(false)
+        },
         Outcome::Fail { original: _, shrunk, case: _, seed: _, steps, early: _ } => {
-            evm.emit(ShrunkViaContract { a: shrunk.0 as u256, b: shrunk.1 as u256, steps, gas })
-        }
+            evm.emit(
+                ShrunkViaContract { a: shrunk.0 as u256, b: shrunk.1 as u256, steps, gas },
+            )
+        },
     }
 }

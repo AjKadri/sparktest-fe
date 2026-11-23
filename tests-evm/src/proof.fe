@@ -4,16 +4,48 @@ use std::abi::DynArray
 use sparktest::Summary
 
 #[event]
-struct Pr { id: u256, failed: u256, case: u256, steps: u256, o0: u256, o1: u256, o2: u256, o3: u256, s0: u256, s1: u256, s2: u256, s3: u256, gas: u256 }
+struct Pr {
+    id: u256,
+    failed: u256,
+    case: u256,
+    steps: u256,
+    o0: u256,
+    o1: u256,
+    o2: u256,
+    o3: u256,
+    s0: u256,
+    s1: u256,
+    s2: u256,
+    s3: u256,
+    gas: u256,
+}
 
 fn zero() -> u256 uses (evm: mut Evm) {
-    if evm.chainid() == 0x1234567890abcdef { 1 } else { 0 }
+    if evm.chainid() == 0x1234567890abcdef {
+        1
+    } else {
+        0
+    }
 }
 
 fn emit_pr(_ id: u256, _ s: Summary, _ gas: u256) uses (evm: mut Evm) {
-    evm.emit(Pr { id, failed: s.failed, case: s.case, steps: s.steps,
-        o0: s.original[0], o1: s.original[1], o2: s.original[2], o3: s.original[3],
-        s0: s.shrunk[0], s1: s.shrunk[1], s2: s.shrunk[2], s3: s.shrunk[3], gas })
+    evm.emit(
+        Pr {
+            id,
+            failed: s.failed,
+            case: s.case,
+            steps: s.steps,
+            o0: s.original[0],
+            o1: s.original[1],
+            o2: s.original[2],
+            o3: s.original[3],
+            s0: s.shrunk[0],
+            s1: s.shrunk[1],
+            s2: s.shrunk[2],
+            s3: s.shrunk[3],
+            gas,
+        },
+    )
 }
 
 #[test]
@@ -192,16 +224,33 @@ fn proof_std_abi_address() uses (evm: mut Evm) {
     emit_pr(22, s, g0 - evm.gas())
 }
 
-
 #[event]
-struct Pw { id: u256, failed: u256, case: u256, steps: u256, original: DynArray<u256>, shrunk: DynArray<u256>, gas: u256 }
+struct Pw {
+    id: u256,
+    failed: u256,
+    case: u256,
+    steps: u256,
+    original: DynArray<u256>,
+    shrunk: DynArray<u256>,
+    gas: u256,
+}
 
 #[test]
 fn stateful_seq_adjacent() uses (evm: mut Evm) {
     let z = zero()
     let g0 = evm.gas()
     let f = props::proof_scenarios::sw_seq_adjacent(8001 + z)
-    evm.emit(Pw { id: 31, failed: f.failed, case: f.case, steps: f.steps, original: f.original, shrunk: f.shrunk, gas: g0 - evm.gas() })
+    evm.emit(
+        Pw {
+            id: 31,
+            failed: f.failed,
+            case: f.case,
+            steps: f.steps,
+            original: f.original,
+            shrunk: f.shrunk,
+            gas: g0 - evm.gas(),
+        },
+    )
 }
 
 #[test]
@@ -209,7 +258,17 @@ fn stateful_bank_buggy() uses (evm: mut Evm) {
     let z = zero()
     let g0 = evm.gas()
     let f = props::proof_scenarios::sw_bank_buggy(8002 + z)
-    evm.emit(Pw { id: 32, failed: f.failed, case: f.case, steps: f.steps, original: f.original, shrunk: f.shrunk, gas: g0 - evm.gas() })
+    evm.emit(
+        Pw {
+            id: 32,
+            failed: f.failed,
+            case: f.case,
+            steps: f.steps,
+            original: f.original,
+            shrunk: f.shrunk,
+            gas: g0 - evm.gas(),
+        },
+    )
 }
 
 #[test]
@@ -217,5 +276,15 @@ fn stateful_bank_fixed() uses (evm: mut Evm) {
     let z = zero()
     let g0 = evm.gas()
     let f = props::proof_scenarios::sw_bank_fixed(8003 + z)
-    evm.emit(Pw { id: 33, failed: f.failed, case: f.case, steps: f.steps, original: f.original, shrunk: f.shrunk, gas: g0 - evm.gas() })
+    evm.emit(
+        Pw {
+            id: 33,
+            failed: f.failed,
+            case: f.case,
+            steps: f.steps,
+            original: f.original,
+            shrunk: f.shrunk,
+            gas: g0 - evm.gas(),
+        },
+    )
 }

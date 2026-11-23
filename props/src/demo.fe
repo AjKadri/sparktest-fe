@@ -10,14 +10,18 @@ pub const CAP: u64 = 1000
 // BUG: the cap is checked against the supply BEFORE minting (`>=`), not against the supply AFTER
 // minting (`new_supply > CAP`), so the last mint can overshoot the cap.
 pub fn mint(_ supply: u64, _ amount: u64) -> u64 {
-    if supply >= CAP { return supply }
+    if supply >= CAP {
+        return supply
+    }
     supply + amount
 }
 
 // Property: starting from any supply within the cap, minting any amount never exceeds the cap.
 pub fn prop_capped_mint(_ p: (u32, u32)) -> bool {
     let supply = p.0 as u64
-    if supply > CAP { return true }
+    if supply > CAP {
+        return true
+    }
     mint(supply, p.1 as u64) <= CAP
 }
 // @end
@@ -95,7 +99,11 @@ pub fn bank_apply(_ bank: mut Bank, _ cmd: (Index<3>, Index<3>, Index<3>, u16)) 
         bank.bal[a] += credit
         bank.deposited += amount
     } else if kind == 1 {
-        let taken = if amount < bank.bal[a] { amount } else { bank.bal[a] }
+        let taken = if amount < bank.bal[a] {
+            amount
+        } else {
+            bank.bal[a]
+        }
         bank.bal[a] -= taken
         bank.withdrawn += taken
         if taken > 0 && bank.bal[a] == 0 {
@@ -119,7 +127,9 @@ pub fn prop_bank_sequence(_ s: Seq<(Index<3>, Index<3>, Index<3>, u16), 8>) -> b
     var i: usize = 0
     while i < s.len {
         bank_apply(mut bank, s.items[i])
-        if !bank_consistent(bank) { return false }
+        if !bank_consistent(bank) {
+            return false
+        }
         i += 1
     }
     true

@@ -7,7 +7,9 @@ use ingot::demo::{Bank, bank_new, bank_consistent}
 pub fn prop_seq_no_adjacent_equal(_ s: Seq<Index<3>, 8>) -> bool {
     var i: usize = 1
     while i < s.len {
-        if s.items[i - 1].value == s.items[i].value { return false }
+        if s.items[i - 1].value == s.items[i].value {
+            return false
+        }
         i += 1
     }
     true
@@ -23,7 +25,11 @@ pub fn bank_apply_fixed(_ bank: mut Bank, _ cmd: (Index<3>, Index<3>, Index<3>, 
         bank.bal[a] += amount
         bank.deposited += amount
     } else if kind == 1 {
-        let taken = if amount < bank.bal[a] { amount } else { bank.bal[a] }
+        let taken = if amount < bank.bal[a] {
+            amount
+        } else {
+            bank.bal[a]
+        }
         bank.bal[a] -= taken
         bank.withdrawn += taken
     } else {
@@ -39,7 +45,9 @@ pub fn prop_bank_fixed(_ s: Seq<(Index<3>, Index<3>, Index<3>, u16), 8>) -> bool
     var i: usize = 0
     while i < s.len {
         bank_apply_fixed(mut bank, s.items[i])
-        if !bank_consistent(bank) { return false }
+        if !bank_consistent(bank) {
+            return false
+        }
         i += 1
     }
     true

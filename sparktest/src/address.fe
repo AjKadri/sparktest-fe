@@ -15,17 +15,27 @@ impl Shrink for Address {
     // shrinks the address word toward the zero address
     fn shrink_step(self, _ i: u256) -> Option<Self> {
         match self.word().shrink_step(i) {
-            Option::Some(w) => Option::Some(Address::from_word_truncate(w))
-            Option::None => Option::None
+            Option::Some(w) => Option::Some(Address::from_word_truncate(w)),
+            Option::None => Option::None,
         }
     }
 }
 
 impl Encode for Address {
-    fn words(self) -> DynArray<u256> { one_word(self.word()) }
+    fn words(self) -> DynArray<u256> {
+        one_word(self.word())
+    }
 }
 
 impl Decode for Address {
-    fn decode(_ w: DynArray<u256>, _ pos: usize) -> (Self, usize) { (Address::from_word_truncate(w.get(pos)), pos + 1) }
-    fn fits(_ w: [u256; 64], _ pos: usize) -> usize { if pos < 64 && w[pos] < 1461501637330902918203684832716283019655932542976 { pos + 1 } else { 0 } }
+    fn decode(_ w: DynArray<u256>, _ pos: usize) -> (Self, usize) {
+        (Address::from_word_truncate(w.get(pos)), pos + 1)
+    }
+    fn fits(_ w: [u256; 64], _ pos: usize) -> usize {
+        if pos < 64 && w[pos] < 1461501637330902918203684832716283019655932542976 {
+            pos + 1
+        } else {
+            0
+        }
+    }
 }

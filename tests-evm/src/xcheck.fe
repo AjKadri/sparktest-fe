@@ -4,16 +4,46 @@ use std::evm::Evm
 use sparktest::Summary
 
 #[event]
-struct Xc { id: u256, failed: u256, case: u256, steps: u256, o0: u256, o1: u256, o2: u256, o3: u256, s0: u256, s1: u256, s2: u256, s3: u256 }
+struct Xc {
+    id: u256,
+    failed: u256,
+    case: u256,
+    steps: u256,
+    o0: u256,
+    o1: u256,
+    o2: u256,
+    o3: u256,
+    s0: u256,
+    s1: u256,
+    s2: u256,
+    s3: u256,
+}
 
 fn zero() -> u256 uses (evm: mut Evm) {
-    if evm.chainid() == 0x1234567890abcdef { 1 } else { 0 }
+    if evm.chainid() == 0x1234567890abcdef {
+        1
+    } else {
+        0
+    }
 }
 
 fn emit_summary(_ id: u256, _ s: Summary) uses (evm: mut Evm) {
-    evm.emit(Xc { id, failed: s.failed, case: s.case, steps: s.steps,
-        o0: s.original[0], o1: s.original[1], o2: s.original[2], o3: s.original[3],
-        s0: s.shrunk[0], s1: s.shrunk[1], s2: s.shrunk[2], s3: s.shrunk[3] })
+    evm.emit(
+        Xc {
+            id,
+            failed: s.failed,
+            case: s.case,
+            steps: s.steps,
+            o0: s.original[0],
+            o1: s.original[1],
+            o2: s.original[2],
+            o3: s.original[3],
+            s0: s.shrunk[0],
+            s1: s.shrunk[1],
+            s2: s.shrunk[2],
+            s3: s.shrunk[3],
+        },
+    )
 }
 
 #[test]
@@ -24,10 +54,28 @@ fn xcheck_emit_all_scenarios() uses (evm: mut Evm) {
     emit_summary(3, props::scenario_arr_u64x4_sum(1003 + z))
     emit_summary(4, props::scenario_addr_below_0x1000(1004 + z))
     emit_summary(5, props::scenario_transfer_amount(1005 + z))
-    emit_summary(6, props::scenario_late_fail(2004 + z))   // fails late: case 148
-    emit_summary(7, props::scenario_digest(2100 + z))      // passing: digest of 4 x 1000 generated values
-    emit_summary(8, props::scenario_demo_capped_mint(props::DEMO_SEED_CAPPED_MINT + z))
-    emit_summary(9, props::scenario_demo_buggy_sort(props::DEMO_SEED_BUGGY_SORT + z))
-    emit_summary(10, props::scenario_demo_pair_sum(props::DEMO_SEED_PAIR_SUM + z))
-    emit_summary(11, props::scenario_demo_saturating_add(props::DEMO_SEED_SATURATING_ADD + z))
+    emit_summary(
+        6,
+        props::scenario_late_fail(2004 + z),
+    ) // fails late: case 148
+    emit_summary(
+        7,
+        props::scenario_digest(2100 + z),
+    ) // passing: digest of 4 x 1000 generated values
+    emit_summary(
+        8,
+        props::scenario_demo_capped_mint(props::DEMO_SEED_CAPPED_MINT + z),
+    )
+    emit_summary(
+        9,
+        props::scenario_demo_buggy_sort(props::DEMO_SEED_BUGGY_SORT + z),
+    )
+    emit_summary(
+        10,
+        props::scenario_demo_pair_sum(props::DEMO_SEED_PAIR_SUM + z),
+    )
+    emit_summary(
+        11,
+        props::scenario_demo_saturating_add(props::DEMO_SEED_SATURATING_ADD + z),
+    )
 }

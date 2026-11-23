@@ -7,7 +7,11 @@ use sparktest::{Outcome, Encode, Summary, Full}
 // An optimizer-opaque zero: the CPU clock is an extern host call, so the compiler cannot know its value,
 // and it is never this magic number (an unavailable clock reads -1).
 pub fn opaque_zero() -> u256 {
-    if cpu_clock_ticks() == -123456789 { 1 } else { 0 }
+    if cpu_clock_ticks() == -123456789 {
+        1
+    } else {
+        0
+    }
 }
 
 // Deterministic seed for tests (salt mixed with an opaque zero; same salt => same seed on every run).
@@ -16,7 +20,9 @@ pub fn fixed_seed(_ salt: u256) -> u256 {
 }
 
 // Process CPU time in clock ticks (macOS: 1,000,000 per second).
-pub fn ticks() -> i64 { cpu_clock_ticks() }
+pub fn ticks() -> i64 {
+    cpu_clock_ticks()
+}
 
 fn print_words(_ label: String<16>, _ w: [u256; 4]) uses (out: mut Stdout) {
     println!("XC ", label, "=", w[0], ",", w[1], ",", w[2], ",", w[3])
@@ -27,17 +33,35 @@ fn print_words(_ label: String<16>, _ w: [u256; 4]) uses (out: mut Stdout) {
 //   XC original=<w0>,<w1>,<w2>,<w3>
 //   XC shrunk=<w0>,<w1>,<w2>,<w3>
 pub fn print_summary(_ name: String<31>, _ s: Summary) uses (out: mut Stdout) {
-    println!("XC ", name, " failed=", s.failed, " case=", s.case, " steps=", s.steps)
+    println!(
+        "XC ",
+        name,
+        " failed=",
+        s.failed,
+        " case=",
+        s.case,
+        " steps=",
+        s.steps,
+    )
     print_words("original", s.original)
     print_words("shrunk", s.shrunk)
 }
 
 // Returns on Pass; on Fail prints seed, case, steps and the shrunk input words, then fails the test.
-pub fn assert_holds<T: Encode + Copy>(_ outcome: Outcome<T>) uses (out: mut Stdout) {
+pub fn assert_holds<T: Encode + Copy>(_ outcome: Outcome<T>)
+uses (out: mut Stdout)
+{
     match outcome {
-        Outcome::Pass { cases: _ } => {}
+        Outcome::Pass { cases: _ } => {},
         Outcome::Fail { original: _, shrunk, case, seed, steps, early: _ } => {
-            println!("PROPERTY FAILED seed=", seed, " case=", case, " steps=", steps)
+            println!(
+                "PROPERTY FAILED seed=",
+                seed,
+                " case=",
+                case,
+                " steps=",
+                steps,
+            )
             let w = shrunk.words()
             var i: usize = 0
             while i < w.len() {
@@ -46,11 +70,13 @@ pub fn assert_holds<T: Encode + Copy>(_ outcome: Outcome<T>) uses (out: mut Stdo
                 i += 1
             }
             assert!(false)
-        }
+        },
     }
 }
 
-fn print_all_words(_ label: String<16>, _ w: DynArray<u256>) uses (out: mut Stdout) {
+fn print_all_words(_ label: String<16>, _ w: DynArray<u256>)
+uses (out: mut Stdout)
+{
     print!("XW ", label, "=")
     var i: usize = 0
     while i < w.len() {
@@ -64,7 +90,16 @@ fn print_all_words(_ label: String<16>, _ w: DynArray<u256>) uses (out: mut Stdo
 
 // Prints a Full result: one header line, then the complete original and shrunk words (comma separated)
 pub fn print_full(_ name: String<31>, _ f: Full) uses (out: mut Stdout) {
-    println!("XW ", name, " failed=", f.failed, " case=", f.case, " steps=", f.steps)
+    println!(
+        "XW ",
+        name,
+        " failed=",
+        f.failed,
+        " case=",
+        f.case,
+        " steps=",
+        f.steps,
+    )
     print_all_words("original", f.original)
     print_all_words("shrunk", f.shrunk)
 }

@@ -7,10 +7,7 @@ use ingot::{Rng, Arbitrary, Shrink, Encode, Decode, append_words}
 use ingot::joint::{joint_nth, to_dyn}
 use ingot::composite::count_candidates
 
-pub struct Seq<C, const N: usize> {
-    pub len: usize,
-    pub items: [C; N],
-}
+pub struct Seq<C, const N: usize> { pub len: usize, pub items: [C; N] }
 
 impl<C: Copy, const N: usize> Copy for Seq<C, N> {}
 
@@ -19,7 +16,11 @@ impl<C: Arbitrary + Copy, const N: usize> Arbitrary for Seq<C, N> {
         var len: usize = 0
         if rng.next() % 4 == 0 {
             // about 1 draw in 4 is an edge: the empty sequence or a full one
-            if rng.next() % 2 == 0 { len = 0 } else { len = N }
+            if rng.next() % 2 == 0 {
+                len = 0
+            } else {
+                len = N
+            }
         } else {
             len = (rng.next() % ((N + 1) as u256)).downcast_truncate()
         }
@@ -41,7 +42,9 @@ fn seq_fits<C: Decode>(_ c: [u256; 64], _ len: usize, _ n: usize) -> bool {
 }
 
 // rebuilds the sequence from joint-candidate words: the length is unchanged (the joint step leaves word 0 alone), the commands are decoded
-fn seq_rebuild<C: Decode + Copy, const N: usize>(_ orig: Seq<C, N>, _ w: DynArray<u256>) -> Option<Seq<C, N>> {
+fn seq_rebuild<C: Decode + Copy, const N: usize>(_ orig: Seq<C, N>, _ w: DynArray<u256>) -> Option<
+    Seq<C, N>,
+> {
     var items = orig.items
     var pos: usize = 1
     var k: usize = 0
@@ -59,7 +62,9 @@ impl<C: Shrink + Encode + Decode + Copy, const N: usize> Shrink for Seq<C, N> {
         var rest = i
         // (1) drop the whole tail: halve the length
         if self.len > 0 {
-            if rest == 0 { return Option::Some(Seq { len: self.len / 2, items: self.items }) }
+            if rest == 0 {
+                return Option::Some(Seq { len: self.len / 2, items: self.items })
+            }
             rest -= 1
         }
         // (2) drop one command (the commands after it move up)
@@ -84,8 +89,10 @@ impl<C: Shrink + Encode + Decode + Copy, const N: usize> Shrink for Seq<C, N> {
                         var out = self.items
                         out[j] = c
                         return Option::Some(Seq { len: self.len, items: out })
-                    }
-                    Option::None => { return Option::None }
+                    },
+                    Option::None => {
+                        return Option::None
+                    },
                 }
             }
             rest -= n
@@ -97,14 +104,25 @@ impl<C: Shrink + Encode + Decode + Copy, const N: usize> Shrink for Seq<C, N> {
     // single-command candidates reach a fixed point
     fn joint_step(self, _ i: u256) -> Option<Self> {
         let rest = i
-        if self.len == 0 { return Option::None }
+        if self.len == 0 {
+            return Option::None
+        }
         let xw = self.words()
         let n = xw.len()
         let width: usize = self.items[0].words().len()
         let orig = self
-        match joint_nth(xw, 1, width, rest, false, |c: [u256; 64]| seq_fits<C>(c, orig.len, n)) {
-            Option::Some(c) => { seq_rebuild(orig, to_dyn(c, n)) }
-            Option::None => Option::None
+        match joint_nth(
+            xw,
+            1,
+            width,
+            rest,
+            false,
+            |c: [u256; 64]| seq_fits<C>(c, orig.len, n),
+        ) {
+            Option::Some(c) => {
+                seq_rebuild(orig, to_dyn(c, n))
+            },
+            Option::None => Option::None,
         }
     }
 }

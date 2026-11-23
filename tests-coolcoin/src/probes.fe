@@ -10,7 +10,9 @@ use coolcoin_mutants::m10::CoolCoinM10
 // ---- M02: removing the explicit balance assert changes only the revert REASON ----
 // the Guide's contract reverts with Error(string): selector 0x08c379a0
 #[test(should_revert, selector = 0x08c379a0)]
-fn probe_m02_original_over_balance_reverts_with_an_error_string() uses (evm: mut Evm) {
+fn probe_m02_original_over_balance_reverts_with_an_error_string()
+uses (evm: mut Evm)
+{
     let token = evm.create<CoolCoin>(value: Wei::zero(), args: (13 as u256, evm.address()))
     let _ = direct_transfer(token, Address::new(42), 14)
 }

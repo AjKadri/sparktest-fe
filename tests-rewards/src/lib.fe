@@ -6,74 +6,160 @@ use sparktest::{check, Config, Outcome, Summary, summarize}
 use sparktest_evm::fixed_seed
 use rewards_example::{RewardsBuggy, RewardsFixed, RewardsMsg}
 
-const MAX_STAKE: u64 = 9223372036854775808   // 2^63
+const MAX_STAKE: u64 = 9223372036854775808
+// 2^63
 
 #[event]
-struct Pr { id: u256, failed: u256, case: u256, steps: u256, o0: u256, o1: u256, o2: u256, o3: u256, s0: u256, s1: u256, s2: u256, s3: u256, gas: u256 }
+struct Pr {
+    id: u256,
+    failed: u256,
+    case: u256,
+    steps: u256,
+    o0: u256,
+    o1: u256,
+    o2: u256,
+    o3: u256,
+    s0: u256,
+    s1: u256,
+    s2: u256,
+    s3: u256,
+    gas: u256,
+}
 
 fn emit_pr(_ id: u256, _ s: Summary, _ gas: u256) uses (evm: mut Evm) {
-    evm.emit(Pr { id, failed: s.failed, case: s.case, steps: s.steps,
-        o0: s.original[0], o1: s.original[1], o2: s.original[2], o3: s.original[3],
-        s0: s.shrunk[0], s1: s.shrunk[1], s2: s.shrunk[2], s3: s.shrunk[3], gas })
+    evm.emit(
+        Pr {
+            id,
+            failed: s.failed,
+            case: s.case,
+            steps: s.steps,
+            o0: s.original[0],
+            o1: s.original[1],
+            o2: s.original[2],
+            o3: s.original[3],
+            s0: s.shrunk[0],
+            s1: s.shrunk[1],
+            s2: s.shrunk[2],
+            s3: s.shrunk[3],
+            gas,
+        },
+    )
 }
 
 fn zero() -> u256 uses (evm: mut Evm) {
-    if evm.chainid() == 0x1234567890abcdef { 1 } else { 0 }
+    if evm.chainid() == 0x1234567890abcdef {
+        1
+    } else {
+        0
+    }
 }
 
 // the property, through try_call: stake, then claim; both calls must succeed and the reward must be stake / 10
 fn claim_ok_try(_ token: Address, _ stake: u64) -> bool uses (evm: mut Evm) {
-    let s = evm.try_call(addr: token, gas: 1000000, value: Wei::zero(), message: RewardsMsg::Stake { amount: stake })
-    if !s.success() { return false }
-    let c = evm.try_call(addr: token, gas: 1000000, value: Wei::zero(), message: RewardsMsg::Claim {})
-    if !c.success() { return false }          // the contract panicked: reported as a failure of the property
+    let s = evm
+        .try_call(
+            addr: token,
+            gas: 1000000,
+            value: Wei::zero(),
+            message: RewardsMsg::Stake { amount: stake },
+        )
+    if !s.success() {
+        return false
+    }
+    let c = evm
+        .try_call(
+            addr: token,
+            gas: 1000000,
+            value: Wei::zero(),
+            message: RewardsMsg::Claim {},
+        )
+    if !c.success() {
+        return false
+    } // the contract panicked: reported as a failure of the property
     let reward: u64 = c.decode()
     (reward as u256) == (stake as u256) / 10
 }
 
 // the same property through the plain typed call: a panic in the callee bubbles up and reverts THIS test
 fn claim_ok_direct(_ token: Address, _ stake: u64) -> bool uses (evm: mut Evm) {
-    let _ = evm.call(addr: token, gas: 1000000, value: Wei::zero(), message: RewardsMsg::Stake { amount: stake })
-    let reward: u64 = evm.call(addr: token, gas: 1000000, value: Wei::zero(), message: RewardsMsg::Claim {})
+    let _ = evm
+        .call(
+            addr: token,
+            gas: 1000000,
+            value: Wei::zero(),
+            message: RewardsMsg::Stake { amount: stake },
+        )
+    let reward: u64 = evm
+        .call(
+            addr: token,
+            gas: 1000000,
+            value: Wei::zero(),
+            message: RewardsMsg::Claim {},
+        )
     (reward as u256) == (stake as u256) / 10
 }
 
 #[test]
 fn rewards_buggy_through_try_call_is_found_and_shrunk() uses (evm: mut Evm) {
     let g0 = evm.gas()
-    let s = summarize(check(Config::new(7001 + zero()).with_cases(128), |stake: u64| {
-        if stake > MAX_STAKE { return true }
-        let c = evm.create<RewardsBuggy>(value: Wei::zero(), args: ())
-        claim_ok_try(c, stake)
-    }))
+    let s = summarize(
+        check(
+            Config::new(7001 + zero()).with_cases(128),
+            |stake: u64| {
+                if stake > MAX_STAKE {
+                    return true
+                }
+                let c = evm.create<RewardsBuggy>(value: Wei::zero(), args: ())
+                claim_ok_try(c, stake)
+            },
+        ),
+    )
     emit_pr(501, s, g0 - evm.gas())
     assert!(s.failed == 1)
-    assert!(s.shrunk[0] == 18446744073709552)   // pre-registered: the smallest overflowing stake (see docs/EXPECTATIONS.md)
+    assert!(
+        s.shrunk[0] == 18446744073709552,
+    ) // pre-registered: the smallest overflowing stake (see docs/EXPECTATIONS.md)
 }
 
 #[test]
 fn rewards_fixed_through_try_call_passes() uses (evm: mut Evm) {
     let g0 = evm.gas()
-    let s = summarize(check(Config::new(7002 + zero()).with_cases(128), |stake: u64| {
-        if stake > MAX_STAKE { return true }
-        let c = evm.create<RewardsFixed>(value: Wei::zero(), args: ())
-        claim_ok_try(c, stake)
-    }))
+    let s = summarize(
+        check(
+            Config::new(7002 + zero()).with_cases(128),
+            |stake: u64| {
+                if stake > MAX_STAKE {
+                    return true
+                }
+                let c = evm.create<RewardsFixed>(value: Wei::zero(), args: ())
+                claim_ok_try(c, stake)
+            },
+        ),
+    )
     let gas = g0 - evm.gas()
     emit_pr(502, s, gas)
     assert!(s.failed == 0)
     assert!(s.case == 128)
-    assert!(gas >= 128 * 20000)                   // proof of work: about half the cases (stake <= MAX_STAKE) deploy the contract and make two calls
+    assert!(
+        gas >= 128 * 20000,
+    ) // proof of work: about half the cases (stake <= MAX_STAKE) deploy the contract and make two calls
 }
 
 // direct call: the whole test reverts with Panic(0x11); `should_revert, panic = 0x11` is how that is asserted here.
 // Compare tests-evm/src/lib.fe `probe_overflow_in_property_reverts_whole_run` (the same effect for a pure overflow).
 #[test(should_revert, panic = 0x11)]
 fn rewards_buggy_direct_call_reverts_the_whole_test() uses (evm: mut Evm) {
-    let _ = summarize(check(Config::new(7001 + zero()).with_cases(128), |stake: u64| {
-        if stake > MAX_STAKE { return true }
-        let c = evm.create<RewardsBuggy>(value: Wei::zero(), args: ())
-        claim_ok_direct(c, stake)
-    }))
+    let _ = summarize(
+        check(
+            Config::new(7001 + zero()).with_cases(128),
+            |stake: u64| {
+                if stake > MAX_STAKE {
+                    return true
+                }
+                let c = evm.create<RewardsBuggy>(value: Wei::zero(), args: ())
+                claim_ok_direct(c, stake)
+            },
+        ),
+    )
     // never reached: no Outcome, no shrunk value, no seed is reported
 }

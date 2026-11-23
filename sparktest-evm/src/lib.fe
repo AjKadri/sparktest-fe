@@ -1,7 +1,20 @@
 // EVM shim for Sparktest: turns an Outcome into a revert, and provides an opaque runtime seed.
 use std::evm::{Evm, revert_error}
 use std::abi::DynArray
-pub use isolated::{Isolated, run_prop, eval_isolated, check_isolated, IsoOutcome, reason_text, ISOLATED_GAS, REASON_HELD, REASON_FALSE, REASON_OTHER_REVERT, REASON_NO_DATA, REASON_PANIC_BASE}
+pub use isolated::{
+    Isolated,
+    run_prop,
+    eval_isolated,
+    check_isolated,
+    IsoOutcome,
+    reason_text,
+    ISOLATED_GAS,
+    REASON_HELD,
+    REASON_FALSE,
+    REASON_OTHER_REVERT,
+    REASON_NO_DATA,
+    REASON_PANIC_BASE,
+}
 use sparktest::{Outcome, Encode, Config, Arbitrary, Shrink, check_with}
 
 #[error]
@@ -25,13 +38,17 @@ pub struct PropertyFailedEarly {
 // Returns on Pass; reverts with PropertyFailed (the shrunk input, encoded) on Fail, or with PropertyFailedEarly if shrinking was stopped early.
 pub fn assert_holds<T: Encode + Copy>(_ outcome: Outcome<T>) {
     match outcome {
-        Outcome::Pass { cases: _ } => {}
+        Outcome::Pass { cases: _ } => {},
         Outcome::Fail { original: _, shrunk, case, seed, steps, early } => {
             if early {
-                revert_error(PropertyFailedEarly { seed, case, steps, input: shrunk.words() })
+                revert_error(
+                    PropertyFailedEarly { seed, case, steps, input: shrunk.words() },
+                )
             }
-            revert_error(PropertyFailed { seed, case, steps, input: shrunk.words() })
-        }
+            revert_error(
+                PropertyFailed { seed, case, steps, input: shrunk.words() },
+            )
+        },
     }
 }
 
@@ -42,11 +59,22 @@ pub const GAS_MARGIN: u256 = 50000000
 // `check`, but shrinking STOPS as soon as the remaining gas drops below `margin` and returns the best input found so far with `early = true`
 // (a failure then keeps its report instead of running out of gas while shrinking). The core stays effect-free: it polls a `stop` closure
 // (`sparktest::check_with`), and this shim supplies `evm.gas() < margin`. Only shrinking is guarded; generating cases is not.
-pub fn check_gas_with_margin<T: Arbitrary + Shrink + Copy, P: Fn(T) -> bool>(_ cfg: Config, _ prop: P, _ margin: u256) -> Outcome<T> uses (P::E, evm: mut Evm) {
+pub fn check_gas_with_margin<T: Arbitrary + Shrink + Copy, P: Fn(T) -> bool>(
+    _ cfg: Config,
+    _ prop: P,
+    _ margin: u256,
+) -> Outcome<T>
+uses (P::E, evm: mut Evm)
+{
     check_with(cfg, prop, || evm.gas() < margin)
 }
 
-pub fn check_gas<T: Arbitrary + Shrink + Copy, P: Fn(T) -> bool>(_ cfg: Config, _ prop: P) -> Outcome<T> uses (P::E, evm: mut Evm) {
+pub fn check_gas<T: Arbitrary + Shrink + Copy, P: Fn(T) -> bool>(
+    _ cfg: Config,
+    _ prop: P,
+) -> Outcome<T>
+uses (P::E, evm: mut Evm)
+{
     check_with(cfg, prop, || evm.gas() < GAS_MARGIN)
 }
 

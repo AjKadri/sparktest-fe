@@ -14,17 +14,34 @@ extern {
     fn st_fail_seq(_ seed: u64, _ case: u64, _ steps: u64, _ nwords: u64)
 }
 
-fn run<T: Arbitrary + Shrink + Encode + Copy, P: Fn(T) -> bool>(_ prop: P, _ seed: u64, _ cases: u64, _ max_shrinks: u64) -> bool uses P::E {
-    let cfg = Config::new(seed as u256).with_cases(cases as u256).with_max_shrinks(max_shrinks as u256)
+fn run<T: Arbitrary + Shrink + Encode + Copy, P: Fn(T) -> bool>(
+    _ prop: P,
+    _ seed: u64,
+    _ cases: u64,
+    _ max_shrinks: u64,
+) -> bool
+uses P::E
+{
+    let cfg = Config::new(seed as u256)
+        .with_cases(cases as u256)
+        .with_max_shrinks(max_shrinks as u256)
     let s = summarize(check(cfg, prop))
     if s.failed == 0 {
-        unsafe { st_pass(cases) }
+        unsafe {
+            st_pass(cases)
+        }
         return true
     }
     unsafe {
-        st_fail(seed, s.case.downcast_truncate(), s.steps.downcast_truncate(),
-            s.shrunk[0].downcast_truncate(), s.shrunk[1].downcast_truncate(),
-            s.shrunk[2].downcast_truncate(), s.shrunk[3].downcast_truncate())
+        st_fail(
+            seed,
+            s.case.downcast_truncate(),
+            s.steps.downcast_truncate(),
+            s.shrunk[0].downcast_truncate(),
+            s.shrunk[1].downcast_truncate(),
+            s.shrunk[2].downcast_truncate(),
+            s.shrunk[3].downcast_truncate(),
+        )
     }
     false
 }
@@ -50,24 +67,44 @@ pub fn run_saturating_add(seed: u64, cases: u64, max_shrinks: u64) -> bool {
 }
 
 // A property over a sequence of commands: the shrunk input has any number of words, so they are reported one by one.
-fn run_seq<T: Arbitrary + Shrink + Encode + Copy, P: Fn(T) -> bool>(_ prop: P, _ seed: u64, _ cases: u64, _ max_shrinks: u64) -> bool uses P::E {
-    let cfg = Config::new(seed as u256).with_cases(cases as u256).with_max_shrinks(max_shrinks as u256)
+fn run_seq<T: Arbitrary + Shrink + Encode + Copy, P: Fn(T) -> bool>(
+    _ prop: P,
+    _ seed: u64,
+    _ cases: u64,
+    _ max_shrinks: u64,
+) -> bool
+uses P::E
+{
+    let cfg = Config::new(seed as u256)
+        .with_cases(cases as u256)
+        .with_max_shrinks(max_shrinks as u256)
     match check(cfg, prop) {
         Outcome::Pass { cases: n } => {
-            unsafe { st_pass(n.downcast_truncate()) }
+            unsafe {
+                st_pass(n.downcast_truncate())
+            }
             true
-        }
+        },
         Outcome::Fail { original: _, shrunk, case, seed: _, steps, early: _ } => {
             let w = shrunk.words()
             var i: usize = 0
             while i < w.len() {
                 let word: u256 = w.get(i)
-                unsafe { st_word((i as u256).downcast_truncate(), word.downcast_truncate()) }
+                unsafe {
+                    st_word((i as u256).downcast_truncate(), word.downcast_truncate())
+                }
                 i += 1
             }
-            unsafe { st_fail_seq(seed, case.downcast_truncate(), steps.downcast_truncate(), (w.len() as u256).downcast_truncate()) }
+            unsafe {
+                st_fail_seq(
+                    seed,
+                    case.downcast_truncate(),
+                    steps.downcast_truncate(),
+                    (w.len() as u256).downcast_truncate(),
+                )
+            }
             false
-        }
+        },
     }
 }
 
@@ -85,7 +122,9 @@ pub fn run_panic_overflow_cases(seed: u64, cases: u64) -> bool {
     var i: u64 = 0
     while i < cases {
         let x = <u64 as Arbitrary>::arbitrary(mut rng)
-        if !props::prop_panic_overflow(x) { return false }
+        if !props::prop_panic_overflow(x) {
+            return false
+        }
         i += 1
     }
     true
@@ -111,7 +150,7 @@ pub fn eval_panic_overflow(x: u64) -> bool {
 #[unsafe(export)]
 pub fn cand_panic_overflow(x: u64, i: u64) -> u64 {
     match x.shrink_step(i as u256) {
-        Option::Some(c) => c
-        Option::None => x
+        Option::Some(c) => c,
+        Option::None => x,
     }
 }

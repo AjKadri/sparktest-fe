@@ -34,8 +34,12 @@ fn simpler(_ cand: [u256; 64], _ orig: [u256; 64], _ n: usize, _ s: usize) -> bo
     if sc > so { return false }
     i = s
     while i < n {
-        if cand[i] < orig[i] { return true }
-        if cand[i] > orig[i] { return false }
+        if cand[i] < orig[i] {
+            return true
+        }
+        if cand[i] > orig[i] {
+            return false
+        }
         i += 1
     }
     false
@@ -55,10 +59,25 @@ pub fn to_dyn(_ a: [u256; 64], _ n: usize) -> DynArray<u256> {
 const MAX_JOINT: u256 = 400
 
 // one candidate: Some(words) when it is valid and is the `target`-th valid candidate
-fn offer<F: Fn([u256; 64]) -> bool>(_ cur: mut Cursor, _ orig: [u256; 64], _ cand: [u256; 64], _ n: usize, _ s: usize, _ valid: F) -> Option<[u256; 64]> uses F::E {
-    if cur.count >= MAX_JOINT { return Option::None }
-    if !simpler(cand, orig, n, s) { return Option::None }
-    if !valid(cand) { return Option::None }
+fn offer<F: Fn([u256; 64]) -> bool>(
+    _ cur: mut Cursor,
+    _ orig: [u256; 64],
+    _ cand: [u256; 64],
+    _ n: usize,
+    _ s: usize,
+    _ valid: F,
+) -> Option<[u256; 64]>
+uses F::E
+{
+    if cur.count >= MAX_JOINT {
+        return Option::None
+    }
+    if !simpler(cand, orig, n, s) {
+        return Option::None
+    }
+    if !valid(cand) {
+        return Option::None
+    }
     if cur.count == cur.target {
         cur.count += 1
         return Option::Some(cand)
@@ -68,9 +87,20 @@ fn offer<F: Fn([u256; 64]) -> bool>(_ cur: mut Cursor, _ orig: [u256; 64], _ can
 }
 
 // the `target`-th valid joint candidate of `x` (0, 1, 2, ...), or None when there are no more
-pub fn joint_nth<F: Fn([u256; 64]) -> bool>(_ xw: DynArray<u256>, _ skip: usize, _ width: usize, _ target: u256, _ redistribute: bool, _ valid: F) -> Option<[u256; 64]> uses F::E {
+pub fn joint_nth<F: Fn([u256; 64]) -> bool>(
+    _ xw: DynArray<u256>,
+    _ skip: usize,
+    _ width: usize,
+    _ target: u256,
+    _ redistribute: bool,
+    _ valid: F,
+) -> Option<[u256; 64]>
+uses F::E
+{
     let n = xw.len()
-    if n > 64 { return Option::None }
+    if n > 64 {
+        return Option::None
+    }
     var w: [u256; 64] = [0; 64]
     var i: usize = 0
     while i < n {
@@ -87,18 +117,24 @@ pub fn joint_nth<F: Fn([u256; 64]) -> bool>(_ xw: DynArray<u256>, _ skip: usize,
         i += 1
     }
     match offer(mut cur, w, c, n, skip, valid) {
-        Option::Some(t) => { return Option::Some(t) }
-        Option::None => {}
+        Option::Some(t) => {
+            return Option::Some(t)
+        },
+        Option::None => {},
     }
     c = w
     i = skip
     while i < n {
-        if w[i] > 0 { c[i] = w[i] - 1 }
+        if w[i] > 0 {
+            c[i] = w[i] - 1
+        }
         i += 1
     }
     match offer(mut cur, w, c, n, skip, valid) {
-        Option::Some(t) => { return Option::Some(t) }
-        Option::None => {}
+        Option::Some(t) => {
+            return Option::Some(t)
+        },
+        Option::None => {},
     }
 
     // (b) groups of equal nonzero words, kept equal: to 0, to half, to minus 1
@@ -122,11 +158,15 @@ pub fn joint_nth<F: Fn([u256; 64]) -> bool>(_ xw: DynArray<u256>, _ skip: usize,
                 var skip_mode = false
                 if mode == 1 {
                     nv = v / 2
-                    if nv == 0 { skip_mode = true }
+                    if nv == 0 {
+                        skip_mode = true
+                    }
                 }
                 if mode == 2 {
                     nv = v - 1
-                    if nv == 0 || nv == v / 2 { skip_mode = true }
+                    if nv == 0 || nv == v / 2 {
+                        skip_mode = true
+                    }
                 }
                 if !skip_mode {
                     c = w
@@ -136,8 +176,10 @@ pub fn joint_nth<F: Fn([u256; 64]) -> bool>(_ xw: DynArray<u256>, _ skip: usize,
                         k += 1
                     }
                     match offer(mut cur, w, c, n, skip, valid) {
-                        Option::Some(t) => { return Option::Some(t) }
-                        Option::None => {}
+                        Option::Some(t) => {
+                            return Option::Some(t)
+                        },
+                        Option::None => {},
                     }
                 }
                 mode += 1
@@ -169,11 +211,15 @@ pub fn joint_nth<F: Fn([u256; 64]) -> bool>(_ xw: DynArray<u256>, _ skip: usize,
                         var skip_mode = false
                         if mode == 1 {
                             nv = v / 2
-                            if nv == 0 { skip_mode = true }
+                            if nv == 0 {
+                                skip_mode = true
+                            }
                         }
                         if mode == 2 {
                             nv = v - 1
-                            if nv == 0 || nv == v / 2 { skip_mode = true }
+                            if nv == 0 || nv == v / 2 {
+                                skip_mode = true
+                            }
                         }
                         if !skip_mode {
                             c = w
@@ -183,8 +229,10 @@ pub fn joint_nth<F: Fn([u256; 64]) -> bool>(_ xw: DynArray<u256>, _ skip: usize,
                                 k += width
                             }
                             match offer(mut cur, w, c, n, skip, valid) {
-                                Option::Some(t) => { return Option::Some(t) }
-                                Option::None => {}
+                                Option::Some(t) => {
+                                    return Option::Some(t)
+                                },
+                                Option::None => {},
                             }
                         }
                         mode += 1
@@ -204,7 +252,9 @@ pub fn joint_nth<F: Fn([u256; 64]) -> bool>(_ xw: DynArray<u256>, _ skip: usize,
                 var j: usize = i + 1
                 while j < n {
                     var p: u256 = 1
-                    while p <= w[i] / 2 { p = p * 2 }          // the largest power of two <= w[i]
+                    while p <= w[i] / 2 {
+                        p = p * 2
+                    } // the largest power of two <= w[i]
                     var d = w[i]
                     while d > 0 {
                         let raised = w[j].wrapping_add(d)
@@ -213,8 +263,10 @@ pub fn joint_nth<F: Fn([u256; 64]) -> bool>(_ xw: DynArray<u256>, _ skip: usize,
                             c[i] = w[i] - d
                             c[j] = raised
                             match offer(mut cur, w, c, n, skip, valid) {
-                                Option::Some(t) => { return Option::Some(t) }
-                                Option::None => {}
+                                Option::Some(t) => {
+                                    return Option::Some(t)
+                                },
+                                Option::None => {},
                             }
                         }
                         // next d: the powers of two below the current one (w[i] first, then p, p/2, ..., 1)
@@ -234,11 +286,18 @@ pub fn joint_nth<F: Fn([u256; 64]) -> bool>(_ xw: DynArray<u256>, _ skip: usize,
 pub fn joint_candidate<T: Encode + Decode + Copy>(_ x: T, _ target: u256) -> Option<T> {
     let xw = x.words()
     let n = xw.len()
-    match joint_nth(xw, 0, 0, target, true, |c: [u256; 64]| <T as Decode>::fits(c, 0) == n) {
+    match joint_nth(
+        xw,
+        0,
+        0,
+        target,
+        true,
+        |c: [u256; 64]| <T as Decode>::fits(c, 0) == n,
+    ) {
         Option::Some(c) => {
             let (v, _) = <T as Decode>::decode(to_dyn(c, n), 0)
             Option::Some(v)
-        }
-        Option::None => Option::None
+        },
+        Option::None => Option::None,
     }
 }

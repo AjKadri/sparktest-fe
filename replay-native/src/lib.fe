@@ -14,12 +14,16 @@ use sparktest::{Arbitrary, Shrink, Encode, Decode, Xorshift}
 use std::abi::DynArray
 use core::ptr::MemVec
 
-fn below_1000(_ x: u256) -> bool { x < 1000 }
+fn below_1000(_ x: u256) -> bool {
+    x < 1000
+}
 
 fn arg_uint(_ a: u256, _ at: usize) -> u256 uses (args: Args) {
     match parse_uint(args.get(at)) {
-        Option::Some(v) => v
-        Option::None => { core::panic() }
+        Option::Some(v) => v,
+        Option::None => {
+            core::panic()
+        },
     }
 }
 
@@ -45,7 +49,9 @@ fn print_words(_ w: DynArray<u256>) uses (out: mut Stdout) {
     println!("")
 }
 
-fn drive<T: Arbitrary + Shrink + Encode + Decode + Copy, P: Fn(T) -> bool>(_ prop: P) -> i32 uses (args: Args, out: mut Stdout, P::E) {
+fn drive<T: Arbitrary + Shrink + Encode + Decode + Copy, P: Fn(T) -> bool>(_ prop: P) -> i32
+uses (args: Args, out: mut Stdout, P::E)
+{
     // argv: 0 program, 1 command, 2 prop
     if args.get(1) == "run" {
         let seed = arg_uint(0, 3)
@@ -85,8 +91,12 @@ fn drive<T: Arbitrary + Shrink + Encode + Decode + Copy, P: Fn(T) -> bool>(_ pro
         let i = arg_uint(0, 3)
         let (x, _) = <T as Decode>::decode(words_from(4), 0)
         match x.shrink_step(i) {
-            Option::Some(c) => { print_words(c.words()) }
-            Option::None => { println!("NONE") }
+            Option::Some(c) => {
+                print_words(c.words())
+            },
+            Option::None => {
+                println!("NONE")
+            },
         }
         return 0
     }
@@ -95,10 +105,18 @@ fn drive<T: Arbitrary + Shrink + Encode + Decode + Copy, P: Fn(T) -> bool>(_ pro
 }
 
 pub fn main() -> i32 uses (args: Args, out: mut Stdout) {
-    if args.count() < 3 { return 2 }
-    if args.get(2) == "overflow" { return drive<u64, _>(props::prop_panic_overflow) }
-    if args.get(2) == "divzero" { return drive<(u32, u32), _>(props::prop_panic_divzero) }
-    if args.get(2) == "false" { return drive<u256, _>(below_1000) }
+    if args.count() < 3 {
+        return 2
+    }
+    if args.get(2) == "overflow" {
+        return drive<u64, _>(props::prop_panic_overflow)
+    }
+    if args.get(2) == "divzero" {
+        return drive<(u32, u32), _>(props::prop_panic_divzero)
+    }
+    if args.get(2) == "false" {
+        return drive<u256, _>(below_1000)
+    }
     println!("unknown property")
     2
 }

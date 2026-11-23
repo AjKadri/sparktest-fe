@@ -5,133 +5,243 @@ use sparktest_evm::fixed_seed
 
 #[test]
 fn hunt_a_hashmap_spread_keys_matches_the_model() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9101)).with_cases(64), props::prop_hunt_hashmap_spread_keys))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9101)).with_cases(64),
+            props::prop_hunt_hashmap_spread_keys,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_a_hashmap_colliding_keys_matches_the_model() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9102)).with_cases(64), props::prop_hunt_hashmap_colliding_keys))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9102)).with_cases(64),
+            props::prop_hunt_hashmap_colliding_keys,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_raw_round_trip() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9201)).with_cases(64), props::prop_hunt_fixed_raw_round_trip))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9201)).with_cases(64),
+            props::prop_hunt_fixed_raw_round_trip,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_int_parts() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9202)).with_cases(64), props::prop_hunt_fixed_int_parts))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9202)).with_cases(64),
+            props::prop_hunt_fixed_int_parts,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_add_sub_inverse() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9203)).with_cases(64), props::prop_hunt_fixed_add_sub_inverse))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9203)).with_cases(64),
+            props::prop_hunt_fixed_add_sub_inverse,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_mul_matches_the_model() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9204)).with_cases(64), props::prop_hunt_fixed_mul_matches_the_model))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9204)).with_cases(64),
+            props::prop_hunt_fixed_mul_matches_the_model,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_div_matches_the_model() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9205)).with_cases(64), props::prop_hunt_fixed_div_matches_the_model))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9205)).with_cases(64),
+            props::prop_hunt_fixed_div_matches_the_model,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_full_range_mul_agrees_with_mul_div() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9206)).with_cases(64), props::prop_hunt_fixed_full_range_mul_agrees_with_mul_div))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9206)).with_cases(64),
+            props::prop_hunt_fixed_full_range_mul_agrees_with_mul_div,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_mul_is_monotonic() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9207)).with_cases(64), props::prop_hunt_fixed_mul_is_monotonic))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9207)).with_cases(64),
+            props::prop_hunt_fixed_mul_is_monotonic,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_rescale_matches_the_model() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9208)).with_cases(64), props::prop_hunt_fixed_rescale_matches_the_model))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9208)).with_cases(64),
+            props::prop_hunt_fixed_rescale_matches_the_model,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_sqrt_is_the_integer_root() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9209)).with_cases(64), props::prop_hunt_fixed_sqrt_is_the_integer_root))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9209)).with_cases(64),
+            props::prop_hunt_fixed_sqrt_is_the_integer_root,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_sqrt_full_range() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9210)).with_cases(64), props::prop_hunt_fixed_sqrt_full_range))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9210)).with_cases(64),
+            props::prop_hunt_fixed_sqrt_full_range,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_signed_mul_div_truncate_toward_zero() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9211)).with_cases(64), props::prop_hunt_fixed_signed_mul_div_truncate_toward_zero))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9211)).with_cases(64),
+            props::prop_hunt_fixed_signed_mul_div_truncate_toward_zero,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_b_fixed_order_agrees_with_raw() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9212)).with_cases(64), props::prop_hunt_fixed_order_agrees_with_raw))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9212)).with_cases(64),
+            props::prop_hunt_fixed_order_agrees_with_raw,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_c_text_decimal_round_trip() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9301)).with_cases(64), props::prop_hunt_text_decimal_round_trip))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9301)).with_cases(64),
+            props::prop_hunt_text_decimal_round_trip,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_c_text_decimal_has_exactly_the_digits() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9302)).with_cases(64), props::prop_hunt_text_decimal_has_exactly_the_digits))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9302)).with_cases(64),
+            props::prop_hunt_text_decimal_has_exactly_the_digits,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_c_text_hex_length_round_trip_and_case() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9303)).with_cases(64), props::prop_hunt_text_hex_length_round_trip_and_case))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9303)).with_cases(64),
+            props::prop_hunt_text_hex_length_round_trip_and_case,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_c_text_decode_hex_gives_the_bytes() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9304)).with_cases(64), props::prop_hunt_text_decode_hex_gives_the_bytes))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9304)).with_cases(64),
+            props::prop_hunt_text_decode_hex_gives_the_bytes,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_c_text_base64_round_trip() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9305)).with_cases(64), props::prop_hunt_text_base64_round_trip))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9305)).with_cases(64),
+            props::prop_hunt_text_base64_round_trip,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_c_text_base58_round_trip() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9306)).with_cases(64), props::prop_hunt_text_base58_round_trip))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9306)).with_cases(64),
+            props::prop_hunt_text_base58_round_trip,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_c_text_split_then_join_round_trips() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9307)).with_cases(64), props::prop_hunt_text_split_then_join_round_trips))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9307)).with_cases(64),
+            props::prop_hunt_text_split_then_join_round_trips,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
 #[test]
 fn hunt_c_text_wad_parse_reads_what_decimal_wrote() uses (evm: mut Evm) {
-    let s = summarize(check(Config::new(fixed_seed(9308)).with_cases(64), props::prop_hunt_text_wad_parse_reads_what_decimal_wrote))
+    let s = summarize(
+        check(
+            Config::new(fixed_seed(9308)).with_cases(64),
+            props::prop_hunt_text_wad_parse_reads_what_decimal_wrote,
+        ),
+    )
     assert!(s.failed == 0)
 }
 
@@ -145,7 +255,9 @@ fn rng_deterministic(_ seed: u256) -> bool {
     var b = KeccakRng::seeded(seed)
     var i: usize = 0
     while i < 8 {
-        if a.next() != b.next() { return false }
+        if a.next() != b.next() {
+            return false
+        }
         i += 1
     }
     true
@@ -163,7 +275,9 @@ fn rng_uniform_in_range(_ p: (u256, u256)) -> bool {
     var r = KeccakRng::seeded(p.0)
     var i: usize = 0
     while i < 8 {
-        if r.uniform(upper) >= upper { return false }
+        if r.uniform(upper) >= upper {
+            return false
+        }
         i += 1
     }
     true
@@ -174,8 +288,12 @@ fn rng_chance_bounds(_ p: (u256, u256)) -> bool {
     var r = KeccakRng::seeded(p.0)
     var i: usize = 0
     while i < 8 {
-        if r.chance(numerator: 0, denominator: d) { return false }
-        if !r.chance(numerator: d, denominator: d) { return false }
+        if r.chance(numerator: 0, denominator: d) {
+            return false
+        }
+        if !r.chance(numerator: d, denominator: d) {
+            return false
+        }
         i += 1
     }
     true
@@ -185,18 +303,26 @@ fn rng_chance_bounds(_ p: (u256, u256)) -> bool {
 fn rng_shuffle_is_a_permutation(_ p: (u256, [u8; 8])) -> bool {
     var items = p.1
     var r = KeccakRng::seeded(p.0)
-    with (Rng = r) { shuffle(mut items) }
+    with (Rng = r) {
+        shuffle(mut items)
+    }
     var i: usize = 0
     while i < 8 {
         var want: usize = 0
         var have: usize = 0
         var j: usize = 0
         while j < 8 {
-            if p.1[j] == p.1[i] { want += 1 }
-            if items[j] == p.1[i] { have += 1 }
+            if p.1[j] == p.1[i] {
+                want += 1
+            }
+            if items[j] == p.1[i] {
+                have += 1
+            }
             j += 1
         }
-        if want != have { return false }
+        if want != have {
+            return false
+        }
         i += 1
     }
     true
@@ -204,25 +330,66 @@ fn rng_shuffle_is_a_permutation(_ p: (u256, [u8; 8])) -> bool {
 
 #[test]
 fn hunt_d_rng_same_seed_same_stream() uses (evm: mut Evm) {
-    assert!(summarize(check(Config::new(fixed_seed(9401)).with_cases(64), rng_deterministic)).failed == 0)
+    assert!(
+        summarize(
+                check(
+                    Config::new(fixed_seed(9401)).with_cases(64),
+                    rng_deterministic,
+                ),
+            ).failed
+            == 0,
+    )
 }
 
 #[test]
 fn hunt_d_rng_different_seeds_differ() uses (evm: mut Evm) {
-    assert!(summarize(check(Config::new(fixed_seed(9402)).with_cases(64), rng_seeds_differ)).failed == 0)
+    assert!(
+        summarize(
+                check(
+                    Config::new(fixed_seed(9402)).with_cases(64),
+                    rng_seeds_differ,
+                ),
+            ).failed
+            == 0,
+    )
 }
 
 #[test]
 fn hunt_d_rng_uniform_is_below_upper() uses (evm: mut Evm) {
-    assert!(summarize(check(Config::new(fixed_seed(9403)).with_cases(64), rng_uniform_in_range)).failed == 0)
+    assert!(
+        summarize(
+                check(
+                    Config::new(fixed_seed(9403)).with_cases(64),
+                    rng_uniform_in_range,
+                ),
+            ).failed
+            == 0,
+    )
 }
 
 #[test]
 fn hunt_d_rng_chance_bounds() uses (evm: mut Evm) {
-    assert!(summarize(check(Config::new(fixed_seed(9404)).with_cases(64), rng_chance_bounds)).failed == 0)
+    assert!(
+        summarize(
+                check(
+                    Config::new(fixed_seed(9404)).with_cases(64),
+                    rng_chance_bounds,
+                ),
+            ).failed
+            == 0,
+    )
 }
 
 #[test]
 fn hunt_d_rng_shuffle_is_a_permutation() uses (evm: mut Evm) {
-    assert!(summarize(check(Config::new(fixed_seed(9405)).with_cases(64), rng_shuffle_is_a_permutation)).failed == 0)
+    assert!(
+        summarize(
+                check(
+                    Config::new(fixed_seed(9405)).with_cases(64),
+                    rng_shuffle_is_a_permutation,
+                ),
+            )
+                .failed
+            == 0,
+    )
 }

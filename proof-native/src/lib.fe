@@ -5,30 +5,105 @@ use sparktest_native::{opaque_zero, print_summary, print_full}
 
 pub fn main() -> i32 uses (out: mut Stdout) {
     let z = opaque_zero()
-    print_summary("vault_buggy", props::proof_scenarios::sc_vault_buggy(5001 + z))
-    print_summary("vault_fixed", props::proof_scenarios::sc_vault_fixed(5002 + z))
-    print_summary("fee_buggy", props::proof_scenarios::sc_fee_buggy(5003 + z))
-    print_summary("fee_fixed", props::proof_scenarios::sc_fee_fixed(5004 + z))
-    print_summary("withdraw_buggy", props::proof_scenarios::sc_withdraw_buggy(5005 + z))
-    print_summary("withdraw_fixed", props::proof_scenarios::sc_withdraw_fixed(5006 + z))
-    print_summary("pack_buggy", props::proof_scenarios::sc_pack_buggy(5007 + z))
-    print_summary("pack_fixed", props::proof_scenarios::sc_pack_fixed(5008 + z))
-    print_summary("bounds_buggy", props::proof_scenarios::sc_bounds_buggy(5009 + z))
-    print_summary("bounds_fixed", props::proof_scenarios::sc_bounds_fixed(5010 + z))
-    print_summary("std_int_u8", props::proof_scenarios::sc_std_int_u8(6001 + z))
-    print_summary("std_int_u32", props::proof_scenarios::sc_std_int_u32(6002 + z))
-    print_summary("std_int_u64", props::proof_scenarios::sc_std_int_u64(6003 + z))
-    print_summary("std_mul_div", props::proof_scenarios::sc_std_mul_div(6004 + z))
-    print_summary("std_isqrt", props::proof_scenarios::sc_std_isqrt(6005 + z))
-    print_summary("std_sort_heap", props::proof_scenarios::sc_std_sort_heap(6006 + z))
-    print_summary("std_sort_small", props::proof_scenarios::sc_std_sort_small(6007 + z))
-    print_summary("std_dedup", props::proof_scenarios::sc_std_dedup(6008 + z))
-    print_summary("std_binary_search", props::proof_scenarios::sc_std_binary_search(6009 + z))
-    print_summary("std_abi_u256", props::proof_scenarios::sc_std_abi_u256(6010 + z))
-    print_summary("std_abi_tuple", props::proof_scenarios::sc_std_abi_tuple(6011 + z))
-    print_summary("std_abi_address", props::proof_scenarios::sc_std_abi_address(6012 + z))
-    print_full("seq_adjacent", props::proof_scenarios::sw_seq_adjacent(8001 + z))
-    print_full("bank_buggy", props::proof_scenarios::sw_bank_buggy(8002 + z))
-    print_full("bank_fixed", props::proof_scenarios::sw_bank_fixed(8003 + z))
+    print_summary(
+        "vault_buggy",
+        props::proof_scenarios::sc_vault_buggy(5001 + z),
+    )
+    print_summary(
+        "vault_fixed",
+        props::proof_scenarios::sc_vault_fixed(5002 + z),
+    )
+    print_summary(
+        "fee_buggy",
+        props::proof_scenarios::sc_fee_buggy(5003 + z),
+    )
+    print_summary(
+        "fee_fixed",
+        props::proof_scenarios::sc_fee_fixed(5004 + z),
+    )
+    print_summary(
+        "withdraw_buggy",
+        props::proof_scenarios::sc_withdraw_buggy(5005 + z),
+    )
+    print_summary(
+        "withdraw_fixed",
+        props::proof_scenarios::sc_withdraw_fixed(5006 + z),
+    )
+    print_summary(
+        "pack_buggy",
+        props::proof_scenarios::sc_pack_buggy(5007 + z),
+    )
+    print_summary(
+        "pack_fixed",
+        props::proof_scenarios::sc_pack_fixed(5008 + z),
+    )
+    print_summary(
+        "bounds_buggy",
+        props::proof_scenarios::sc_bounds_buggy(5009 + z),
+    )
+    print_summary(
+        "bounds_fixed",
+        props::proof_scenarios::sc_bounds_fixed(5010 + z),
+    )
+    print_summary(
+        "std_int_u8",
+        props::proof_scenarios::sc_std_int_u8(6001 + z),
+    )
+    print_summary(
+        "std_int_u32",
+        props::proof_scenarios::sc_std_int_u32(6002 + z),
+    )
+    print_summary(
+        "std_int_u64",
+        props::proof_scenarios::sc_std_int_u64(6003 + z),
+    )
+    print_summary(
+        "std_mul_div",
+        props::proof_scenarios::sc_std_mul_div(6004 + z),
+    )
+    print_summary(
+        "std_isqrt",
+        props::proof_scenarios::sc_std_isqrt(6005 + z),
+    )
+    print_summary(
+        "std_sort_heap",
+        props::proof_scenarios::sc_std_sort_heap(6006 + z),
+    )
+    print_summary(
+        "std_sort_small",
+        props::proof_scenarios::sc_std_sort_small(6007 + z),
+    )
+    print_summary(
+        "std_dedup",
+        props::proof_scenarios::sc_std_dedup(6008 + z),
+    )
+    print_summary(
+        "std_binary_search",
+        props::proof_scenarios::sc_std_binary_search(6009 + z),
+    )
+    print_summary(
+        "std_abi_u256",
+        props::proof_scenarios::sc_std_abi_u256(6010 + z),
+    )
+    print_summary(
+        "std_abi_tuple",
+        props::proof_scenarios::sc_std_abi_tuple(6011 + z),
+    )
+    print_summary(
+        "std_abi_address",
+        props::proof_scenarios::sc_std_abi_address(6012 + z),
+    )
+    print_full(
+        "seq_adjacent",
+        props::proof_scenarios::sw_seq_adjacent(8001 + z),
+    )
+    print_full(
+        "bank_buggy",
+        props::proof_scenarios::sw_bank_buggy(8002 + z),
+    )
+    print_full(
+        "bank_fixed",
+        props::proof_scenarios::sw_bank_fixed(8003 + z),
+    )
     0
 }

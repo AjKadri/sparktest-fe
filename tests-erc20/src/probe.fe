@@ -7,11 +7,23 @@ use erc20_actors::client::Tok
 fn probe_try_call_returns_view_data() uses (evm: mut Evm) {
     let owner = Address::new(1)
     let token = evm.create<CoolCoin>(value: Wei::zero(), args: (1000 as u256, owner))
-    let out = evm.try_call(addr: token, gas: 1000000, value: Wei::zero(), message: Tok::BalanceOf { account: owner })
+    let out = evm
+        .try_call(
+            addr: token,
+            gas: 1000000,
+            value: Wei::zero(),
+            message: Tok::BalanceOf { account: owner },
+        )
     assert!(out.success())
-    let balance: u256 = out.decode()      // CallOutcome::decode gives the typed return value
+    let balance: u256 = out.decode() // CallOutcome::decode gives the typed return value
     assert!(balance == 1000)
-    let r = evm.try_call(addr: token, gas: 1000000, value: Wei::zero(), message: Tok::TotalSupply {})
+    let r = evm
+        .try_call(
+            addr: token,
+            gas: 1000000,
+            value: Wei::zero(),
+            message: Tok::TotalSupply {},
+        )
     let supply: u256 = r.decode()
     assert!(supply == 1000)
 }

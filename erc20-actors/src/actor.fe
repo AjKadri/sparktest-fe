@@ -26,17 +26,39 @@ pub contract Actor {
 
     recv ActorMsg {
         Transfer { token, to, amount } -> u256 uses (ctx: Ctx, call: mut Call) {
-            if try_transfer(token, receiver: to, amount).is_ok() { 1 } else { 0 }
+            if try_transfer(token, receiver: to, amount).is_ok() {
+                1
+            } else {
+                0
+            }
         }
-        Approve { token, spender, amount } -> u256 uses (ctx: Ctx, call: mut Call) {
-            if try_approve(token, spender, amount).is_ok() { 1 } else { 0 }
+        Approve { token, spender, amount } -> u256
+        uses (ctx: Ctx, call: mut Call)
+        {
+            if try_approve(token, spender, amount).is_ok() {
+                1
+            } else {
+                0
+            }
         }
         Mint { token, to, amount } -> u256 uses (ctx: Ctx, call: mut Call) {
-            let out = call.try_call(addr: token, gas: 1000000, value: Wei::zero(), message: MintMsg::Mint { to, amount })
+            let out = call
+                .try_call(
+                    addr: token,
+                    gas: 1000000,
+                    value: Wei::zero(),
+                    message: MintMsg::Mint { to, amount },
+                )
             if out.success() { 1 } else { 0 }
         }
-        TransferFrom { token, from, to, amount } -> u256 uses (ctx: Ctx, call: mut Call) {
-            if try_transfer_from(token, owner: from, receiver: to, amount).is_ok() { 1 } else { 0 }
+        TransferFrom { token, from, to, amount } -> u256
+        uses (ctx: Ctx, call: mut Call)
+        {
+            if try_transfer_from(token, owner: from, receiver: to, amount).is_ok() {
+                1
+            } else {
+                0
+            }
         }
     }
 }

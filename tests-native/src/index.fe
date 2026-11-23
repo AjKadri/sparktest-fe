@@ -2,7 +2,9 @@
 use sparktest::{check, Config, Outcome, Index, Arbitrary, Encode, Xorshift}
 use sparktest_native::fixed_seed
 
-fn fails_below_3(_ i: Index<10>) -> bool { i.value < 3 }
+fn fails_below_3(_ i: Index<10>) -> bool {
+    i.value < 3
+}
 
 #[test]
 fn index_values_stay_below_n_and_hit_both_edges() {
@@ -13,8 +15,12 @@ fn index_values_stay_below_n_and_hit_both_edges() {
     while n < 256 {
         let v = <Index<4> as Arbitrary>::arbitrary(mut rng)
         assert!(v.value < 4)
-        if v.value == 0 { saw0 = true }
-        if v.value == 3 { sawmax = true }
+        if v.value == 0 {
+            saw0 = true
+        }
+        if v.value == 3 {
+            sawmax = true
+        }
         n += 1
     }
     assert!(saw0 && sawmax)
@@ -29,8 +35,12 @@ fn index_large_n_stays_in_range_and_hits_edges() {
     while n < 256 {
         let v = <Index<1000> as Arbitrary>::arbitrary(mut rng)
         assert!(v.value < 1000)
-        if v.value == 0 { saw0 = true }
-        if v.value == 999 { sawmax = true }
+        if v.value == 0 {
+            saw0 = true
+        }
+        if v.value == 999 {
+            sawmax = true
+        }
         n += 1
     }
     assert!(saw0 && sawmax)
@@ -70,11 +80,13 @@ fn index_draws_are_spread_over_the_whole_range() {
 #[test]
 fn index_shrinks_to_the_boundary_of_the_failing_set() {
     match check(Config::new(fixed_seed(904)), fails_below_3) {
-        Outcome::Pass { cases: _ } => { assert!(false) }
+        Outcome::Pass { cases: _ } => {
+            assert!(false)
+        },
         Outcome::Fail { original, shrunk, case: _, seed: _, steps: _, early: _ } => {
             assert!(original.value >= 3)
             assert!(shrunk.value == 3)
-        }
+        },
     }
 }
 

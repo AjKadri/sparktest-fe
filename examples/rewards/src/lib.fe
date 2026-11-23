@@ -10,15 +10,13 @@ pub msg RewardsMsg {
     Claim -> u64,
 }
 
-struct RewardsStore {
-    stakes: StorageMap<Address, u64>,
-}
+struct RewardsStore { stakes: StorageMap<Address, u64> }
 
 const RATE: u64 = 1000
 const SCALE: u64 = 10000
 
 pub contract RewardsBuggy uses (ctx: Ctx) {
-    mut store: RewardsStore
+    mut store: RewardsStore,
 
     init() {}
 
@@ -37,7 +35,7 @@ pub contract RewardsBuggy uses (ctx: Ctx) {
 }
 
 pub contract RewardsFixed uses (ctx: Ctx) {
-    mut store: RewardsStore
+    mut store: RewardsStore,
 
     init() {}
 

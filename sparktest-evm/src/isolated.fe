@@ -28,33 +28,63 @@ pub msg Isolated {
 }
 
 // For the harness's recv arm: decode the input and run the property.
-pub fn run_prop<T: Decode + Copy, P: Fn(T) -> bool>(_ prop: P, _ words: DynArray<u256>) -> u256 uses P::E {
+pub fn run_prop<T: Decode + Copy, P: Fn(T) -> bool>(_ prop: P, _ words: DynArray<u256>) -> u256
+uses P::E
+{
     let (x, _) = <T as Decode>::decode(words, 0)
     if prop(x) { 1 } else { 0 }
 }
 
 // ---- why an evaluation failed ----
 pub const REASON_HELD: u256 = 0
-pub const REASON_FALSE: u256 = 1          // the property returned false
-pub const REASON_OTHER_REVERT: u256 = 2   // the call reverted with data that is not Panic(code)
-pub const REASON_NO_DATA: u256 = 3        // the call failed without revert data (for example out of gas)
-pub const REASON_PANIC_BASE: u256 = 256   // 256 + code: Panic(code); 0x11 = 273 is arithmetic overflow, 0x12 = 274 is division by zero
+pub const REASON_FALSE: u256 = 1
+// the property returned false
+pub const REASON_OTHER_REVERT: u256 = 2
+// the call reverted with data that is not Panic(code)
+pub const REASON_NO_DATA: u256 = 3
+// the call failed without revert data (for example out of gas)
+pub const REASON_PANIC_BASE: u256 = 256
+// 256 + code: Panic(code); 0x11 = 273 is arithmetic overflow, 0x12 = 274 is division by zero
 
 pub fn reason_text(_ r: u256) -> String<31> {
-    if r == REASON_HELD { return "held" }
-    if r == REASON_FALSE { return "returned false" }
-    if r == REASON_PANIC_BASE + 0x11 { return "panicked: arithmetic overflow" }
-    if r == REASON_PANIC_BASE + 0x12 { return "panicked: division by zero" }
-    if r == REASON_PANIC_BASE + 0x01 { return "panicked: assertion failed" }
-    if r == REASON_PANIC_BASE + 0x32 { return "panicked: index out of bounds" }
-    if r > REASON_PANIC_BASE { return "panicked: other code" }
-    if r == REASON_OTHER_REVERT { return "reverted" }
+    if r == REASON_HELD {
+        return "held"
+    }
+    if r == REASON_FALSE {
+        return "returned false"
+    }
+    if r == REASON_PANIC_BASE + 0x11 {
+        return "panicked: arithmetic overflow"
+    }
+    if r == REASON_PANIC_BASE + 0x12 {
+        return "panicked: division by zero"
+    }
+    if r == REASON_PANIC_BASE + 0x01 {
+        return "panicked: assertion failed"
+    }
+    if r == REASON_PANIC_BASE + 0x32 {
+        return "panicked: index out of bounds"
+    }
+    if r > REASON_PANIC_BASE {
+        return "panicked: other code"
+    }
+    if r == REASON_OTHER_REVERT {
+        return "reverted"
+    }
     "failed without data"
 }
 
 // one isolated evaluation: HELD, FALSE, or the reason the call failed
-fn evaluate<T: Encode + Copy>(_ harness: Address, _ id: u256, _ x: T, _ gas: u256) -> u256 uses (evm: mut Evm) {
-    let out = evm.try_call(addr: harness, gas: gas, value: Wei::zero(), message: Isolated::Run { id, words: x.words() })
+fn evaluate<T: Encode + Copy>(_ harness: Address, _ id: u256, _ x: T, _ gas: u256) -> u256
+uses (evm: mut Evm)
+{
+    let out = evm
+        .try_call(
+            addr: harness,
+            gas: gas,
+            value: Wei::zero(),
+            message: Isolated::Run { id, words: x.words() },
+        )
     if out.success() {
         let r: u256 = out.decode()
         return if r == 1 { REASON_HELD } else { REASON_FALSE }
@@ -63,7 +93,9 @@ fn evaluate<T: Encode + Copy>(_ harness: Address, _ id: u256, _ x: T, _ gas: u25
     if data.len() >= 36 && data.read_be<u32>(0) == 0x4e487b71 {
         return REASON_PANIC_BASE + data.read_word(4)
     }
-    if data.len() == 0 { return REASON_NO_DATA }
+    if data.len() == 0 {
+        return REASON_NO_DATA
+    }
     REASON_OTHER_REVERT
 }
 
@@ -71,18 +103,34 @@ fn evaluate<T: Encode + Copy>(_ harness: Address, _ id: u256, _ x: T, _ gas: u25
 pub const ISOLATED_GAS: u256 = 5000000
 
 // one isolated evaluation of `x` (HELD, or the reason it failed); the gas limit is ISOLATED_GAS
-pub fn eval_isolated<T: Encode + Copy>(_ harness: Address, _ id: u256, _ x: T) -> u256 uses (evm: mut Evm) {
+pub fn eval_isolated<T: Encode + Copy>(_ harness: Address, _ id: u256, _ x: T) -> u256
+uses (evm: mut Evm)
+{
     evaluate(harness, id, x, ISOLATED_GAS)
 }
 
 pub enum IsoOutcome<T> {
     Pass { pub cases: u256 },
     // `reason` explains the SHRUNK input's failure, `original_reason` the first one found
-    Fail { pub original: T, pub shrunk: T, pub case: u256, pub seed: u256, pub steps: u256, pub reason: u256, pub original_reason: u256 },
+    Fail {
+        pub original: T,
+        pub shrunk: T,
+        pub case: u256,
+        pub seed: u256,
+        pub steps: u256,
+        pub reason: u256,
+        pub original_reason: u256,
+    },
 }
 
 // Like `check`, but each evaluation runs inside the harness contract (property `id`), so a panic is a failing case that is shrunk and reported.
-pub fn check_isolated<T: Arbitrary + Shrink + Encode + Copy>(_ cfg: Config, _ harness: Address, _ id: u256) -> IsoOutcome<T> uses (evm: mut Evm) {
+pub fn check_isolated<T: Arbitrary + Shrink + Encode + Copy>(
+    _ cfg: Config,
+    _ harness: Address,
+    _ id: u256,
+) -> IsoOutcome<T>
+uses (evm: mut Evm)
+{
     var rng = Xorshift::seeded(cfg.seed)
     var i: u256 = 0
     while i < cfg.cases {
@@ -103,7 +151,9 @@ pub fn check_isolated<T: Arbitrary + Shrink + Encode + Copy>(_ cfg: Config, _ ha
                     var more = true
                     while more {
                         match cur.shrink_step(k) {
-                            Option::None => { more = false }
+                            Option::None => {
+                                more = false
+                            },
                             Option::Some(c) => {
                                 let rc = evaluate(harness, id, c, ISOLATED_GAS)
                                 if rc != REASON_HELD {
@@ -115,7 +165,7 @@ pub fn check_isolated<T: Arbitrary + Shrink + Encode + Copy>(_ cfg: Config, _ ha
                                 } else {
                                     k += 1
                                 }
-                            }
+                            },
                         }
                     }
                 }
@@ -124,7 +174,9 @@ pub fn check_isolated<T: Arbitrary + Shrink + Encode + Copy>(_ cfg: Config, _ ha
                     var more = true
                     while more {
                         match cur.joint_step(j) {
-                            Option::None => { more = false }
+                            Option::None => {
+                                more = false
+                            },
                             Option::Some(c) => {
                                 let rc = evaluate(harness, id, c, ISOLATED_GAS)
                                 if rc != REASON_HELD {
@@ -136,12 +188,20 @@ pub fn check_isolated<T: Arbitrary + Shrink + Encode + Copy>(_ cfg: Config, _ ha
                                 } else {
                                     j += 1
                                 }
-                            }
+                            },
                         }
                     }
                 }
             }
-            return IsoOutcome::Fail { original: x, shrunk: cur, case: i, seed: cfg.seed, steps, reason, original_reason: r0 }
+            return IsoOutcome::Fail {
+                original: x,
+                shrunk: cur,
+                case: i,
+                seed: cfg.seed,
+                steps,
+                reason,
+                original_reason: r0,
+            }
         }
         i += 1
     }

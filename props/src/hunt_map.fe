@@ -22,8 +22,12 @@ impl core::ops::Eq for CKey {
 }
 
 // spread keys: distinct 129-bit patterns
-fn spread(_ id: usize) -> u256 { (id as u256) * 0x10000000000000001 }
-fn clash(_ id: usize) -> CKey { CKey { id: id as u256 } }
+fn spread(_ id: usize) -> u256 {
+    (id as u256) * 0x10000000000000001
+}
+fn clash(_ id: usize) -> CKey {
+    CKey { id: id as u256 }
+}
 
 // command: (kind, key index, value byte). kind 0 insert, 1 get, 2 remove, 3 contains_key, 4 bulk insert of (value byte % 40) fresh keys
 // (ids 24 and up, so the table grows past its first capacity of 14), 5 clear (only when the value byte is a multiple of 16)
@@ -41,38 +45,52 @@ pub fn prop_hunt_hashmap_spread_keys(_ p: Seq<(Index<6>, Index<24>, u8), 12>) ->
         if kind == 0 {
             match map.insert(spread(id), v) {
                 Option::Some(old) => {
-                    if !present[id] || old != vals[id] { return false }
-                }
+                    if !present[id] || old != vals[id] {
+                        return false
+                    }
+                },
                 Option::None => {
-                    if present[id] { return false }
+                    if present[id] {
+                        return false
+                    }
                     count += 1
-                }
+                },
             }
             present[id] = true
             vals[id] = v
         } else if kind == 1 {
             match map.get(spread(id)) {
                 Option::Some(got) => {
-                    if !present[id] || got != vals[id] { return false }
-                }
+                    if !present[id] || got != vals[id] {
+                        return false
+                    }
+                },
                 Option::None => {
-                    if present[id] { return false }
-                }
+                    if present[id] {
+                        return false
+                    }
+                },
             }
         } else if kind == 2 {
             match map.remove(spread(id)) {
                 Option::Some(old) => {
-                    if !present[id] || old != vals[id] { return false }
+                    if !present[id] || old != vals[id] {
+                        return false
+                    }
                     count -= 1
-                }
+                },
                 Option::None => {
-                    if present[id] { return false }
-                }
+                    if present[id] {
+                        return false
+                    }
+                },
             }
             present[id] = false
             vals[id] = 0
         } else if kind == 3 {
-            if map.contains_key(spread(id)) != present[id] { return false }
+            if map.contains_key(spread(id)) != present[id] {
+                return false
+            }
         } else if kind == 4 {
             var j: usize = 0
             let n: usize = (cmd.2 % 40) as usize
@@ -81,12 +99,16 @@ pub fn prop_hunt_hashmap_spread_keys(_ p: Seq<(Index<6>, Index<24>, u8), 12>) ->
                 let bv = (bid as u256) + 1000
                 match map.insert(spread(bid), bv) {
                     Option::Some(old) => {
-                        if !present[bid] || old != vals[bid] { return false }
-                    }
+                        if !present[bid] || old != vals[bid] {
+                            return false
+                        }
+                    },
                     Option::None => {
-                        if present[bid] { return false }
+                        if present[bid] {
+                            return false
+                        }
                         count += 1
-                    }
+                    },
                 }
                 present[bid] = true
                 vals[bid] = bv
@@ -105,26 +127,45 @@ pub fn prop_hunt_hashmap_spread_keys(_ p: Seq<(Index<6>, Index<24>, u8), 12>) ->
             }
         }
         // the invariants after EVERY command
-        if !consistent_spread(map, present, vals, count) { return false }
+        if !consistent_spread(map, present, vals, count) {
+            return false
+        }
         c += 1
     }
     true
 }
 
-fn consistent_spread(_ map: HashMap<u256, u256>, _ present: [bool; 64], _ vals: [u256; 64], _ count: usize) -> bool {
-    if map.len() != count { return false }
-    if map.is_empty() != (count == 0) { return false }
-    if map.len() > map.capacity() { return false }
+fn consistent_spread(
+    _ map: HashMap<u256, u256>,
+    _ present: [bool; 64],
+    _ vals: [u256; 64],
+    _ count: usize,
+) -> bool {
+    if map.len() != count {
+        return false
+    }
+    if map.is_empty() != (count == 0) {
+        return false
+    }
+    if map.len() > map.capacity() {
+        return false
+    }
     var id: usize = 0
     while id < 64 {
-        if map.contains_key(spread(id)) != present[id] { return false }
+        if map.contains_key(spread(id)) != present[id] {
+            return false
+        }
         match map.get(spread(id)) {
             Option::Some(got) => {
-                if !present[id] || got != vals[id] { return false }
-            }
+                if !present[id] || got != vals[id] {
+                    return false
+                }
+            },
             Option::None => {
-                if present[id] { return false }
-            }
+                if present[id] {
+                    return false
+                }
+            },
         }
         id += 1
     }
@@ -147,38 +188,52 @@ pub fn prop_hunt_hashmap_colliding_keys(_ p: Seq<(Index<6>, Index<24>, u8), 12>)
         if kind == 0 {
             match map.insert(clash(id), v) {
                 Option::Some(old) => {
-                    if !present[id] || old != vals[id] { return false }
-                }
+                    if !present[id] || old != vals[id] {
+                        return false
+                    }
+                },
                 Option::None => {
-                    if present[id] { return false }
+                    if present[id] {
+                        return false
+                    }
                     count += 1
-                }
+                },
             }
             present[id] = true
             vals[id] = v
         } else if kind == 1 {
             match map.get(clash(id)) {
                 Option::Some(got) => {
-                    if !present[id] || got != vals[id] { return false }
-                }
+                    if !present[id] || got != vals[id] {
+                        return false
+                    }
+                },
                 Option::None => {
-                    if present[id] { return false }
-                }
+                    if present[id] {
+                        return false
+                    }
+                },
             }
         } else if kind == 2 {
             match map.remove(clash(id)) {
                 Option::Some(old) => {
-                    if !present[id] || old != vals[id] { return false }
+                    if !present[id] || old != vals[id] {
+                        return false
+                    }
                     count -= 1
-                }
+                },
                 Option::None => {
-                    if present[id] { return false }
-                }
+                    if present[id] {
+                        return false
+                    }
+                },
             }
             present[id] = false
             vals[id] = 0
         } else if kind == 3 {
-            if map.contains_key(clash(id)) != present[id] { return false }
+            if map.contains_key(clash(id)) != present[id] {
+                return false
+            }
         } else if kind == 4 {
             var j: usize = 0
             let n: usize = (cmd.2 % 40) as usize
@@ -187,12 +242,16 @@ pub fn prop_hunt_hashmap_colliding_keys(_ p: Seq<(Index<6>, Index<24>, u8), 12>)
                 let bv = (bid as u256) + 1000
                 match map.insert(clash(bid), bv) {
                     Option::Some(old) => {
-                        if !present[bid] || old != vals[bid] { return false }
-                    }
+                        if !present[bid] || old != vals[bid] {
+                            return false
+                        }
+                    },
                     Option::None => {
-                        if present[bid] { return false }
+                        if present[bid] {
+                            return false
+                        }
                         count += 1
-                    }
+                    },
                 }
                 present[bid] = true
                 vals[bid] = bv
@@ -211,26 +270,45 @@ pub fn prop_hunt_hashmap_colliding_keys(_ p: Seq<(Index<6>, Index<24>, u8), 12>)
             }
         }
         // the invariants after EVERY command
-        if !consistent_clash(map, present, vals, count) { return false }
+        if !consistent_clash(map, present, vals, count) {
+            return false
+        }
         c += 1
     }
     true
 }
 
-fn consistent_clash(_ map: HashMap<CKey, u256>, _ present: [bool; 64], _ vals: [u256; 64], _ count: usize) -> bool {
-    if map.len() != count { return false }
-    if map.is_empty() != (count == 0) { return false }
-    if map.len() > map.capacity() { return false }
+fn consistent_clash(
+    _ map: HashMap<CKey, u256>,
+    _ present: [bool; 64],
+    _ vals: [u256; 64],
+    _ count: usize,
+) -> bool {
+    if map.len() != count {
+        return false
+    }
+    if map.is_empty() != (count == 0) {
+        return false
+    }
+    if map.len() > map.capacity() {
+        return false
+    }
     var id: usize = 0
     while id < 64 {
-        if map.contains_key(clash(id)) != present[id] { return false }
+        if map.contains_key(clash(id)) != present[id] {
+            return false
+        }
         match map.get(clash(id)) {
             Option::Some(got) => {
-                if !present[id] || got != vals[id] { return false }
-            }
+                if !present[id] || got != vals[id] {
+                    return false
+                }
+            },
             Option::None => {
-                if present[id] { return false }
-            }
+                if present[id] {
+                    return false
+                }
+            },
         }
         id += 1
     }

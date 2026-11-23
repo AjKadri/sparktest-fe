@@ -158,6 +158,35 @@ fn replay_from_the_seed_in_the_failure_report() {
 
 Shrinking is greedy, so it stops at a local minimum. Over seeds 1 to 12 on this property, 10 reach (3, 1, 1) and 2 stop at other tiny single-share vaults ((18, 1, 271) and (8, 1, 41)); the quickstart test `most_seeds_reach_the_smallest_vault` records this.
 
+**6. Custom generators.** When a property needs inputs that satisfy a rule, give `check_gen` a generator instead of filtering or wrapping a raw number. Here the vault's three inputs are drawn inside their ranges, so the property needs no `== 0` guards, and shrinking never leaves a range: the same bug shrinks to the same smallest vault. `dependent(a, f)` draws a second value from a generator built from the first (see [docs/API.md](docs/API.md)); `Judged::Discard` drops cases whose premise fails and reports the discard rate.
+
+```fe-excerpt
+// the same bug with a custom generator: assets and shares in 1..=1000, the deposit in 1..=100, so the property needs no `== 0` guards
+fn never_profits_in_range(_ v: ((u256, u256), u256)) -> bool {
+    let assets: u128 = v.0.0.downcast_truncate()
+    let shares: u128 = v.0.1.downcast_truncate()
+    let amount: u128 = v.1.downcast_truncate()
+    let minted = shares_for_deposit(amount, assets, shares)
+    assets_for_shares(minted, assets + amount, shares + minted) <= amount
+}
+
+#[test]
+fn a_custom_generator_finds_the_same_vault_inside_its_ranges()
+uses (evm: mut Evm)
+{
+    let g = pair(pair(between(1, 1000), between(1, 1000)), between(1, 100))
+    match check_gen(Config::new(fixed_seed(2)), g, never_profits_in_range) {
+        Outcome::Pass { cases: _ } => {
+            assert!(false)
+        },
+        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _, early: _ } => {
+            // never below a range's lower bound: 3 assets, 1 share, a deposit of 1
+            assert!(shrunk.0.0 == 3 && shrunk.0.1 == 1 && shrunk.1 == 1)
+        },
+    }
+}
+```
+
 ## Features
 
 - **Generators**: `u8`, `u16`, `u32`, `u64`, `u128`, `u256`, `bool`, `Address`, tuples of 2 to 4, fixed arrays `[T; N]` (generic over element type and length), `Index<N>` (a value in 0..N-1 for picking from a small set) and `Seq<C, N>` (a sequence of up to N commands). User structs work by delegating to a tuple of their fields.
@@ -167,6 +196,10 @@ Shrinking is greedy, so it stops at a local minimum. Over seeds 1 to 12 on this 
 - **Checked helpers**: `checked_add`, `checked_sub`, `checked_mul` for `u8` to `u256`, returning `Option`, so an overflow inside a property is a reported failure instead of a panic.
 - **Contract testing**: properties can call deployed contracts; through `evm.try_call` a contract panic becomes a failed call that is found and shrunk.
 - **Panic recovery**: a property whose code panics (overflow, division by zero) is reported with its reason and shrunk: through a harness contract and `try_call` on sonatina, by bisect-and-replay on native and wasm.
+- **Custom generators**: a `Gen` trait (generate, shrink inside the domain, `contains`) with `between(lo, hi)`, `one_of`, `pair`, `dependent` ("an amount up to the balance") and `mapped`; `check_gen` runs a property over one, and a shrunk value never leaves the generator's domain.
+- **Assume**: a property can return `Discard`; discards are counted, and a run that discarded more than 90% of its cases, or accepted none, is reported as vacuous.
+- **Regression seeds**: `Config::with_regressions([seed, ...])` replays the seeds of earlier failures before the random cases and reports a failing one with its own seed.
+- **Signed integers**: `i8` to `i256` are generated (edge values min, -1, 0, 1, max) and shrunk toward 0.
 - **Vacuity guards**: a property records its calls and command kinds in a `Tally` (an effect), and `guard` reports a passing run that never exercised its premise (no call succeeded, or a command kind never ran) as vacuous instead of as a pass.
 - **Stateful testing**: random command sequences, an invariant checked after every command, failing sequences shrunk to the shortest.
 - **Three backends**: sonatina (the EVM test backend), native, and WebAssembly (the demo).
@@ -242,7 +275,7 @@ cd sparktest-fe
 
 # 3. check and test at the repository root
 fe check              # no output, exit code 0
-fe test               # test result: ok. 293 passed; 0 failed
+fe test               # test result: ok. 329 passed; 0 failed
 
 # 4. run every part of the suite
 ./scripts/test-all.sh   # exit code 0 when every part passes
@@ -253,15 +286,15 @@ The root `fe.toml` is a workspace of the sonatina (EVM) ingots: the library, its
 `test-all.sh` runs these parts and prints `ALL PARTS PASSED` at the end (counts from the last run):
 
 ```
-tests-evm (sonatina)                    124 passed
-tests-native (native)                   87 passed
+tests-evm (sonatina)                    155 passed
+tests-native (native)                   118 passed
 decode-revert (node)                    all decode-revert tests passed
 cross-check (sonatina vs native)        CROSS-CHECK: IDENTICAL (11/11)
-erc20 (sonatina only)                   vendored bodies byte-identical to upstream; 1 + 28 passed
+erc20 (sonatina only)                   vendored bodies byte-identical to upstream; 1 + 32 passed
 coolcoin (sonatina only)                3 + 120 passed (the Guide ERC-20, 10 mutants, 5 held-out mutants)
 rewards (sonatina only)                 3 passed
-quickstart example                      9 passed
-docs                                    README excerpts verbatim; 26 + 1 API examples compiled and passed
+quickstart example                      10 passed
+docs                                    README excerpts verbatim; 34 + 1 API examples compiled and passed
 proof suites                            proof: all expectations met and docs/PROOF.md is current
 isolated (sonatina)                     5 passed (panic recovery through a harness contract)
 web demo                                all 6 demo properties agree across wasm, sonatina (EVM) and native
@@ -300,6 +333,7 @@ Two kinds of result are labelled differently on the page. The counterexample and
 | planted bugs (pure code, sonatina and native) | vault rounding, fee overflow, balance underflow, packing shift, bounds off-by-one; each with a fixed version | 5 of 5 bugs found and shrunk (vault to 3 assets, 1 share, deposit 1; withdraw to balance 0, amount 1; pack to a=1, b=0; bounds to i=0, len=0); 5 of 5 fixed versions pass 256 cases; both backends identical |
 | ERC20 through contract calls (sonatina) | the ERC20 test fixture from the Fe compiler repo (`crates/fe/tests/fixtures/fe_test/erc20.fe` at e6e6342), 4 actor contracts, 64 cases per property | 6 of 6 properties hold on the unchanged fixture; a planted self-transfer bug is caught by 2 properties, both shrunk to exactly (0, 0, 1) with `Index<4>` actors (with raw `u8` actors, 1 of the 2 stops at (1, 1, 1); before joint shrinking one `Index<4>` result stopped at (3, 3, 1)) |
 | the Fe Guide's ERC-20 and a mutation test (sonatina) | the "Complete ERC20" example from https://fe-lang.org/examples/erc20/ (vendored unchanged), the 6 ERC20 properties and the stateful model check, then 10 single-change mutants | all 7 checks pass on the unchanged contract (none vacuous); 8 of 10 mutants caught, 2 missed with a probe-backed explanation each (an equivalent mutant, a dropped event); M10 (no MINTER check) was missed until the stateful command set got a Mint from any actor, and is now caught; 7 of 10 matched the pre-registered expectation exactly, 3 partly (M03 and M04 are now caught by P4 only: the stateful check lost power with a fifth command kind; M09 caught by more than the stateful run) |
+| generators, assume, regression seeds, signed (sonatina and native) | `between`, `one_of`, `pair`, `dependent`, `mapped` (shrinking stays in the domain, never below `lo`); a valid-transfer generator on the ERC20 fixture; discard counting with the vacuity verdict; a regression seed that fails on the buggy vault and passes on the fixed one; `i8` to `i256` | 32 tests pass on both backends; the valid-transfer property passes 64 of 64 calls on the unchanged fixture and finds the planted bug (shrunk to a self-transfer of 1); a weak premise discards 96% of 64 cases and is flagged vacuous, a premise that never holds is flagged with reason 2; the regression seed reproduces case 3, 178 shrink steps, (3, 1, 1) on both backends. Existing results are unchanged (gas moved by under 0.05% in all but one small row; see docs/EXPECTATIONS.md) |
 | held-out mutants (sonatina) | five NEW single changes of the Guide ERC-20 written after the tests were frozen (allowance raised instead of lowered, `transferFrom` debiting the spender, `mint` off by one, `approve` under the wrong key, `burn` not lowering the supply), expectations committed before they ran | 4 of 5 caught, 5 of 5 as predicted; the miss is `burn`, which no property or command calls (a probe shows it is a real difference); reported separately from M01 to M10 |
 | panic recovery (sonatina, native, wasm) | a property that overflows (`u64`), one that divides by zero, and a normal false-returning one, through `check_isolated`, `scripts/find-panic.sh` and the demo page | overflow shrunk to exactly 18446744073709552 and division by zero to (0, 0), each with the panic reason; the false-returning property gives the same result as `check`; first case, shrink steps and shrunk input identical on sonatina and native, and on wasm for the overflow property; one isolated evaluation costs about 1,500 gas |
 | a contract that panics (sonatina) | `examples/rewards`, overflow in `claim` | through `try_call`: found and shrunk to exactly 18446744073709552, the smallest overflowing stake; through a direct call the whole test reverts with Panic(0x11) and reports nothing |
@@ -311,6 +345,7 @@ Two kinds of result are labelled differently on the page. The counterexample and
 
 - Shrinking is greedy and finds a local minimum, not always the smallest input. After the one-component moves a tuple, array or sequence also tries three joint moves (all components together, groups of equal components together, moving an amount from an earlier slot to a later one), each only if it is strictly simpler; coupled components that none of these moves reaches still stop early. Example: the ERC20 self-transfer bug with raw `u8` actors stops at (1, 1, 1), because equal values are grouped by value and the amount 1 is in the same group as the two indices. Joint candidates are capped at 400 per step and are tried only at the top level, after the component candidates reach a fixed point. Shrinking still costs gas: against before joint shrinking, a failing run costs about 1.0x (the planted bank bug) to 6.5x (the fee overflow) as much; on the EVM, `sparktest_evm::check_gas` stops shrinking when less than 50,000,000 gas remains and reports the best input so far with an `early` flag, so a failure keeps its report instead of ending in `OutOfGas`.
 - With plain `check`, a property must not panic: a panic inside it ends the whole test with no report (use the checked helpers for arithmetic). Panics are recovered by new paths instead: on sonatina `check_isolated` runs each evaluation inside a harness contract through `try_call` (you write the harness: one contract, one line per property, because Fe contracts cannot be generic); on native `scripts/find-panic.sh` bisects to the first aborting case and shrinks by replay; the demo page does the same for a wasm trap. Not covered: properties that loop forever or run out of gas, panics in the generator or shrinker, `Seq` inputs on the isolated path (no `Decode` for `Seq`), and native recovery inside a test (it is a script around a separate executable). Details: [docs/DESIGN-panic-recovery.md](docs/DESIGN-panic-recovery.md).
+- Generators: `between` and `one_of` produce `u256` values (cast with `downcast_truncate()` for narrower types); `dependent` and `pair` shrink one component at a time plus, for `dependent`, both together, but have no general joint shrink; regression seeds are not honoured by `check_assume`; signed values shrink one component at a time inside a tuple. A discarded case is not replaced, so a weak premise lowers the number of cases actually tested (the discard rate says by how much).
 - Contract testing needs the EVM test backend (sonatina); native and wasm test pure code.
 - A guard only knows what a property records: calls and command kinds must be reported to the `Tally`, and the vacuity check does not judge whether a premise is strong enough (for example only 7 of 64 transfers succeed in P3 on the unchanged fixture with `Index<4>` actors; that is reported, not flagged).
 - The web demo's inputs are at most 64 bits (they cross the wasm boundary as scalars), and its properties are prebuilt: the page cannot compile your own Fe.

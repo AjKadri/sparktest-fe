@@ -1,8 +1,8 @@
 {
   "wasm": {
     "file": "demo_wasm.wasm",
-    "bytes": 71300,
-    "sha256": "dd1572587fda97522ff045dcd4b314caaccefbb44ce9e15f59c5a1cabeb237fe",
+    "bytes": 73106,
+    "sha256": "3b513768a08b7eacdd83eed76d5649c24114c8e3a3e0695e61e09de2abce977a",
     "imports": [
       "env.__fe_revert",
       "env.st_fail",

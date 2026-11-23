@@ -46,9 +46,9 @@ format() {
 }
 freshness() {
   python3 scripts/gen_widths.py && python3 scripts/gen_composite.py && python3 scripts/gen_checked.py && python3 scripts/gen_proof.py && python3 scripts/gen_erc20_tests.py && python3 scripts/gen_mutants.py \
-    && python3 scripts/gen_heldout_mutants.py && python3 scripts/gen_hunt.py \
+    && python3 scripts/gen_heldout_mutants.py && python3 scripts/gen_hunt.py && python3 scripts/gen_signed.py \
     && for d in sparktest props tests-evm proof-native tests-erc20 tests-coolcoin; do fe fmt "$d" >/dev/null 2>&1; done \
-    && git diff --exit-code -- sparktest/src/widths.fe sparktest/src/composite.fe sparktest/src/checked.fe props/src/proof_scenarios.fe props/src/hunt_map.fe tests-evm/src/proof.fe proof-native/src/lib.fe tests-erc20/src/original.fe tests-erc20/src/buggy.fe tests-erc20/src/original_idx.fe tests-erc20/src/buggy_idx.fe tests-erc20/src/stateful_orig.fe tests-erc20/src/stateful_bug.fe tests-erc20/src/vacuous_demo.fe tests-coolcoin/src examples/coolcoin-mutants examples/coolcoin-heldout \
+    && git diff --exit-code -- sparktest/src/widths.fe sparktest/src/composite.fe sparktest/src/checked.fe sparktest/src/signed.fe props/src/proof_scenarios.fe props/src/hunt_map.fe tests-evm/src/proof.fe proof-native/src/lib.fe tests-erc20/src/original.fe tests-erc20/src/buggy.fe tests-erc20/src/original_idx.fe tests-erc20/src/buggy_idx.fe tests-erc20/src/stateful_orig.fe tests-erc20/src/stateful_bug.fe tests-erc20/src/vacuous_demo.fe tests-coolcoin/src examples/coolcoin-mutants examples/coolcoin-heldout \
     && echo "generated files are up to date (regenerated, formatted, identical to the committed files)"
 }
 

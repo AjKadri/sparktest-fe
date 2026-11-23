@@ -1,0 +1,169 @@
+// Signed integers i8..i256 (L10), sonatina: edge values, shrinking toward 0, Encode/Decode. Expected values: docs/EXPECTATIONS.md, "L10".
+use std::evm::Evm
+use std::abi::DynArray
+use sparktest::{check, Config, Outcome, Arbitrary, Shrink, Encode, Decode, Xorshift}
+use sparktest_evm::fixed_seed
+
+#[test]
+fn i8_draws_reach_min_minus_one_zero_one_and_max() uses (evm: mut Evm) {
+    var rng = Xorshift::seeded(fixed_seed(10401))
+    var saw_min = false
+    var saw_m1 = false
+    var saw_0 = false
+    var saw_1 = false
+    var saw_max = false
+    var n: u256 = 0
+    while n < 1024 {
+        let v = <i8 as Arbitrary>::arbitrary(mut rng)
+        if v == -128 {
+            saw_min = true
+        }
+        if v == -1 { saw_m1 = true }
+        if v == 0 { saw_0 = true }
+        if v == 1 { saw_1 = true }
+        if v == 127 { saw_max = true }
+        n += 1
+    }
+    assert!(saw_min && saw_m1 && saw_0 && saw_1 && saw_max)
+}
+
+#[test]
+fn a_negative_bound_shrinks_to_the_boundary_value() uses (evm: mut Evm) {
+    match check(Config::new(fixed_seed(10402)), |x: i32| x >= -100) {
+        Outcome::Pass { cases: _ } => {
+            assert!(false)
+        },
+        Outcome::Fail { original, shrunk, case: _, seed: _, steps: _, early: _ } => {
+            assert!(original < -100)
+            assert!(shrunk == -101)
+        },
+    }
+}
+
+#[test]
+fn a_positive_bound_shrinks_to_the_boundary_value() uses (evm: mut Evm) {
+    match check(Config::new(fixed_seed(10403)), |x: i64| x < 100) {
+        Outcome::Pass { cases: _ } => {
+            assert!(false)
+        },
+        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _, early: _ } => {
+            assert!(shrunk == 100)
+        },
+    }
+}
+
+#[test]
+fn an_always_false_property_shrinks_to_zero() uses (evm: mut Evm) {
+    match check(Config::new(fixed_seed(10404)), |x: i128| false) {
+        Outcome::Pass { cases: _ } => {
+            assert!(false)
+        },
+        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _, early: _ } => {
+            assert!(shrunk == 0)
+        },
+    }
+}
+
+#[test]
+fn the_most_negative_value_is_found_and_cannot_shrink_further()
+uses (evm: mut Evm)
+{
+    match check(
+        Config::new(fixed_seed(10405)),
+        |x: i256| x != i256::min(),
+    ) {
+        Outcome::Pass { cases: _ } => {
+            assert!(false)
+        },
+        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _, early: _ } => {
+            assert!(shrunk == i256::min())
+        },
+    }
+}
+
+#[test]
+fn a_negative_value_tries_its_absolute_value_first() uses (evm: mut Evm) {
+    let x: i16 = -300
+    match x.shrink_step(0) {
+        Option::Some(c) => {
+            assert!(c == 0)
+        },
+        Option::None => {
+            assert!(false)
+        },
+    }
+    match x.shrink_step(1) {
+        Option::Some(c) => {
+            assert!(c == 300)
+        },
+        Option::None => {
+            assert!(false)
+        },
+    }
+    match x.shrink_step(2) {
+        Option::Some(c) => {
+            assert!(c == -150)
+        },
+        Option::None => {
+            assert!(false)
+        },
+    }
+    // the most negative value has no positive counterpart: its first magnitude candidate comes second
+    let m: i8 = -128
+    match m.shrink_step(1) {
+        Option::Some(c) => {
+            assert!(c == -64)
+        },
+        Option::None => {
+            assert!(false)
+        },
+    }
+    let z: i8 = 0
+    match z.shrink_step(0) {
+        Option::Some(_) => {
+            assert!(false)
+        },
+        Option::None => {},
+    }
+}
+
+#[test]
+fn encode_and_decode_round_trip_signed_values_and_reject_out_of_range_words()
+uses (evm: mut Evm)
+{
+    let a: i16 = -32768
+    let w = a.words()
+    assert!(
+        w.len() == 1
+            && w.get(0) == 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8000,
+    )
+    let (back, next) = <i16 as Decode>::decode(w, 0)
+    assert!(back == -32768 && next == 1)
+    let b: i8 = 127
+    let (back2, _) = <i8 as Decode>::decode(b.words(), 0)
+    assert!(back2 == 127)
+    // 200 is not an i8, nor is 0xff (a zero-extended -1)
+    var bad: [u256; 64] = [0; 64]
+    bad[0] = 200
+    assert!(<i8 as Decode>::fits(bad, 0) == 0)
+    bad[0] = 0xff
+    assert!(<i8 as Decode>::fits(bad, 0) == 0)
+    bad[0] = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+    assert!(<i8 as Decode>::fits(bad, 0) == 1)
+}
+
+#[test]
+fn signed_values_work_inside_tuples() uses (evm: mut Evm) {
+    match check(
+        Config::new(fixed_seed(10406)),
+        |p: (i8, i8)| (p.0 as i16) + (p.1 as i16) >= -10 || p.0 < -100 || p.1 < -100 || p.0 > 100,
+    ) {
+        Outcome::Pass { cases: _ } => {
+            assert!(false)
+        },
+        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _, early: _ } => {
+            // still a failure: the sum is below -10 (and both values within [-100, 100])
+            assert!((shrunk.0 as i16) + (shrunk.1 as i16) < -10)
+        },
+    }
+}

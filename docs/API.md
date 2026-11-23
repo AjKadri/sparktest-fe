@@ -24,6 +24,14 @@ assert!(c.seed == 7 && c.cases == 10 && c.max_shrinks == 5)
 assert!(Config::new(7).cases == 256 && Config::new(7).max_shrinks == 1000)
 ```
 
+### `Config::with_regressions([seed, ...])`: regression seeds
+At most 8 seeds of earlier failures. Each is run as a full run of `cases` cases (the stream `Config::new(seed)` would give) BEFORE the random cases of `seed`. A failing regression is reported with its own seed and the case index inside that seed's stream, so `Config::new(seed)` replays it. Honoured by `check`, `check_with`, `check_gen` and `check_gen_with` (not by `check_assume`). With no regression seeds the run is exactly the random run.
+```fe
+let c = Config::new(1).with_regressions([25286971856348077807, 42])
+assert!(c.n_regressions == 2 && c.regressions[0] == 25286971856348077807 && c.seed == 1)
+assert!(Config::new(1).n_regressions == 0)
+```
+
 ### `check_with(cfg, prop, stop) -> Outcome<T>`
 `check` with a third closure `stop: Fn() -> bool`, polled before every shrink evaluation; when it returns `true`, shrinking ends at once and the best input so far comes back with `early = true`. The core has no effects, so what "stop" means is the caller's: `sparktest_evm::check_gas` passes "remaining gas is below a margin". `check` is `check_with` with a `stop` that is never true.
 ```fe
@@ -133,6 +141,7 @@ assert!(out.len() == 2)
 |---|---|---|
 | `u256` | about 1 in 4 draws is an edge: 0, 1, 2, `MAX`, `MAX - 1`, 2^k, 2^k - 1, 2^k + 1; the rest are uniform | 0 |
 | `u8`, `u16`, `u32`, `u64`, `u128` | the same edge set within the width | 0 |
+| `i8`, `i16`, `i32`, `i64`, `i128`, `i256` | about 1 draw in 4 is an edge value (min, max, -1, 0, 1, 2, -2, +-2^k), the rest are uniform over all bit patterns; `Encode` is the sign-extended 256-bit word (-1 is 2^256 - 1) | 0: first 0, then (for a negative) its absolute value, then the magnitude halved toward 0 with the original sign. Joint shrinking sees a negative as a large word, so tuples of signed values shrink one component at a time |
 | `bool` | either | `false` |
 | `Address` | 160 random bits with edge values (zero address, `0x...01`, max address) | the zero address |
 | tuples of 2, 3 and 4 | each component | one component at a time, then joint moves (all together, equal components together, redistribution) |
@@ -188,6 +197,83 @@ var rng = Xorshift::seeded(3)
 assert!(bits_value(mut rng, 8) < 256)
 let x: u8 = 3
 assert!(count_candidates(x) == 3)   // 0, 3 - 1 = 2, then x - 1 = 2
+```
+
+## Custom generators: `Gen`
+
+A `Gen` generates a value from an `Rng`, offers shrink candidates that stay INSIDE its own domain, and says whether a value belongs to its domain. `check_gen(cfg, gen, prop)` runs a property over it and returns the same `Outcome` as `check`; `check_gen_with(cfg, gen, prop, stop)` is the version with a `stop` closure, and `sparktest_evm::check_gen_gas` is the gas-guarded one. The trait has an associated effect row, so a generator built from a closure forwards the closure's effects.
+
+```fe-trait
+trait Gen { uses E; type Value; fn generate<R: Rng>(self, rng: mut R) -> Value; fn shrink(self, x: Value, i: u256) -> Option<Value>; fn contains(self, x: Value) -> bool }
+```
+
+### `between(lo, hi)`
+An inclusive range of `u256` values. About 1 draw in 4 is `lo`, `lo + 1`, `hi - 1` or `hi`; the rest are uniform (modulo bias is ignored). It shrinks toward `lo` and never below it.
+```fe
+let o = check_gen(Config::new(fixed_seed(1)), between(100, 1000), |x: u256| x < 500)
+match o {
+    Outcome::Pass { cases: _ } => { assert!(false) }
+    Outcome::Fail { original: _, shrunk, case: _, seed: _, steps: _, early: _ } => { assert!(shrunk == 500) }
+}
+// a property that always fails shrinks to the lower bound, not to 0
+let s = summarize(check_gen(Config::new(fixed_seed(1)), between(100, 1000), |x: u256| false))
+assert!(s.shrunk[0] == 100)
+```
+
+### `one_of([a, b, c])`
+A value from a small set of `u256`s; it shrinks toward earlier elements.
+```fe
+let s = summarize(check_gen(Config::new(fixed_seed(1)), one_of([5, 3, 9]), |x: u256| x != 3 && x != 9))
+assert!(s.shrunk[0] == 3)
+```
+
+### `pair(a, b)`
+Two independent generators; the value is a tuple. It shrinks the first, then the second.
+```fe
+let g = pair(between(5, 50), between(100, 200))
+let s = summarize(check_gen(Config::new(fixed_seed(1)), g, |p: (u256, u256)| p.0 + p.1 < 130))
+assert!(s.failed == 1 && s.shrunk[0] >= 5 && s.shrunk[1] >= 100)
+```
+
+### `dependent(a, f)`
+Generate `a`, then the second value from the generator `f(a)`: "an amount up to the balance". The value is `(a, b)`. Shrinking tries `b` first (inside `f(a)`), then a smaller `a` that `f(a')` still accepts, then both together, so it never leaves the domain.
+```fe
+let g = dependent(between(1, 1000), |balance: u256| between(0, balance))
+let s = summarize(check_gen(Config::new(fixed_seed(1)), g, |v: (u256, u256)| v.1 <= v.0 / 2))
+assert!(s.failed == 1 && s.shrunk[0] == 1 && s.shrunk[1] == 1)   // never an amount above the balance
+```
+
+### `mapped(g, f, inverse)`
+The values of `g` seen through `f`. `inverse` must recover the source value (so `f` is a bijection on the domain); shrinking shrinks the source and maps again.
+```fe
+let g = mapped(between(0, 100), |x: u256| x * 2, |y: u256| y / 2)
+let s = summarize(check_gen(Config::new(fixed_seed(1)), g, |y: u256| y < 50))
+assert!(s.shrunk[0] == 50)
+```
+
+### `check_gen_gas(cfg, gen, prop)` (`sparktest_evm`)
+`check_gen` with the same gas guard as `check_gas`: shrinking stops when the remaining gas is below `GAS_MARGIN` and the best input so far comes back with `early = true`. `check_gen_gas_with_margin` chooses the margin.
+```fe
+let s = summarize(check_gen_gas(Config::new(fixed_seed(1)), between(0, 1000000), |x: u256| x < 12345))
+assert!(s.failed == 1 && s.early == 0 && s.shrunk[0] == 12345)
+```
+
+## Discarding cases: `assume`
+
+A property can return `Judged::Holds`, `Judged::Fails` or `Judged::Discard`. `judged(ok)` maps a boolean; `assuming(premise, holds)` is `Discard` when the premise is false (both arguments are evaluated first: use an early `return Judged::Discard` when evaluating `holds` is only valid under the premise). `check_assume(cfg, prop)` and `check_gen_assume(cfg, gen, prop)` run it and return an `AssumeResult { outcome, cases, discarded }`. A discarded case is counted and not replaced (the case budget includes the discards), and during shrinking a discarded candidate is not a failure, so a shrunk input always satisfies the premise.
+
+`discard_percent(r)` is the share discarded in whole percent. `assume_guard(r, max_percent)` returns the existing `Verdict`: `Failed` if the property failed; `Vacuous { reason: 2 }` if no case was accepted; `Vacuous { reason: VACUOUS_TOO_MANY_DISCARDS }` (100) if MORE than `max_percent` percent were discarded (`DEFAULT_MAX_DISCARD_PERCENT` is 90); else `Held`.
+```fe
+// "assume x <= 250" over a raw u32: only edge values satisfy it, so most cases are discarded
+let r = check_assume(Config::new(fixed_seed(1)), |x: u32| assuming(x <= 250, true))
+assert!(discard_percent(r) > 50)
+// a premise that never holds is vacuous (reason 2: nothing was accepted)
+let never = check_assume(Config::new(fixed_seed(1)), |x: u32| assuming(x == 12345, true))
+match assume_guard(never, DEFAULT_MAX_DISCARD_PERCENT) {
+    Verdict::Vacuous { reason } => { assert!(reason == VACUOUS_NONE_SUCCEEDED) }
+    Verdict::Held => { assert!(false) }
+    Verdict::Failed => { assert!(false) }
+}
 ```
 
 ## Vacuity guards (contract and stateful properties)

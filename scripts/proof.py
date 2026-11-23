@@ -112,6 +112,8 @@ try:
     sections.append(proof_rewards.section(run, problems))
     import proof_stdhunt
     sections.append(proof_stdhunt.section(run, problems))
+    import proof_l10
+    sections.append(proof_l10.section(run, problems))
 except ImportError:
     pass
 

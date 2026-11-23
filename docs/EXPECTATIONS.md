@@ -379,3 +379,24 @@ Gas: with no regressions listed the new loop is predicted to be folded away by t
 | 3 regression | the vault bug with the quickstart seed 25286971856348077807 listed and `with_cases(256)`: the buggy version fails with `seed == 25286971856348077807`, case index 2, 178 steps, shrunk (3, 1, 1); the fixed version (rounding down) passes; with no regressions listed the results equal L9's |
 | 4 signed (only if time remains) | edge values include min, -1, 0, 1, max; shrinking goes toward 0 (a negative value tries its absolute value first); `x * x >= 0` over `i8` fails on overflow only through a checked helper |
 | 5 unchanged | cross-check IDENTICAL (11/11); `./scripts/proof.sh --check` passes with no edit to the existing rows; `./scripts/record-evm.sh --check` passes |
+
+### L10 results (amendment rows, 2026-11-23; measured after the pre-registration commit ea5329a)
+Rows above are not edited.
+| prediction | found | as expected |
+|---|---|---|
+| gas of every existing run exactly unchanged (the empty regression loop folded away) | **No.** `web/recorded.json` is unchanged (the demo runs fold it: `saturating_add` 222,261 gas as before), but 49 gas figures in PROOF.md moved: median +0.0008%, all but one under 0.05% (`withdraw_buggy` 207,540 to 207,642), the largest +1.6% on a small row (`Seq<Index<3>, 8>` 80,903 to 82,199). Every non-gas value (cases, steps, shrunk inputs, verdicts) in PROOF.md is identical; cross-check IDENTICAL (11/11); `record-evm.sh --check` passes. Cause: scenarios that pass the seed as a runtime value keep the loop | **no** (gas) / yes (results) |
+| `between(10, 1000)`, `x < 500`: 500 | 500 (both backends) | yes |
+| `between(100, 1000)`, always false: 100 | 100 | yes |
+| `one_of([5, 3, 9])`: 3 | 3 | yes |
+| `mapped`: 50 | 50 | yes |
+| `dependent`, `amount <= balance` passes; `amount <= balance / 2`: (1, 1) | passes; **sonatina reached (1, 1) but native stopped at a local minimum** (the two backends use different `fixed_seed`s, so different starts): amount 2 under balance 2 cannot move one component at a time. Fixed by a third shrink phase (a smaller first value with a smaller second value its generator contains); then both backends give (1, 1) | **partly** (found by running native) |
+| ERC20 valid transfer: unchanged fixture passes 64, all calls succeed | 64 / 64 calls accepted, not vacuous | yes |
+| ERC20 valid transfer: planted bug fails, sender == receiver, amount 1 | fails at case 7 with 0 shrink steps, (1, 1, 1): the first failure was already minimal | yes |
+| `check_gen_gas` equals `check_gen` (early = 0) | API example `check_gen_gas` gives 12345, `early == 0` | yes |
+| weak premise (`u32`, `x <= 250`): discard rate 70% to 95% | within 70% to 95% on both backends (asserted). On the ERC20 fixture with `amount <= 1000` and 64 cases (not predicted separately): 62 of 64 discarded, 96%, flagged vacuous with reason 100 | yes (the fixture variant crossed 90%) |
+| `assume(x == 12345)`: reason 2; `assume(x == 0)` over `u64`: more than 90%, accepted, reason 100 | both as predicted on both backends | yes |
+| regression seed 25286971856348077807: buggy fails with that seed, case 2, 178 steps, (3, 1, 1); fixed passes; no regressions equals the random run | exactly that, on sonatina and native | yes |
+| more than 8 regression seeds | refused (`assert`), tested with `should_revert` | yes |
+| signed (done): edges, shrink toward 0, absolute value first | i8 draws reach -128, -1, 0, 1, 127; `x >= -100` over `i32` shrinks to -101; `x < 100` over `i64` to 100; always false over `i128` to 0; `x != min` over `i256` finds `min`; a negative tries 0, then its absolute value, then the halved magnitude; Encode is the sign-extended word and `fits` rejects 200 and 0xff for `i8`. One of MY properties overflowed (`i8 + i8`); fixed with `i16` casts | yes |
+| `x * x >= 0` over `i8` fails on overflow only through a checked helper | not tested (the checked helpers are unsigned) | not done |
+Limits found: `between` and `one_of` produce `u256`, so narrower types need a cast (the quickstart example uses `downcast_truncate()`); a `Seq` cannot be a tuple component (L9); joint shrinking sees a negative as a large word.

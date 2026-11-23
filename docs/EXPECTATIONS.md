@@ -299,3 +299,34 @@ The nested ones (`Seq` of tuples) got cheap because joint candidates were enumer
 
 Step 2/3: `check_gas` (margin 50,000,000). The test `expensive_shrink_stops_early_instead_of_running_out_of_gas` (a property costing about 20M gas per evaluation) passes with `early = 1`, a shrunk input that still fails (235, from 8446975623834719884; the minimum is 1), and 43,456,686 gas left (below the margin, within one evaluation of it as predicted).
 The control, plain `check` on the same property and seed: `Test halted: OutOfGas(Basic) (gas: 1000000000)`.
+
+## L9 std hunt, held-out mutants, formatting, CI (2026-11-23, written BEFORE any run of this step)
+
+Rows above are unchanged. The library (`sparktest/`, `sparktest-evm/`, `sparktest-native/`) is frozen: this step adds tests, generated test files for new mutants, formatting and CI only.
+
+### Step 1: std hunt. Every property below is predicted to PASS (a failure is first suspected to be a mistake in our property; only then reduced to a repro)
+Sonatina and native wherever the API exists on both (`core::*` on both; `std::evm::random` is sonatina only). 64 cases per property unless a loop makes that expensive.
+| area | properties (all expected to pass) |
+|---|---|
+| a) `core::map::HashMap<u256, u256>` | one stateful property over `(prefill, Seq<command, 12>)`: `prefill` (0..39) distinct keys are inserted first so the table grows past its 14-entry first capacity (16 slots, 7/8 load) even when the commands are few; commands: insert (new key or overwrite), get, remove (then possibly re-insert), contains_key, clear; keys come from 24 indices spread as `k * 0x10000000000000001`. After EVERY command: `len()` equals the model's count, `is_empty()` agrees, and for every key index the contents (`contains_key`, `get`) equal the reference model (two fixed arrays: present flags and values). `insert` returns the old value exactly when the model has one; `remove` returns the stored value. Expected: pass on both backends |
+| b) `core::fixed` (`Wad` = `UFixed<18>`, `Fixed<18>`, `UFixed<27>`) | 12 properties with raw values below 2^128 so a widened `u256` model is exact: raw round trip; `from_int`/`floor_int`/`ceil_int`; `(a + b) - b == a`; `mul` equals `a*b/10^18`; `mul_up` equals the ceiling; `div` equals `a*10^18/b`; `div_up` equals the ceiling; `mul` is monotonic in either argument; `rescale` up and down and back equals the model (down floors); `sqrt` is the integer square root of `raw * 10^18` (`s^2 <= x < (s+1)^2`); signed `mul` and `div` truncate toward zero like the model; `Ord` agrees with raw order. Expected: pass on both backends |
+| c) `core::text` | 8 properties: `parse_uint(decimal(x)) == x` (inputs include 10^k - 1, 10^k and 10^k + 1 for every k, the boundaries of the digit estimate in `decimal`); `decimal(x)` has exactly the digits of x; `parse_hex_uint(hex(x, 32)) == x` and `hex` has `2 * bytes` digits and `hex_upper` is its uppercase; `decode_hex(hex)` returns the bytes; `base64` and `base58` round trips (base58 with leading zero bytes); `split(sep)` then `concat` with the separator gives back the text, and the piece count is one more than the separator count; `UFixed::parse` of `"i.f"` built with `decimal` equals the model. Expected: pass on both backends |
+| d) `std::evm::random` (sonatina only) | 5 properties: the same seed gives the same word stream (`KeccakRng`); `uniform(upper) < upper` for any `upper > 0`; `shuffle` returns a permutation of the input (same multiset); `chance(0, d)` is never true and `chance(d, d)` always; two different seeds give different first words. Expected: pass |
+Expected result of the whole step: no bug found. If a property fails, the report says whether our property was wrong; a real divergence becomes a minimal repro in `repros/` marked "candidate Fe bug" in HANDOFF.md and is not filed.
+
+### Step 2: held-out mutants (five NEW single changes of the Fe Guide CoolCoin; the test templates are not changed, only a new loop generates their files)
+Written now, before any of them runs. Score is over the five; "caught by" lists the properties I expect to fail (P1 to P6 and the stateful check, 64 cases).
+| mutant | single change | expected | by |
+|---|---|---|---|
+| H01 | `spend_allowance` RAISES the allowance (`current + amount`) instead of lowering it | caught | P4 (allowance 1, amount 1); stateful uncertain (M03 and M04 are no longer caught by it in 64 cases) |
+| H02 | `transferFrom` debits the SPENDER (`store.transfer(from: ctx.caller(), ...)`) instead of the owner | caught | P4 (the owner's balance does not drop, or the spender's balance is too small and the call fails); stateful uncertain |
+| H03 | `mint` credits the receiver `amount + 1` (off by one) | caught | P6 and stateful (the constructor mints through `mint`, so balances exceed `total_supply` from deployment) |
+| H04 | `approve` stores the allowance under `(owner, owner)` instead of `(owner, spender)` | caught | P4 and P5 (and stateful) |
+| H05 | `burn` no longer lowers `total_supply` | **missed** | none: no property or command calls `burn` (the burn commands are not in the stateful set); a probe will show the mutant really differs from the original |
+Predicted held-out score: 4 of 5 caught. Predicted counterexamples: H01 owner 0, spender 0 (or any), allowance 1, amount 1; H04 allowance 1; H03 a first command or P6 with any input.
+
+### Step 3: `fe fmt`
+`fe fmt` exists in 26.7.0. Prediction: it rewrites many files (the repository has been written by hand without it), including the GENERATED ones, so the freshness check (generators then `git diff --exit-code`) will fail after formatting unless the generated files are formatted again after generation; the freshness part will therefore run `fe fmt` on the generated paths before the diff. Formatting must not change any result (test counts, PROOF.md, recordings): the run after it is expected to match the one before, apart from the demo wasm bytes only if formatting changes the compiled code (not expected).
+
+### Step 4: CI
+Cannot be run here (no push). Predicted portability issues, by reading the scripts (before the grep): BSD `sed -i ''` or `shasum` in `scripts/*.sh` and `*.py`, `date` flags, `mktemp` forms, `timeout`. CI is "added", not "passed": the README keeps "Tested on macOS (Apple Silicon) only" until a CI run has passed.

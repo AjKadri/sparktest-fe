@@ -1,0 +1,418 @@
+// Custom generators (L10). A `Gen` generates a value from an `Rng`, offers shrink candidates that stay INSIDE its own domain, and says whether a
+// value belongs to its domain. `check_gen` runs a property over a generator and returns the same `Outcome` as `check`.
+// The trait has an associated effect row `E`, so a combinator that holds a closure (`dependent`, `mapped`) forwards the closure's effects.
+use core::marker::Copy
+use ingot::{Rng, Shrink, Outcome, Config, full_word, MAX}
+
+pub trait Gen {
+    uses E
+    type Value: Copy
+
+    fn generate<R: Rng>(self, _ rng: mut R) -> Self::Value uses E
+
+    // the i-th simpler candidate for `x`, inside the domain; None once exhausted
+    fn shrink(self, _ x: Self::Value, _ i: u256) -> Option<Self::Value> uses E
+
+    // does the domain contain `x`
+    fn contains(self, _ x: Self::Value) -> bool uses E
+}
+
+// ---- between(lo, hi): an inclusive range of u256 values ----
+pub struct Between { pub lo: u256, pub hi: u256 }
+
+// Inclusive on both ends. About 1 draw in 4 is `lo`, `lo + 1`, `hi - 1` or `hi`; the rest are uniform (modulo bias is ignored). Shrinks toward `lo`, never below it.
+pub fn between(_ lo: u256, _ hi: u256) -> Between {
+    assert!(lo <= hi)
+    Between { lo, hi }
+}
+
+impl Gen for Between {
+    uses E = ()
+    type Value = u256
+
+    fn generate<R: Rng>(self, _ rng: mut R) -> u256 {
+        let span = self.hi - self.lo
+        if rng.next() % 4 == 0 {
+            let pick = rng.next() % 4
+            if pick == 0 {
+                return self.lo
+            }
+            if pick == 1 {
+                return self.hi
+            }
+            if pick == 2 {
+                return if span >= 1 { self.lo + 1 } else { self.lo }
+            }
+            return if span >= 1 { self.hi - 1 } else { self.hi }
+        }
+        if span == MAX {
+            return full_word(mut rng)
+        }
+        self.lo + full_word(mut rng) % (span + 1)
+    }
+
+    fn shrink(self, _ x: u256, _ i: u256) -> Option<u256> {
+        if x <= self.lo {
+            return Option::None
+        }
+        match (x - self.lo).shrink_step(i) {
+            Option::Some(d) => Option::Some(self.lo + d),
+            Option::None => Option::None,
+        }
+    }
+
+    fn contains(self, _ x: u256) -> bool {
+        x >= self.lo && x <= self.hi
+    }
+}
+
+// ---- one_of([..]): a value from a small set; shrinks toward earlier elements ----
+pub struct OneOf<const N: usize> { pub items: [u256; N] }
+
+pub fn one_of<const N: usize>(_ items: [u256; N]) -> OneOf<N> {
+    assert!(N > 0)
+    OneOf { items }
+}
+
+impl<const N: usize> Gen for OneOf<N> {
+    uses E = ()
+    type Value = u256
+
+    fn generate<R: Rng>(self, _ rng: mut R) -> u256 {
+        let k: usize = (rng.next() % (N as u256)).downcast_truncate()
+        self.items[k]
+    }
+
+    // candidates: the elements before the first occurrence of `x`, earliest first
+    fn shrink(self, _ x: u256, _ i: u256) -> Option<u256> {
+        var pos: usize = 0
+        while pos < N && self.items[pos] != x {
+            pos += 1
+        }
+        if i < (pos as u256) {
+            let k: usize = i.downcast_truncate()
+            return Option::Some(self.items[k])
+        }
+        Option::None
+    }
+
+    fn contains(self, _ x: u256) -> bool {
+        var k: usize = 0
+        while k < N {
+            if self.items[k] == x {
+                return true
+            }
+            k += 1
+        }
+        false
+    }
+}
+
+// the number of shrink candidates a generator offers for `x`
+fn gen_count<G: Gen>(_ g: G, _ x: G::Value) -> u256 uses G::E {
+    var k: u256 = 0
+    var more = true
+    while more {
+        match g.shrink(x, k) {
+            Option::Some(_) => {
+                k += 1
+            },
+            Option::None => {
+                more = false
+            },
+        }
+    }
+    k
+}
+
+// ---- pair(a, b): two independent generators; shrinks the first, then the second ----
+pub struct PairGen<A, B> { pub a: A, pub b: B }
+
+pub fn pair<A: Gen, B: Gen>(_ a: own A, _ b: own B) -> PairGen<A, B> {
+    PairGen { a, b }
+}
+
+impl<A: Gen, B: Gen> Gen for PairGen<A, B> {
+    uses E = (A::E, B::E)
+    type Value = (A::Value, B::Value)
+
+    fn generate<R: Rng>(self, _ rng: mut R) -> (A::Value, B::Value)
+    uses E
+    {
+        let x = self.a.generate(mut rng)
+        let y = self.b.generate(mut rng)
+        (x, y)
+    }
+
+    fn shrink(self, _ v: (A::Value, B::Value), _ i: u256) -> Option<(A::Value, B::Value)>
+    uses E
+    {
+        let na = gen_count(self.a, v.0)
+        if i < na {
+            match self.a.shrink(v.0, i) {
+                Option::Some(x) => {
+                    return Option::Some((x, v.1))
+                },
+                Option::None => {
+                    return Option::None
+                },
+            }
+        }
+        match self.b.shrink(v.1, i - na) {
+            Option::Some(y) => Option::Some((v.0, y)),
+            Option::None => Option::None,
+        }
+    }
+
+    fn contains(self, _ v: (A::Value, B::Value)) -> bool uses E {
+        self.a.contains(v.0) && self.b.contains(v.1)
+    }
+}
+
+// ---- dependent(a, f): generate `a`, then `b` from the generator `f(a)` ("an amount up to the balance") ----
+pub struct Dependent<A, F> { pub first: A, pub next: F }
+
+// `f` takes the first value and returns the generator of the second. Shrinking tries the second value first (inside `f(a)`), then a smaller first
+// value, which is kept only if `f(a')` still contains the second value, then both together (a smaller first value with a smaller second value inside `f(a')`).
+pub fn dependent<A: Gen, F: Fn(A::Value) -> _>(_ first: own A, _ next: own F) -> Dependent<A, F>
+where F::Out: Gen
+{
+    Dependent { first, next }
+}
+
+impl<A: Gen, F: Fn(A::Value) -> _> Gen for Dependent<A, F>
+where F::Out: Gen, A::Value: Copy, F::Out::Value: Copy {
+    uses E = (A::E, F::E, F::Out::E)
+    type Value = (A::Value, F::Out::Value)
+
+    fn generate<R: Rng>(self, _ rng: mut R) -> (A::Value, F::Out::Value)
+    uses E
+    {
+        let a = self.first.generate(mut rng)
+        let g2 = (self.next)(a)
+        let b = g2.generate(mut rng)
+        (a, b)
+    }
+
+    fn shrink(self, _ v: (A::Value, F::Out::Value), _ i: u256) -> Option<(A::Value, F::Out::Value)>
+    uses E
+    {
+        let a = v.0
+        let b = v.1
+        let g2 = (self.next)(a)
+        let nb = gen_count(g2, b)
+        if i < nb {
+            match g2.shrink(b, i) {
+                Option::Some(b2) => {
+                    return Option::Some((a, b2))
+                },
+                Option::None => {
+                    return Option::None
+                },
+            }
+        }
+        var j = i - nb
+        var k: u256 = 0
+        var more = true
+        while more {
+            match self.first.shrink(a, k) {
+                Option::None => {
+                    more = false
+                },
+                Option::Some(a2) => {
+                    if (self.next)(a2).contains(b) {
+                        if j == 0 {
+                            return Option::Some((a2, b))
+                        }
+                        j -= 1
+                    }
+                    k += 1
+                },
+            }
+        }
+        // both together: a smaller first value with a smaller second value that its generator contains (without this, (2, 2) is a local minimum
+        // of "amount <= balance / 2": the amount cannot drop to 1 under balance 2, and the balance cannot drop to 1 while the amount is 2)
+        k = 0
+        more = true
+        while more {
+            match self.first.shrink(a, k) {
+                Option::None => {
+                    more = false
+                },
+                Option::Some(a2) => {
+                    let g3 = (self.next)(a2)
+                    var m: u256 = 0
+                    var more2 = true
+                    while more2 {
+                        match g3.shrink(b, m) {
+                            Option::None => {
+                                more2 = false
+                            },
+                            Option::Some(b2) => {
+                                if g3.contains(b2) {
+                                    if j == 0 {
+                                        return Option::Some((a2, b2))
+                                    }
+                                    j -= 1
+                                }
+                                m += 1
+                            },
+                        }
+                    }
+                    k += 1
+                },
+            }
+        }
+        Option::None
+    }
+
+    fn contains(self, _ v: (A::Value, F::Out::Value)) -> bool uses E {
+        self.first.contains(v.0) && (self.next)(v.0).contains(v.1)
+    }
+}
+
+// ---- mapped(g, f, inverse): the values of `g` seen through `f` ----
+pub struct Mapped<G, F, I> { pub source: G, pub forward: F, pub inverse: I }
+
+// `inverse` must recover the source value of a mapped value (so `f` is a bijection on the domain); shrinking shrinks the source and maps again.
+pub fn mapped<G: Gen, F: Fn(G::Value) -> _, I: Fn(F::Out) -> G::Value>(
+    _ source: own G,
+    _ forward: own F,
+    _ inverse: own I,
+) -> Mapped<G, F, I>
+where F::Out: Copy
+{
+    Mapped { source, forward, inverse }
+}
+
+impl<G: Gen, F: Fn(G::Value) -> _, I: Fn(F::Out) -> G::Value> Gen for Mapped<G, F, I>
+where F::Out: Copy {
+    uses E = (G::E, F::E, I::E)
+    type Value = F::Out
+
+    fn generate<R: Rng>(self, _ rng: mut R) -> F::Out uses E {
+        (self.forward)(self.source.generate(mut rng))
+    }
+
+    fn shrink(self, _ x: F::Out, _ i: u256) -> Option<F::Out> uses E {
+        let a = (self.inverse)(x)
+        match self.source.shrink(a, i) {
+            Option::Some(a2) => Option::Some((self.forward)(a2)),
+            Option::None => Option::None,
+        }
+    }
+
+    fn contains(self, _ x: F::Out) -> bool uses E {
+        self.source.contains((self.inverse)(x))
+    }
+}
+
+// ---- running a property over a generator ----
+// greedy shrinking, as in `check`: the first candidate that still fails is taken, repeat; `stop` is polled before every evaluation.
+// Returns (shrunk, accepted steps, stopped early).
+fn gen_shrink_loop<G: Gen, P: Fn(G::Value) -> bool, B: Fn() -> bool>(
+    _ g: G,
+    _ start: G::Value,
+    _ prop: P,
+    _ max_shrinks: u256,
+    _ stop: B,
+) -> (G::Value, u256, bool)
+uses (G::E, P::E, B::E)
+{
+    var cur = start
+    var steps: u256 = 0
+    var early = false
+    var progressed = true
+    while progressed && steps < max_shrinks && !early {
+        progressed = false
+        var k: u256 = 0
+        var more = true
+        while more {
+            match g.shrink(cur, k) {
+                Option::None => {
+                    more = false
+                },
+                Option::Some(c) => {
+                    if stop() {
+                        early = true
+                        more = false
+                    } else if !prop(c) {
+                        cur = c
+                        steps += 1
+                        progressed = true
+                        more = false
+                    } else {
+                        k += 1
+                    }
+                },
+            }
+        }
+    }
+    (cur, steps, early)
+}
+
+fn gen_run_seed<G: Gen, P: Fn(G::Value) -> bool, B: Fn() -> bool>(
+    _ g: G,
+    _ seed: u256,
+    _ cases: u256,
+    _ max_shrinks: u256,
+    _ prop: P,
+    _ stop: B,
+) -> Option<Outcome<G::Value>>
+uses (G::E, P::E, B::E)
+{
+    var rng = ingot::Xorshift::seeded(seed)
+    var i: u256 = 0
+    while i < cases {
+        let x = g.generate(mut rng)
+        if !prop(x) {
+            let (cur, steps, early) = gen_shrink_loop(g, x, prop, max_shrinks, stop)
+            return Option::Some(
+                Outcome::Fail { original: x, shrunk: cur, case: i, seed, steps, early },
+            )
+        }
+        i += 1
+    }
+    Option::None
+}
+
+// `check` for a custom generator: same `Config` (cases, seed, max_shrinks, regression seeds), same `Outcome`. Shrinking stays inside the generator's domain.
+pub fn check_gen<G: Gen, P: Fn(G::Value) -> bool>(_ cfg: Config, _ g: own G, _ prop: P) -> Outcome<
+    G::Value,
+>
+uses (G::E, P::E)
+{
+    check_gen_with(cfg, g, prop, || false)
+}
+
+// `check_gen` with a `stop` closure polled before every shrink evaluation (see `check_with`); `sparktest_evm::check_gen_gas` passes the gas guard.
+pub fn check_gen_with<G: Gen, P: Fn(G::Value) -> bool, B: Fn() -> bool>(
+    _ cfg: Config,
+    _ g: own G,
+    _ prop: P,
+    _ stop: B,
+) -> Outcome<G::Value>
+uses (G::E, P::E, B::E)
+{
+    var reg: usize = 0
+    while reg < cfg.n_regressions {
+        match gen_run_seed(
+            g,
+            cfg.regressions[reg],
+            cfg.cases,
+            cfg.max_shrinks,
+            prop,
+            stop,
+        ) {
+            Option::Some(o) => {
+                return o
+            },
+            Option::None => {},
+        }
+        reg += 1
+    }
+    match gen_run_seed(g, cfg.seed, cfg.cases, cfg.max_shrinks, prop, stop) {
+        Option::Some(o) => o,
+        Option::None => Outcome::Pass { cases: cfg.cases },
+    }
+}

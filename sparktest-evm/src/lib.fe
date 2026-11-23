@@ -15,7 +15,7 @@ pub use isolated::{
     REASON_NO_DATA,
     REASON_PANIC_BASE,
 }
-use sparktest::{Outcome, Encode, Config, Arbitrary, Shrink, check_with}
+use sparktest::{Outcome, Encode, Config, Arbitrary, Shrink, check_with, Gen, check_gen_with}
 
 #[error]
 pub struct PropertyFailed {
@@ -67,6 +67,29 @@ pub fn check_gas_with_margin<T: Arbitrary + Shrink + Copy, P: Fn(T) -> bool>(
 uses (P::E, evm: mut Evm)
 {
     check_with(cfg, prop, || evm.gas() < margin)
+}
+
+// `check_gen` with the same gas guard as `check_gas`: shrinking stops when the remaining gas is below `margin` (or GAS_MARGIN) and the best input so far
+// comes back with `early = true`.
+pub fn check_gen_gas_with_margin<G: Gen, P: Fn(G::Value) -> bool>(
+    _ cfg: Config,
+    _ g: own G,
+    _ prop: P,
+    _ margin: u256,
+) -> Outcome<G::Value>
+uses (G::E, P::E, evm: mut Evm)
+{
+    check_gen_with(cfg, g, prop, || evm.gas() < margin)
+}
+
+pub fn check_gen_gas<G: Gen, P: Fn(G::Value) -> bool>(
+    _ cfg: Config,
+    _ g: own G,
+    _ prop: P,
+) -> Outcome<G::Value>
+uses (G::E, P::E, evm: mut Evm)
+{
+    check_gen_with(cfg, g, prop, || evm.gas() < GAS_MARGIN)
 }
 
 pub fn check_gas<T: Arbitrary + Shrink + Copy, P: Fn(T) -> bool>(

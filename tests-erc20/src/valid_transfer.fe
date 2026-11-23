@@ -1,0 +1,160 @@
+// L10: a "valid transfer" generator on the ERC20 test fixture. The sender and receiver are picked from four actors, and the amount is drawn from
+// 0..=the SENDER's balance, a dependent generator, so no modulo or Index trick is needed. Balances at the start: 700, 100, 200, 0.
+use std::evm::{Evm, Address}
+use sparktest::{check_gen, Config, summarize, Tally, vacuity, between, pair, dependent}
+use sparktest_evm::fixed_seed
+use erc20_actors::actor::Actor
+use erc20_actors::client::{balance_of, actor_transfer}
+use erc20_example::CoolCoin as Fixture
+use erc20_buggy::CoolCoin as Buggy
+
+#[event]
+struct Vt {
+    id: u256,
+    failed: u256,
+    case: u256,
+    steps: u256,
+    from: u256,
+    to: u256,
+    amount: u256,
+    attempted: u256,
+    accepted: u256,
+    vacuous: u256,
+}
+
+fn deploy_actors() -> [Address; 4] uses (evm: mut Evm) {
+    let a0 = evm.create<Actor>(value: Wei::zero(), args: ())
+    let a1 = evm.create<Actor>(value: Wei::zero(), args: ())
+    let a2 = evm.create<Actor>(value: Wei::zero(), args: ())
+    let a3 = evm.create<Actor>(value: Wei::zero(), args: ())
+    [a0, a1, a2, a3]
+}
+
+// the balance each actor holds after the setup below
+fn balance_of_index(_ i: u256) -> u256 {
+    if i == 0 {
+        700
+    } else if i == 1 {
+        100
+    } else if i == 2 { 200 } else { 0 }
+}
+
+fn setup(_ token: Address, _ actors: [Address; 4]) uses (evm: mut Evm) {
+    let _ = actor_transfer(actors[0], token, actors[1], 100)
+    let _ = actor_transfer(actors[0], token, actors[2], 200)
+}
+
+// the property: a valid transfer succeeds and moves exactly the amount (a self-transfer moves nothing)
+fn valid_transfer_is_exact(
+    _ actors: [Address; 4],
+    _ token: Address,
+    _ v: ((u256, u256), u256),
+) -> bool
+uses (evm: mut Evm, tally: mut Tally)
+{
+    let fi: usize = v.0.0.downcast_truncate()
+    let ti: usize = v.0.1.downcast_truncate()
+    let amount = v.1
+    let bf = balance_of(token, actors[fi])
+    let bt = balance_of(token, actors[ti])
+    let got = actor_transfer(actors[fi], token, actors[ti], amount)
+    tally.call(got == 1)
+    if got != 1 { return false }
+    if fi == ti {
+        return balance_of(token, actors[fi]) == bf
+    }
+    balance_of(token, actors[fi]) == bf - amount && balance_of(token, actors[ti]) == bt + amount
+}
+
+fn prop_fixture(_ actors: [Address; 4], _ v: ((u256, u256), u256)) -> bool
+uses (evm: mut Evm, tally: mut Tally)
+{
+    let token = evm.create<Fixture>(value: Wei::zero(), args: (1000 as u256, actors[0]))
+    setup(token, actors)
+    valid_transfer_is_exact(actors, token, v)
+}
+
+fn prop_buggy(_ actors: [Address; 4], _ v: ((u256, u256), u256)) -> bool
+uses (evm: mut Evm, tally: mut Tally)
+{
+    let token = evm.create<Buggy>(value: Wei::zero(), args: (1000 as u256, actors[0]))
+    setup(token, actors)
+    valid_transfer_is_exact(actors, token, v)
+}
+
+#[test]
+fn a_valid_transfer_on_the_unchanged_fixture_always_succeeds_and_is_exact()
+uses (evm: mut Evm)
+{
+    let actors = deploy_actors()
+    var tally = Tally::new()
+    let g = dependent(
+        pair(between(0, 3), between(0, 3)),
+        |ft: (u256, u256)| between(0, balance_of_index(ft.0)),
+    )
+    let o = with (mut tally) {
+        check_gen(
+            Config::new(fixed_seed(10101)).with_cases(64),
+            g,
+            |v: ((u256, u256), u256)| prop_fixture(actors, v),
+        )
+    }
+    let s = summarize(o)
+    let vac = vacuity(tally, true, 0)
+    evm.emit(
+        Vt {
+            id: 1,
+            failed: s.failed,
+            case: s.case,
+            steps: s.steps,
+            from: s.shrunk[0],
+            to: s.shrunk[1],
+            amount: s.shrunk[2],
+            attempted: tally.attempted,
+            accepted: tally.accepted,
+            vacuous: vac,
+        },
+    )
+    assert!(s.failed == 0)
+    // every generated transfer was valid: all 64 calls succeeded (an Index/modulo property would have had to filter or wrap)
+    assert!(tally.attempted == 64 && tally.accepted == 64)
+    assert!(vac == 0)
+}
+
+#[test]
+fn a_valid_transfer_finds_the_planted_self_transfer_bug() uses (evm: mut Evm) {
+    let actors = deploy_actors()
+    var tally = Tally::new()
+    let g = dependent(
+        pair(between(0, 3), between(0, 3)),
+        |ft: (u256, u256)| between(0, balance_of_index(ft.0)),
+    )
+    let o = with (mut tally) {
+        check_gen(
+            Config::new(fixed_seed(10102)).with_cases(64),
+            g,
+            |v: ((u256, u256), u256)| prop_buggy(actors, v),
+        )
+    }
+    let s = summarize(o)
+    evm.emit(
+        Vt {
+            id: 2,
+            failed: s.failed,
+            case: s.case,
+            steps: s.steps,
+            from: s.shrunk[0],
+            to: s.shrunk[1],
+            amount: s.shrunk[2],
+            attempted: tally.attempted,
+            accepted: tally.accepted,
+            vacuous: vacuity(tally, false, 0),
+        },
+    )
+    assert!(s.failed == 1)
+    assert!(s.shrunk[0] == s.shrunk[1]) // a self-transfer
+    assert!(s.shrunk[2] == 1) // of amount 1
+    assert!(
+        s.shrunk[2] <= balance_of_index(s.shrunk[0]),
+    ) // and still a VALID transfer: the shrunk amount is within the sender's balance
+}

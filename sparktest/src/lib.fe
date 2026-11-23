@@ -5,6 +5,21 @@ pub use checked::Checked
 pub use index::Index
 pub use seq::Seq
 pub use joint::joint_candidate
+pub use gens::{
+    Gen,
+    Between,
+    between,
+    OneOf,
+    one_of,
+    PairGen,
+    pair,
+    Dependent,
+    dependent,
+    Mapped,
+    mapped,
+    check_gen,
+    check_gen_with,
+}
 pub use tally::{
     Tally,
     Verdict,
@@ -88,7 +103,7 @@ pub fn append_words(_ out: mut MemVec<u256>, _ src: DynArray<u256>) {
 }
 
 // ---- u256 ----
-fn full_word<R: Rng>(_ rng: mut R) -> u256 {
+pub fn full_word<R: Rng>(_ rng: mut R) -> u256 {
     let a = rng.next()
     let b = rng.next()
     let c = rng.next()
@@ -188,18 +203,55 @@ impl Decode for bool {
 }
 
 // ---- runner ----
-pub struct Config { pub cases: u256, pub seed: u256, pub max_shrinks: u256 }
+// `regressions`: seeds of earlier failures, run (each as a full run of `cases` cases) BEFORE the random cases of `seed`; see with_regressions
+pub struct Config {
+    pub cases: u256,
+    pub seed: u256,
+    pub max_shrinks: u256,
+    pub regressions: [u256; 8],
+    pub n_regressions: usize,
+}
 
 impl Config {
-    // defaults: 256 cases, 1000 shrink steps
+    // defaults: 256 cases, 1000 shrink steps, no regression seeds
     pub fn new(_ seed: u256) -> Self {
-        Config { cases: 256, seed, max_shrinks: 1000 }
+        Config { cases: 256, seed, max_shrinks: 1000, regressions: [0; 8], n_regressions: 0 }
     }
     pub fn with_cases(self, _ cases: u256) -> Self {
-        Config { cases, seed: self.seed, max_shrinks: self.max_shrinks }
+        Config {
+            cases,
+            seed: self.seed,
+            max_shrinks: self.max_shrinks,
+            regressions: self.regressions,
+            n_regressions: self.n_regressions,
+        }
     }
     pub fn with_max_shrinks(self, _ max_shrinks: u256) -> Self {
-        Config { cases: self.cases, seed: self.seed, max_shrinks }
+        Config {
+            cases: self.cases,
+            seed: self.seed,
+            max_shrinks,
+            regressions: self.regressions,
+            n_regressions: self.n_regressions,
+        }
+    }
+    // At most 8 seeds. Each is run as a full run of `cases` cases (the stream `Config::new(seed)` would give) before the random cases; a failing one is
+    // reported with its own seed and the case index inside that seed's stream, so `Config::new(seed)` replays it.
+    pub fn with_regressions<const N: usize>(self, _ seeds: [u256; N]) -> Self {
+        assert!(N <= 8)
+        var r: [u256; 8] = [0; 8]
+        var i: usize = 0
+        while i < N {
+            r[i] = seeds[i]
+            i += 1
+        }
+        Config {
+            cases: self.cases,
+            seed: self.seed,
+            max_shrinks: self.max_shrinks,
+            regressions: r,
+            n_regressions: N,
+        }
     }
 }
 
@@ -307,17 +359,51 @@ pub fn check_with<T: Arbitrary + Shrink + Copy, P: Fn(T) -> bool, B: Fn() -> boo
 ) -> Outcome<T>
 uses (P::E, B::E)
 {
-    var rng = Xorshift::seeded(cfg.seed)
+    var reg: usize = 0
+    while reg < cfg.n_regressions {
+        match run_seed(
+            cfg.regressions[reg],
+            cfg.cases,
+            cfg.max_shrinks,
+            prop,
+            stop,
+        ) {
+            Option::Some(o) => {
+                return o
+            },
+            Option::None => {},
+        }
+        reg += 1
+    }
+    match run_seed(cfg.seed, cfg.cases, cfg.max_shrinks, prop, stop) {
+        Option::Some(o) => o,
+        Option::None => Outcome::Pass { cases: cfg.cases },
+    }
+}
+
+// one seed's stream of cases: the first failure, shrunk, or None if every case holds
+fn run_seed<T: Arbitrary + Shrink + Copy, P: Fn(T) -> bool, B: Fn() -> bool>(
+    _ seed: u256,
+    _ cases: u256,
+    _ max_shrinks: u256,
+    _ prop: P,
+    _ stop: B,
+) -> Option<Outcome<T>>
+uses (P::E, B::E)
+{
+    var rng = Xorshift::seeded(seed)
     var i: u256 = 0
-    while i < cfg.cases {
+    while i < cases {
         let x = <T as Arbitrary>::arbitrary(mut rng)
         if !prop(x) {
-            let (cur, steps, early) = shrink_loop(x, prop, cfg.max_shrinks, stop)
-            return Outcome::Fail { original: x, shrunk: cur, case: i, seed: cfg.seed, steps, early }
+            let (cur, steps, early) = shrink_loop(x, prop, max_shrinks, stop)
+            return Option::Some(
+                Outcome::Fail { original: x, shrunk: cur, case: i, seed, steps, early },
+            )
         }
         i += 1
     }
-    Outcome::Pass { cases: cfg.cases }
+    Option::None
 }
 
 // ---- Summary: a flat, comparable view of an Outcome (used for cross-backend checks) ----

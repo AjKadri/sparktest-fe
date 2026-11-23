@@ -1,0 +1,146 @@
+// Custom generators (L10), native: ranges stay inside their domain, shrink toward lo, and the combinators compose. Expected values: docs/EXPECTATIONS.md, "L10".
+use sparktest::{check_gen, Config, summarize, between, one_of, pair, dependent, mapped}
+use sparktest_native::fixed_seed
+
+#[test]
+fn between_shrinks_to_the_boundary_inside_its_range() {
+    let s = summarize(
+        check_gen(
+            Config::new(fixed_seed(10001)),
+            between(10, 1000),
+            |x: u256| x >= 10 && x <= 1000 && x < 500,
+        ),
+    )
+    assert!(s.failed == 1 && s.shrunk[0] == 500)
+}
+
+#[test]
+fn between_never_shrinks_below_lo() {
+    let s = summarize(
+        check_gen(
+            Config::new(fixed_seed(10002)),
+            between(100, 1000),
+            |x: u256| false,
+        ),
+    )
+    assert!(
+        s.failed == 1 && s.case == 0 && s.shrunk[0] == 100 && s.original[0] >= 100,
+    )
+}
+
+#[test]
+fn between_generates_both_ends_and_stays_inside() {
+    // the property records nothing: it holds for every value in range, so a draw outside the range would fail it
+    let s = summarize(
+        check_gen(
+            Config::new(fixed_seed(10003)).with_cases(512),
+            between(7, 9),
+            |x: u256| x >= 7 && x <= 9,
+        ),
+    )
+    assert!(s.failed == 0)
+    // and the ends are reachable: "x != 7" and "x != 9" both fail
+    assert!(
+        summarize(
+                check_gen(
+                    Config::new(fixed_seed(10004)),
+                    between(7, 9),
+                    |x: u256| x != 7,
+                ),
+            ).failed
+            == 1,
+    )
+    assert!(
+        summarize(
+                check_gen(
+                    Config::new(fixed_seed(10005)),
+                    between(7, 9),
+                    |x: u256| x != 9,
+                ),
+            ).failed
+            == 1,
+    )
+}
+
+#[test]
+fn one_of_shrinks_toward_earlier_elements() {
+    let s = summarize(
+        check_gen(
+            Config::new(fixed_seed(10006)),
+            one_of([5, 3, 9]),
+            |x: u256| x != 3 && x != 9,
+        ),
+    )
+    assert!(s.failed == 1 && s.shrunk[0] == 3)
+}
+
+#[test]
+fn mapped_shrinks_the_source_and_maps_again() {
+    let g = mapped(between(0, 100), |x: u256| x * 2, |y: u256| y / 2)
+    let s = summarize(
+        check_gen(Config::new(fixed_seed(10007)), g, |y: u256| y < 50),
+    )
+    assert!(s.failed == 1 && s.shrunk[0] == 50)
+}
+
+#[test]
+fn pair_shrinks_each_side_inside_its_range() {
+    let s = summarize(
+        check_gen(
+            Config::new(fixed_seed(10008)),
+            pair(between(5, 50), between(100, 200)),
+            |p: (u256, u256)| p.0 + p.1 < 130,
+        ),
+    )
+    assert!(s.failed == 1)
+    // the shrunk pair is still a failure and still inside both ranges; the first component shrank to its floor
+    assert!(
+        s.shrunk[0] >= 5 && s.shrunk[0] <= 50 && s.shrunk[1] >= 100 && s.shrunk[1] <= 200,
+    )
+    assert!(s.shrunk[0] + s.shrunk[1] >= 130)
+    assert!(s.shrunk[0] == 5 || s.shrunk[1] == 100)
+}
+
+#[test]
+fn dependent_values_always_satisfy_the_dependency() {
+    let g = dependent(between(1, 1000), |b: u256| between(0, b))
+    let s = summarize(
+        check_gen(
+            Config::new(fixed_seed(10009)),
+            g,
+            |v: (u256, u256)| v.1 <= v.0,
+        ),
+    )
+    assert!(s.failed == 0)
+}
+
+#[test]
+fn dependent_shrinking_keeps_the_amount_within_the_balance() {
+    let g = dependent(between(1, 1000), |b: u256| between(0, b))
+    let s = summarize(
+        check_gen(
+            Config::new(fixed_seed(10010)),
+            g,
+            |v: (u256, u256)| v.1 <= v.0 / 2,
+        ),
+    )
+    assert!(s.failed == 1)
+    assert!(s.shrunk[0] == 1 && s.shrunk[1] == 1)
+}
+
+#[test]
+fn check_gen_is_deterministic_per_seed() {
+    let a = summarize(
+        check_gen(Config::new(77), between(0, 1000000), |x: u256| x < 12345),
+    )
+    let b = summarize(
+        check_gen(Config::new(77), between(0, 1000000), |x: u256| x < 12345),
+    )
+    assert!(
+        a.failed == 1
+            && a.case == b.case
+            && a.steps == b.steps
+            && a.shrunk[0] == b.shrunk[0]
+            && a.shrunk[0] == 12345,
+    )
+}

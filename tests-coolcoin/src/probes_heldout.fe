@@ -1,0 +1,26 @@
+// Probe that backs the explanation of the held-out mutant the properties are expected to MISS (docs/EXPECTATIONS.md, L9): H05 really differs from the original.
+use std::evm::{Evm, Address}
+use std::abi::sol
+use erc20_actors::client::{direct_transfer, balance_of, total_supply}
+use coolcoin::CoolCoin
+use coolcoin_heldout::h05::CoolCoinH05
+
+pub msg TokBurn {
+    #[selector = sol("burn(uint256)")]
+    Burn { amount: u256 } -> bool,
+}
+
+#[test]
+fn probe_burn_lowers_total_supply_on_the_original() uses (evm: mut Evm) {
+    let token = evm.create<CoolCoin>(value: Wei::zero(), args: (13 as u256, evm.address()))
+    assert!(evm.call(addr: token, gas: 1000000, value: Wei::zero(), message: TokBurn::Burn { amount: 3 }))
+    assert!(total_supply(token) == 10)
+}
+
+#[test]
+fn probe_burn_leaves_total_supply_on_mutant_h05() uses (evm: mut Evm) {
+    let token = evm.create<CoolCoinH05>(value: Wei::zero(), args: (13 as u256, evm.address()))
+    assert!(evm.call(addr: token, gas: 1000000, value: Wei::zero(), message: TokBurn::Burn { amount: 3 }))
+    assert!(balance_of(token, evm.address()) == 10)
+    assert!(total_supply(token) == 13)
+}

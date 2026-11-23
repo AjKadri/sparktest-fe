@@ -330,3 +330,24 @@ Predicted held-out score: 4 of 5 caught. Predicted counterexamples: H01 owner 0,
 
 ### Step 4: CI
 Cannot be run here (no push). Predicted portability issues, by reading the scripts (before the grep): BSD `sed -i ''` or `shasum` in `scripts/*.sh` and `*.py`, `date` flags, `mktemp` forms, `timeout`. CI is "added", not "passed": the README keeps "Tested on macOS (Apple Silicon) only" until a CI run has passed.
+
+### L9 results, steps 1 and 2 (amendment rows, 2026-11-23; measured after the pre-registration commit 5caff69)
+Rows above are not edited.
+
+Step 1, std hunt: **no divergence found; every property passed, so there is no candidate Fe bug and nothing in `repros/`.**
+| area | pre-registered | found |
+|---|---|---|
+| a) HashMap | one stateful property, pass | **two** (spread keys, and keys that all hash alike) over `Seq<(Index<6>, Index<24>, u8), 12>`, both pass on sonatina and native. Deviation: a `Seq` cannot sit inside a tuple input (`Seq` has no `Decode`, tuple shrinking needs it), so the planned `(prefill, Seq)` input became a "bulk insert of up to 39 fresh keys" command; growth past the first capacity of 14 was confirmed (a copy that failed above capacity 14 did fail) |
+| b) `core::fixed` | 12 properties, pass | 12 properties, pass on both. One of MY properties was wrong first: `sqrt_full_range` called `mul_div_ceil((s+1)^2, ...)`, which overflows for `a` near `u256::max` and panics by design (`Panic(0x11)`); I restricted that check to `a <= 2^255`. Not a std bug |
+| c) `core::text` | 8 properties, pass | 8 properties, pass on both (two casts needed `.downcast_truncate()`: compile errors in my code, not behaviour) |
+| d) `std::evm::random` | 5 properties, pass | 5 properties, pass (sonatina only) |
+
+Step 2, held-out mutants (`examples/coolcoin-heldout`; the test templates were not changed, only a loop that generates the five new files was added):
+| mutant | expected | found | counterexample | as expected |
+|---|---|---|---|---|
+| H01 allowance raised | caught by P4; stateful uncertain | caught by P4 only (stateful did not catch it in 64 cases) | (owner 0, spender 0, to 0, allowance 1, amount 1) | yes |
+| H02 transferFrom debits the spender | caught by P4; stateful uncertain | caught by P4 only | (owner 0, spender 1, to 0, allowance 1, amount 1) | yes |
+| H03 mint +1 | caught by P6 and stateful | caught by P6 and stateful | (sender 0, receiver 0, amount 0) | yes |
+| H04 approve wrong key | caught by P4, P5 (and stateful) | caught by P4, P5 and stateful | (owner 0, spender 1, to 0, allowance 1, amount 0) | yes |
+| H05 burn leaves supply | missed by all | missed by all; two probes show it is a real difference (original supply 13 to 10 after burn 3, mutant stays 13) | - | yes |
+Held-out score: **4 of 5 caught, 5 of 5 as predicted.** The stateful check catching only 2 of the 4 caught mutants is consistent with the L7c finding (its power fell with the fifth command kind), and no Burn command exists, which is why H05 is invisible.

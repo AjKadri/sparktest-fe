@@ -478,3 +478,9 @@ for k in range(1, 11):
     name = 'm%02d' % k
     w(f'tests-coolcoin/src/{name}.fe', coolcoin_file(f'use coolcoin_mutants::{name}::CoolCoinM{k:02d}', f'CoolCoinM{k:02d}', 1000 * (k + 1), name,
                                                        f'Mutant {name.upper()} of the Fe Guide CoolCoin (see docs/EXPECTATIONS.md, L7a): results are recorded, not asserted.', False))
+
+# ---- held-out mutants H01..H05 (L9): same templates, new files; results are recorded, not asserted
+for k in range(1, 6):
+    name = 'h%02d' % k
+    w(f'tests-coolcoin/src/{name}.fe', coolcoin_file(f'use coolcoin_heldout::{name}::CoolCoinH{k:02d}', f'CoolCoinH{k:02d}', 1000 * (k + 11), name,
+                                                       f'Held-out mutant {name.upper()} of the Fe Guide CoolCoin (see docs/EXPECTATIONS.md, L9): results are recorded, not asserted.', False))

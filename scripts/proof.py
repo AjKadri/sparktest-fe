@@ -110,6 +110,8 @@ try:
     sections.append(proof_panic.section(run, problems))
     import proof_rewards
     sections.append(proof_rewards.section(run, problems))
+    import proof_stdhunt
+    sections.append(proof_stdhunt.section(run, problems))
 except ImportError:
     pass
 
@@ -129,7 +131,7 @@ doc += ['## Summary', '',
         '- A contract that really panics (`examples/rewards`): found through `try_call` and shrunk to the exact boundary stake; the same property through a direct `evm.call` reverts the whole test with no report.',
         '', 'Honest notes:',
         '- `fee_buggy` shrinks to a LOCAL minimum (bps=127, amount ~1.45e17); the global smallest overflow is amount=1,844,674,407,370,956 at bps=10000. The pre-registered criterion (a boundary case: amount*bps >= 2^64 and (amount-1)*bps < 2^64) is met.',
-        '- ERC20 buggy copy: the pre-registered minimum (0, 0, 1) was only partly reached: the structure (a self-transfer of amount 1) is exact, but the actor indices are raw u8 values taken `% 4`, and shrinking them to 0 would change the actor, so they stop at e.g. (21, 125). `Index<N>` (added in L4.1, amendment tables below) keeps the indices inside the set, but two coupled equal indices still stop at a local minimum such as (3, 3), because a tuple shrinks one component at a time.',
+        '- ERC20 buggy copy: the pre-registered minimum (0, 0, 1) was only partly reached: the structure (a self-transfer of amount 1) is exact, but the actor indices are raw u8 values taken `% 4`, and shrinking them to 0 would change the actor, so they stop at e.g. (21, 125). `Index<N>` (added in L4.1, amendment tables below) keeps the indices inside the set, and since L7c joint shrinking moves two equal indices together, so the `Index<4>` runs reach exactly (0, 0, 1); raw `u8` actors still stop at (1, 1, 1) because equal values are grouped by value and the amount 1 is in the same group.',
         '- Observations about the ERC20 test fixture (not bugs): `transfer`/`transferFrom` return `false` instead of reverting on a shortfall, so "reverts" in the brief is checked as "does not succeed"; `mint` is open to anyone.', '']
 doc += md_pure(rows, 'planted', 'Planted bugs (pure functions, sonatina and native)',
                'Five realistic contract bug classes, each with a buggy and a fixed version. Rerun: `./scripts/proof.sh`. Sources: `props/src/bugs.fe`; scenarios: `proof/registry.json`.')

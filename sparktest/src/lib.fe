@@ -20,6 +20,18 @@ pub use gens::{
     check_gen,
     check_gen_with,
 }
+pub use assume::{
+    Judged,
+    judged,
+    assuming,
+    AssumeResult,
+    check_assume,
+    check_gen_assume,
+    discard_percent,
+    assume_guard,
+    VACUOUS_TOO_MANY_DISCARDS,
+    DEFAULT_MAX_DISCARD_PERCENT,
+}
 pub use tally::{
     Tally,
     Verdict,

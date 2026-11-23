@@ -1,0 +1,157 @@
+// Regression seeds (L10), sonatina: a seed that once exposed a bug is replayed before the random cases. The vault is the README's; 25286971856348077807 is the
+// seed its failure report printed. Expected values: docs/EXPECTATIONS.md, "L10".
+use std::evm::Evm
+use sparktest::{check, check_gen, Config, summarize, Outcome, between}
+use sparktest_evm::fixed_seed
+
+fn shares_buggy(_ amount: u128, _ assets: u128, _ shares: u128) -> u128 {
+    (amount * shares + assets - 1) / assets // rounds UP
+}
+
+fn shares_fixed(_ amount: u128, _ assets: u128, _ shares: u128) -> u128 {
+    amount * shares / assets // rounds down
+}
+
+fn assets_for_shares(_ burned: u128, _ assets: u128, _ shares: u128) -> u128 {
+    burned * assets / shares
+}
+
+fn never_profits_buggy(_ p: (u32, u32, u32)) -> bool {
+    let assets = p.0 as u128
+    let shares = p.1 as u128
+    let amount = p.2 as u128
+    if assets == 0 || shares == 0 || amount == 0 {
+        return true
+    }
+    let minted = shares_buggy(amount, assets, shares)
+    assets_for_shares(minted, assets + amount, shares + minted) <= amount
+}
+
+fn never_profits_fixed(_ p: (u32, u32, u32)) -> bool {
+    let assets = p.0 as u128
+    let shares = p.1 as u128
+    let amount = p.2 as u128
+    if assets == 0 || shares == 0 || amount == 0 {
+        return true
+    }
+    let minted = shares_fixed(amount, assets, shares)
+    assets_for_shares(minted, assets + amount, shares + minted) <= amount
+}
+
+#[test]
+fn a_listed_seed_fails_on_the_buggy_version_with_its_own_seed()
+uses (evm: mut Evm)
+{
+    let cfg = Config::new(fixed_seed(1)).with_regressions([25286971856348077807])
+    match check(cfg, never_profits_buggy) {
+        Outcome::Pass { cases: _ } => {
+            assert!(false)
+        },
+        Outcome::Fail { original: _, shrunk, case, seed, steps, early: _ } => {
+            // reported with the REGRESSION seed and the case index inside its stream: Config::new(seed) replays it
+            assert!(seed == 25286971856348077807)
+            assert!(case == 2 && steps == 178)
+            assert!(shrunk.0 == 3 && shrunk.1 == 1 && shrunk.2 == 1)
+        },
+    }
+}
+
+#[test]
+fn the_same_seed_passes_after_the_fix() uses (evm: mut Evm) {
+    let cfg = Config::new(fixed_seed(1)).with_regressions([25286971856348077807])
+    match check(cfg, never_profits_fixed) {
+        Outcome::Pass { cases } => {
+            assert!(cases == 256)
+        },
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => {
+            assert!(false)
+        },
+    }
+}
+
+#[test]
+fn the_reported_seed_replays_the_regression_failure() uses (evm: mut Evm) {
+    let a = summarize(
+        check(
+            Config::new(fixed_seed(1)).with_regressions([25286971856348077807]),
+            never_profits_buggy,
+        ),
+    )
+    let b = summarize(
+        check(Config::new(25286971856348077807), never_profits_buggy),
+    )
+    assert!(a.failed == 1 && b.failed == 1)
+    assert!(
+        a.case == b.case
+            && a.steps == b.steps
+            && a.shrunk[0] == b.shrunk[0]
+            && a.shrunk[1] == b.shrunk[1]
+            && a.shrunk[2] == b.shrunk[2],
+    )
+}
+
+#[test]
+fn no_regressions_means_the_random_run_alone() uses (evm: mut Evm) {
+    let plain = summarize(check(Config::new(fixed_seed(2)), never_profits_buggy))
+    let empty = summarize(
+        check(
+            Config::new(fixed_seed(2)).with_regressions([]),
+            never_profits_buggy,
+        ),
+    )
+    assert!(
+        plain.failed == 1
+            && plain.case == empty.case
+            && plain.steps == empty.steps
+            && plain.shrunk[0] == empty.shrunk[0],
+    )
+}
+
+#[test]
+fn a_regression_that_passes_is_followed_by_the_random_cases()
+uses (evm: mut Evm)
+{
+    // on the fixed version nothing fails, so both the listed seed and the random run pass
+    let cfg = Config::new(fixed_seed(3)).with_cases(64).with_regressions([1, 2, 3])
+    match check(cfg, never_profits_fixed) {
+        Outcome::Pass { cases } => {
+            assert!(cases == 64)
+        },
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => {
+            assert!(false)
+        },
+    }
+}
+
+#[test]
+fn regressions_also_apply_to_check_gen() uses (evm: mut Evm) {
+    // the first seed does not fail "x != 1000000" over a 3-value range; the failing one is found second and reported with its own seed
+    let cfg = Config::new(fixed_seed(4)).with_cases(8).with_regressions([5, 6])
+    let s = summarize(check_gen(cfg, between(0, 3), |x: u256| x != 3))
+    assert!(s.failed == 1)
+    let again = summarize(
+        check_gen(
+            Config::new(5).with_cases(8),
+            between(0, 3),
+            |x: u256| x != 3,
+        ),
+    )
+    let again6 = summarize(
+        check_gen(
+            Config::new(6).with_cases(8),
+            between(0, 3),
+            |x: u256| x != 3,
+        ),
+    )
+    // the failure reported is the first listed seed that fails
+    if again.failed == 1 {
+        assert!(s.case == again.case && s.steps == again.steps)
+    } else {
+        assert!(again6.failed == 1 && s.case == again6.case)
+    }
+}
+
+#[test(should_revert)]
+fn more_than_eight_regression_seeds_are_refused() uses (evm: mut Evm) {
+    let _ = Config::new(1).with_regressions([1, 2, 3, 4, 5, 6, 7, 8, 9])
+}

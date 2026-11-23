@@ -1,0 +1,108 @@
+// L10: assume with discard counting on the ERC20 test fixture. A P3-style property with a WEAK premise ("the amount is within the balance") over a raw u32
+// amount: most draws are discarded, and the run says so. A property whose premise never holds is flagged vacuous.
+use std::evm::{Evm, Address}
+use sparktest::{
+    check_assume,
+    Config,
+    assuming,
+    Judged,
+    discard_percent,
+    assume_guard,
+    Verdict,
+    DEFAULT_MAX_DISCARD_PERCENT,
+    summarize,
+}
+use sparktest_evm::fixed_seed
+use erc20_actors::actor::Actor
+use erc20_actors::client::{balance_of, actor_transfer}
+use erc20_example::CoolCoin as Fixture
+
+// id, cases, discarded, discard percent, verdict (0 held, 1 failed, else the vacuity reason)
+#[event]
+struct Ad { id: u256, cases: u256, discarded: u256, percent: u256, verdict: u256 }
+
+fn verdict_code(_ v: Verdict) -> u256 {
+    match v {
+        Verdict::Held => 0,
+        Verdict::Failed => 1,
+        Verdict::Vacuous { reason } => reason,
+    }
+}
+
+// the actor holds 1000 tokens; a transfer of `amount` to the other actor is valid only when amount <= 1000
+fn transfer_moves_exactly(_ a: Address, _ b: Address, _ token: Address, _ amount: u256) -> Judged
+uses (evm: mut Evm)
+{
+    if amount > 1000 {
+        return Judged::Discard
+    }
+    let before = balance_of(token, a)
+    let got = actor_transfer(a, token, b, amount)
+    if got != 1 {
+        return Judged::Fails
+    }
+    if balance_of(token, a) == before - amount && balance_of(token, b) == amount {
+        Judged::Holds
+    } else {
+        Judged::Fails
+    }
+}
+
+#[test]
+fn a_weak_premise_reports_its_discard_rate_on_the_erc20_fixture()
+uses (evm: mut Evm)
+{
+    let a = evm.create<Actor>(value: Wei::zero(), args: ())
+    let b = evm.create<Actor>(value: Wei::zero(), args: ())
+    let r = check_assume(
+        Config::new(fixed_seed(10301)).with_cases(64),
+        |amount: u32| {
+            let token = evm.create<Fixture>(value: Wei::zero(), args: (1000 as u256, a))
+            transfer_moves_exactly(a, b, token, amount as u256)
+        },
+    )
+    let pct = discard_percent(r)
+    let v = assume_guard(r, DEFAULT_MAX_DISCARD_PERCENT)
+    evm.emit(
+        Ad {
+            id: 1,
+            cases: r.cases,
+            discarded: r.discarded,
+            percent: pct,
+            verdict: verdict_code(v),
+        },
+    )
+    assert!(summarize(r.outcome).failed == 0)
+    assert!(r.discarded > 0 && pct >= 50)
+}
+
+#[test]
+fn a_premise_that_never_holds_is_flagged_vacuous_on_the_erc20_fixture()
+uses (evm: mut Evm)
+{
+    let a = evm.create<Actor>(value: Wei::zero(), args: ())
+    let b = evm.create<Actor>(value: Wei::zero(), args: ())
+    let r = check_assume(
+        Config::new(fixed_seed(10302)).with_cases(64),
+        |amount: u32| {
+            let token = evm.create<Fixture>(value: Wei::zero(), args: (1000 as u256, a))
+            // the premise "the amount is exactly 123456789" never holds
+            if amount != 123456789 {
+                return Judged::Discard
+            }
+            transfer_moves_exactly(a, b, token, amount as u256)
+        },
+    )
+    let v = assume_guard(r, DEFAULT_MAX_DISCARD_PERCENT)
+    evm.emit(
+        Ad {
+            id: 2,
+            cases: r.cases,
+            discarded: r.discarded,
+            percent: discard_percent(r),
+            verdict: verdict_code(v),
+        },
+    )
+    assert!(r.discarded == r.cases)
+    assert!(verdict_code(v) == 2)
+}

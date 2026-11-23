@@ -1,0 +1,239 @@
+// assume (L10): a property that can DISCARD a case whose premise does not hold, with the discards counted and judged by the vacuity guard.
+// A run where more than `max_percent` of the cases were discarded, or where no case was accepted, is vacuous: the property passed without being tested.
+use ingot::{Arbitrary, Shrink, Outcome, Config, Xorshift, Verdict, Gen, VACUOUS_NONE_SUCCEEDED}
+
+// What a property says about one case.
+pub enum Judged {
+    Holds,
+    Fails,
+    Discard,
+}
+
+// the property's answer when the premise held: Holds or Fails
+pub fn judged(_ ok: bool) -> Judged {
+    if ok { Judged::Holds } else { Judged::Fails }
+}
+
+// `assuming(premise, holds)`: Discard when the premise is false, else Holds or Fails. NOTE both arguments are evaluated first, so use an early
+// `return Judged::Discard` when evaluating `holds` is only valid under the premise (for example when it makes a contract call).
+pub fn assuming(_ premise: bool, _ holds: bool) -> Judged {
+    if !premise {
+        return Judged::Discard
+    }
+    judged(holds)
+}
+
+// not Fails: a shrink candidate is a failure only when the property says Fails (a discarded candidate is not)
+fn is_fine(_ j: Judged) -> bool {
+    match j {
+        Judged::Fails => false,
+        Judged::Holds => true,
+        Judged::Discard => true,
+    }
+}
+
+// The outcome of a run with discards. `cases` is the number of cases generated (a failing run stops early), `discarded` how many of them were discarded.
+// The case budget includes the discards: a discarded case is not replaced.
+pub struct AssumeResult<T> { pub outcome: Outcome<T>, pub cases: u256, pub discarded: u256 }
+
+// the reason code of a run that discarded too much (the existing reasons are 1, 2 and 3 + command kind)
+pub const VACUOUS_TOO_MANY_DISCARDS: u256 = 100
+
+// default threshold of `assume_guard`: more than 90% discarded is vacuous
+pub const DEFAULT_MAX_DISCARD_PERCENT: u256 = 90
+
+// greedy shrinking as in `check` (component candidates to a fixed point, then joint candidates, repeat); a candidate counts only if it FAILS (a Discard is not a failure)
+fn shrink_judged<T: Shrink + Copy, P: Fn(T) -> Judged>(
+    _ start: T,
+    _ prop: P,
+    _ max_shrinks: u256,
+) -> (T, u256)
+uses P::E
+{
+    var cur = start
+    var steps: u256 = 0
+    var improving = true
+    while improving && steps < max_shrinks {
+        improving = false
+        var progressed = true
+        while progressed && steps < max_shrinks {
+            progressed = false
+            var k: u256 = 0
+            var more = true
+            while more {
+                match cur.shrink_step(k) {
+                    Option::None => {
+                        more = false
+                    },
+                    Option::Some(c) => {
+                        if !is_fine(prop(c)) {
+                            cur = c
+                            steps += 1
+                            progressed = true
+                            more = false
+                        } else {
+                            k += 1
+                        }
+                    },
+                }
+            }
+        }
+        if steps < max_shrinks {
+            var j: u256 = 0
+            var more = true
+            while more {
+                match cur.joint_step(j) {
+                    Option::None => {
+                        more = false
+                    },
+                    Option::Some(c) => {
+                        if !is_fine(prop(c)) {
+                            cur = c
+                            steps += 1
+                            improving = true
+                            more = false
+                        } else {
+                            j += 1
+                        }
+                    },
+                }
+            }
+        }
+    }
+    (cur, steps)
+}
+
+fn shrink_judged_gen<G: Gen, P: Fn(G::Value) -> Judged>(
+    _ g: G,
+    _ start: G::Value,
+    _ prop: P,
+    _ max_shrinks: u256,
+) -> (G::Value, u256)
+uses (G::E, P::E)
+{
+    var cur = start
+    var steps: u256 = 0
+    var progressed = true
+    while progressed && steps < max_shrinks {
+        progressed = false
+        var k: u256 = 0
+        var more = true
+        while more {
+            match g.shrink(cur, k) {
+                Option::None => {
+                    more = false
+                },
+                Option::Some(c) => {
+                    if !is_fine(prop(c)) {
+                        cur = c
+                        steps += 1
+                        progressed = true
+                        more = false
+                    } else {
+                        k += 1
+                    }
+                },
+            }
+        }
+    }
+    (cur, steps)
+}
+
+pub fn check_assume<T: Arbitrary + Shrink + Copy, P: Fn(T) -> Judged>(
+    _ cfg: Config,
+    _ prop: P,
+) -> AssumeResult<T>
+uses P::E
+{
+    var rng = Xorshift::seeded(cfg.seed)
+    var i: u256 = 0
+    var discarded: u256 = 0
+    while i < cfg.cases {
+        let x = <T as Arbitrary>::arbitrary(mut rng)
+        match prop(x) {
+            Judged::Holds => {},
+            Judged::Discard => {
+                discarded += 1
+            },
+            Judged::Fails => {
+                let (cur, steps) = shrink_judged(x, prop, cfg.max_shrinks)
+                let o = Outcome::Fail {
+                    original: x,
+                    shrunk: cur,
+                    case: i,
+                    seed: cfg.seed,
+                    steps,
+                    early: false,
+                }
+                return AssumeResult { outcome: o, cases: i + 1, discarded }
+            },
+        }
+        i += 1
+    }
+    AssumeResult { outcome: Outcome::Pass { cases: cfg.cases }, cases: cfg.cases, discarded }
+}
+
+pub fn check_gen_assume<G: Gen, P: Fn(G::Value) -> Judged>(
+    _ cfg: Config,
+    _ g: own G,
+    _ prop: P,
+) -> AssumeResult<G::Value>
+uses (G::E, P::E)
+{
+    var rng = Xorshift::seeded(cfg.seed)
+    var i: u256 = 0
+    var discarded: u256 = 0
+    while i < cfg.cases {
+        let x = g.generate(mut rng)
+        match prop(x) {
+            Judged::Holds => {},
+            Judged::Discard => {
+                discarded += 1
+            },
+            Judged::Fails => {
+                let (cur, steps) = shrink_judged_gen(g, x, prop, cfg.max_shrinks)
+                let o = Outcome::Fail {
+                    original: x,
+                    shrunk: cur,
+                    case: i,
+                    seed: cfg.seed,
+                    steps,
+                    early: false,
+                }
+                return AssumeResult { outcome: o, cases: i + 1, discarded }
+            },
+        }
+        i += 1
+    }
+    AssumeResult { outcome: Outcome::Pass { cases: cfg.cases }, cases: cfg.cases, discarded }
+}
+
+// the share of the generated cases that were discarded, in whole percent (rounded down)
+pub fn discard_percent<T>(_ r: AssumeResult<T>) -> u256 {
+    if r.cases == 0 { return 0 }
+    r.discarded * 100 / r.cases
+}
+
+// Failed if the property failed; Vacuous with reason 2 (VACUOUS_NONE_SUCCEEDED) if no case was accepted; Vacuous with reason VACUOUS_TOO_MANY_DISCARDS if
+// MORE than `max_percent` of the cases were discarded; else Held.
+pub fn assume_guard<T>(_ r: AssumeResult<T>, _ max_percent: u256) -> Verdict {
+    match r.outcome {
+        Outcome::Fail {
+            original: _,
+            shrunk: _,
+            case: _,
+            seed: _,
+            steps: _,
+            early: _,
+        } => Verdict::Failed,
+        Outcome::Pass { cases: _ } => {
+            if r.discarded >= r.cases {
+                return Verdict::Vacuous { reason: VACUOUS_NONE_SUCCEEDED }
+            }
+            if r.discarded * 100 > max_percent * r.cases {
+                return Verdict::Vacuous { reason: VACUOUS_TOO_MANY_DISCARDS }
+            }
+            Verdict::Held
+        },
+    }
+}

@@ -1,0 +1,152 @@
+// assume with discard counting (L10), native. Expected values: docs/EXPECTATIONS.md, "L10".
+use sparktest::{
+    check_assume,
+    check_gen_assume,
+    Config,
+    summarize,
+    assuming,
+    Judged,
+    judged,
+    discard_percent,
+    assume_guard,
+    Verdict,
+    between,
+    DEFAULT_MAX_DISCARD_PERCENT,
+    VACUOUS_TOO_MANY_DISCARDS,
+    VACUOUS_NONE_SUCCEEDED,
+}
+use sparktest_native::fixed_seed
+
+#[test]
+fn a_weak_premise_reports_its_discard_rate() {
+    // "assume x <= 250" over a raw u32: only the edge values (about 1 draw in 4) can satisfy it
+    let r = check_assume(
+        Config::new(fixed_seed(10201)),
+        |x: u32| assuming(x <= 250, true),
+    )
+    let pct = discard_percent(r)
+    assert!(pct >= 70 && pct <= 95)
+    assert!(r.cases == 256 && r.discarded > 0)
+}
+
+#[test]
+fn a_property_that_discards_everything_is_flagged_vacuous() {
+    let r = check_assume(
+        Config::new(fixed_seed(10202)),
+        |x: u32| assuming(x == 12345, true),
+    )
+    assert!(r.discarded == r.cases)
+    match assume_guard(r, DEFAULT_MAX_DISCARD_PERCENT) {
+        Verdict::Vacuous { reason } => {
+            assert!(reason == VACUOUS_NONE_SUCCEEDED)
+        },
+        Verdict::Held => {
+            assert!(false)
+        },
+        Verdict::Failed => {
+            assert!(false)
+        },
+    }
+}
+
+#[test]
+fn discarding_more_than_the_threshold_is_flagged_vacuous_with_its_own_reason() {
+    // "assume x == 0" over a u64: a few cases are accepted (the edge value 0), more than 90% are discarded
+    let r = check_assume(
+        Config::new(fixed_seed(10203)),
+        |x: u64| assuming(x == 0, true),
+    )
+    assert!(r.discarded < r.cases && discard_percent(r) > 90)
+    match assume_guard(r, DEFAULT_MAX_DISCARD_PERCENT) {
+        Verdict::Vacuous { reason } => {
+            assert!(reason == VACUOUS_TOO_MANY_DISCARDS)
+        },
+        Verdict::Held => {
+            assert!(false)
+        },
+        Verdict::Failed => {
+            assert!(false)
+        },
+    }
+}
+
+#[test]
+fn a_mild_premise_is_held() {
+    let r = check_assume(
+        Config::new(fixed_seed(10204)),
+        |x: u8| assuming(x != 7, true),
+    )
+    assert!(discard_percent(r) < 10)
+    match assume_guard(r, DEFAULT_MAX_DISCARD_PERCENT) {
+        Verdict::Held => {},
+        Verdict::Vacuous { reason: _ } => {
+            assert!(false)
+        },
+        Verdict::Failed => {
+            assert!(false)
+        },
+    }
+}
+
+#[test]
+fn a_failing_property_with_a_premise_shrinks_inside_the_premise() {
+    // premise x >= 10, claim x < 500: the smallest counterexample is 500; candidates below 10 are discarded, so they can never be reported
+    let r = check_assume(
+        Config::new(fixed_seed(10205)),
+        |x: u32| assuming(x >= 10, x < 500),
+    )
+    let s = summarize(r.outcome)
+    assert!(s.failed == 1 && s.shrunk[0] == 500)
+    match assume_guard(r, DEFAULT_MAX_DISCARD_PERCENT) {
+        Verdict::Failed => {},
+        Verdict::Held => {
+            assert!(false)
+        },
+        Verdict::Vacuous { reason: _ } => {
+            assert!(false)
+        },
+    }
+}
+
+#[test]
+fn assume_works_with_a_generator() {
+    // half of between(0, 1000) is discarded: reported, not vacuous
+    let r = check_gen_assume(
+        Config::new(fixed_seed(10206)),
+        between(0, 1000),
+        |x: u256| assuming(x >= 500, x <= 1000),
+    )
+    let pct = discard_percent(r)
+    assert!(pct >= 20 && pct <= 80)
+    match assume_guard(r, DEFAULT_MAX_DISCARD_PERCENT) {
+        Verdict::Held => {},
+        Verdict::Vacuous { reason: _ } => {
+            assert!(false)
+        },
+        Verdict::Failed => {
+            assert!(false)
+        },
+    }
+}
+
+#[test]
+fn judged_maps_booleans() {
+    match judged(true) {
+        Judged::Holds => {},
+        Judged::Fails => {
+            assert!(false)
+        },
+        Judged::Discard => {
+            assert!(false)
+        },
+    }
+    match judged(false) {
+        Judged::Fails => {},
+        Judged::Holds => {
+            assert!(false)
+        },
+        Judged::Discard => {
+            assert!(false)
+        },
+    }
+}

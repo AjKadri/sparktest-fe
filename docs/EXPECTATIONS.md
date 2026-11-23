@@ -351,3 +351,31 @@ Step 2, held-out mutants (`examples/coolcoin-heldout`; the test templates were n
 | H04 approve wrong key | caught by P4, P5 (and stateful) | caught by P4, P5 and stateful | (owner 0, spender 1, to 0, allowance 1, amount 0) | yes |
 | H05 burn leaves supply | missed by all | missed by all; two probes show it is a real difference (original supply 13 to 10 after burn 3, mutant stays 13) | - | yes |
 Held-out score: **4 of 5 caught, 5 of 5 as predicted.** The stateful check catching only 2 of the 4 caught mutants is consistent with the L7c finding (its power fell with the fifth command kind), and no Burn command exists, which is why H05 is invisible.
+
+## L10 generators, assume, regression seeds (2026-11-23, written BEFORE any run of this step)
+
+Rows above are unchanged. Additive APIs only: `check`, its results, `web/recorded.json` and every number in docs/PROOF.md must stay unchanged, **gas included**.
+Language facts established before this entry (probes in a scratch ingot, no repository code run): a trait can declare an associated effect row (`uses E`) and an associated type, and an impl can set `uses E = F::E`, so a combinator holding a closure can implement the generator trait; a closure stored in a struct field compiles when the method says `uses E`.
+
+### Design (stated before the code)
+- `trait Gen { uses E; type Value; fn generate<R: Rng>(self, rng: mut R) -> Self::Value; fn shrink(self, x, i) -> Option<Value>; fn contains(self, x) -> bool }`. `check_gen(cfg, gen, prop)` returns the same `Outcome<G::Value>`; `check_gen_with` takes the `stop` closure; `sparktest_evm::check_gen_gas` is the guarded one. No isolated variant (not a small step).
+- Combinators: `between(lo, hi)` (inclusive, values `u256`, shrinks toward `lo` and never below it, edge bias on `lo`, `lo+1`, `hi-1`, `hi`), `one_of([..])` (shrinks toward earlier elements), `pair(a, b)` (independent), `dependent(a, f)` (generate `a`, then `b` from the generator `f(a)`; shrinking tries `b` first, then `a`, and only keeps a smaller `a` if `f(a')` still contains `b`), `map(g, f, inverse)` (`inverse` recovers the source value so shrinking works; `f` must be a bijection on the domain).
+- `assume`: a property shape returning `Judged { Holds, Fails, Discard }`; `check_assume(cfg, prop)` and `check_gen_assume`. A discarded case is counted, not replaced (the case budget includes discards), and during shrinking a discarded candidate is not a failure. The result carries `Discards { cases, discarded }`; `assume_guard(result, max_discard_percent)` returns the existing `Verdict`: vacuous with reason 2 (existing "none succeeded") when no case was accepted, and with a new reason `VACUOUS_TOO_MANY_DISCARDS = 100` when more than the threshold (documented default 90) percent were discarded.
+- Regressions: `Config::with_regressions([s1, s2, ...])` (at most 8). Each listed seed is run as a full run of `cfg.cases` cases (the same stream `Config::new(s)` would give) BEFORE the random cases of `cfg.seed`; a failing regression is reported with its own seed and the case index inside that seed's stream, so `Config::new(seed)` replays it.
+
+### Predictions
+Gas: with no regressions listed the new loop is predicted to be folded away by the optimizer (the count is a constant at the `Config::new` call site), so every gas figure in PROOF.md and recorded.json is predicted **exactly unchanged**. If it is not, I will report the difference and the cheapest way to restore it; I will not re-record to hide it.
+| step | prediction |
+|---|---|
+| 1 range | `between(10, 1000)`, property `x < 500`: fails, shrunk exactly 500, every value inside [10, 1000] |
+| 1 range floor | `between(100, 1000)`, property always false: shrunk exactly 100 (never below `lo`; the plain `u256` generator would reach 0) |
+| 1 one_of | `one_of([5, 3, 9])`, property `x != 3 && x != 9`: shrunk exactly 3 |
+| 1 map | `map(between(0, 100), x * 2, y / 2)`, property `y < 50`: shrunk exactly 50 |
+| 1 dependent | `dependent(between(1, 1000), \|b\| between(0, b))`, property `amount <= balance`: 256 cases pass; property `amount <= balance / 2`: shrunk exactly (balance 1, amount 1), amount never above balance |
+| 1 ERC20 valid transfer (new property, balances 700/100/200/0, amount drawn up to the sender's balance) | unchanged fixture: passes 64 cases and every call succeeds (accepted = attempted = 64), not vacuous; planted self-transfer bug: fails, shrunk sender == receiver, amount exactly 1 (the sender index may stop above 0: the generator's pair has no joint shrink) |
+| 1 backends | the pure combinator tests pass on sonatina and native with identical shrunk values; `check_gen_gas` with the default margin equals `check_gen` (`early = 0`) |
+| 2 weak premise | transfers with a raw `u32` amount and `assume(amount <= 250)`: discard rate predicted between 70% and 95% (I do not predict which side of 90%); reported, with the verdict |
+| 2 vacuous | `assume(x == 12345)` over `u32`: nothing accepted, vacuous reason 2. `assume(x == 0)` over `u64`: more than 90% discarded but some accepted, vacuous reason 100 |
+| 3 regression | the vault bug with the quickstart seed 25286971856348077807 listed and `with_cases(256)`: the buggy version fails with `seed == 25286971856348077807`, case index 2, 178 steps, shrunk (3, 1, 1); the fixed version (rounding down) passes; with no regressions listed the results equal L9's |
+| 4 signed (only if time remains) | edge values include min, -1, 0, 1, max; shrinking goes toward 0 (a negative value tries its absolute value first); `x * x >= 0` over `i8` fails on overflow only through a checked helper |
+| 5 unchanged | cross-check IDENTICAL (11/11); `./scripts/proof.sh --check` passes with no edit to the existing rows; `./scripts/record-evm.sh --check` passes |

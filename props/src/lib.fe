@@ -194,3 +194,6 @@ pub fn scenario_demo_capped_mint(_ seed: u256) -> Summary { summarize(check(Conf
 pub fn scenario_demo_buggy_sort(_ seed: u256) -> Summary { summarize(check(Config::new(seed), prop_sorted)) }
 pub fn scenario_demo_pair_sum(_ seed: u256) -> Summary { summarize(check(Config::new(seed), prop_pair_sum)) }
 pub fn scenario_demo_saturating_add(_ seed: u256) -> Summary { summarize(check(Config::new(seed), prop_saturating_add)) }
+pub use hunt_map::*
+pub use hunt_fixed::*
+pub use hunt_text::*

@@ -1,0 +1,113 @@
+// L9 std hunt: core::fixed (Wad = UFixed<18>, Ray = UFixed<27>, SWad = Fixed<18>) against a widened u256 model. All predicted to pass (docs/EXPECTATIONS.md, "L9").
+// Raw values below 2^128 make a * b and a * 10^18 exact in u256, so the model is plain integer arithmetic that does not use the 512-bit path under test.
+use core::fixed::{Wad, Ray, SWad}
+use core::num::{mul_div, mul_div_ceil}
+
+const E18: u256 = 1000000000000000000
+
+pub fn prop_hunt_fixed_raw_round_trip(_ a: u256) -> bool {
+    Wad::from_raw(a).raw() == a && Ray::from_raw(a).raw() == a && Wad::from_raw(a).is_zero() == (a == 0)
+}
+
+pub fn prop_hunt_fixed_int_parts(_ p: (u64, u64)) -> bool {
+    let n = p.0 as u256
+    let r = p.1 as u256
+    if Wad::from_int(n).raw() != n * E18 { return false }
+    if Wad::from_int(n).floor_int() != n || Wad::from_int(n).ceil_int() != n { return false }
+    let x = Wad::from_raw(n * E18 + r)
+    // floor and ceil of n + r / 10^18 (r may exceed 10^18, the model handles it)
+    let total = n * E18 + r
+    x.floor_int() == total / E18 && x.ceil_int() == (total + E18 - 1) / E18
+}
+
+pub fn prop_hunt_fixed_add_sub_inverse(_ p: (u128, u128)) -> bool {
+    let a = Wad::from_raw(p.0 as u256)
+    let b = Wad::from_raw(p.1 as u256)
+    (a + b).raw() == (p.0 as u256) + (p.1 as u256) && ((a + b) - b) == a && a.saturating_sub(b).raw() == (if p.0 > p.1 { (p.0 - p.1) as u256 } else { 0 })
+}
+
+pub fn prop_hunt_fixed_mul_matches_the_model(_ p: (u128, u128)) -> bool {
+    let a = p.0 as u256
+    let b = p.1 as u256
+    let prod = a * b
+    let down = prod / E18
+    let up = (prod + E18 - 1) / E18
+    (Wad::from_raw(a) * Wad::from_raw(b)).raw() == down && Wad::from_raw(a).mul_up(Wad::from_raw(b)).raw() == up
+}
+
+pub fn prop_hunt_fixed_div_matches_the_model(_ p: (u128, u128)) -> bool {
+    if p.1 == 0 { return true }
+    let a = p.0 as u256
+    let b = p.1 as u256
+    let num = a * E18
+    let down = num / b
+    let up = (num + b - 1) / b
+    (Wad::from_raw(a) / Wad::from_raw(b)).raw() == down && Wad::from_raw(a).div_up(Wad::from_raw(b)).raw() == up
+}
+
+// the full-precision path: operands up to 2^256 - 1 whose product overflows u256, against mul_div / mul_div_ceil (the library's own 512-bit helpers)
+pub fn prop_hunt_fixed_full_range_mul_agrees_with_mul_div(_ p: (u256, u256)) -> bool {
+    // only when the result fits (otherwise the operator panics by design)
+    let bound = u256::max() / E18
+    if p.0 > bound && p.1 > bound { return true }
+    let hi = if p.0 > p.1 { p.0 } else { p.1 }
+    let lo = if p.0 > p.1 { p.1 } else { p.0 }
+    if hi / E18 > 0 && lo > u256::max() / (hi / E18) + 1 { return true }
+    (Wad::from_raw(p.0) * Wad::from_raw(p.1)).raw() == mul_div(p.0, p.1, E18)
+}
+
+pub fn prop_hunt_fixed_mul_is_monotonic(_ p: (u128, u128, u128)) -> bool {
+    let lo = if p.0 < p.1 { p.0 } else { p.1 }
+    let hi = if p.0 < p.1 { p.1 } else { p.0 }
+    let c = Wad::from_raw(p.2 as u256)
+    (Wad::from_raw(lo as u256) * c) <= (Wad::from_raw(hi as u256) * c)
+}
+
+pub fn prop_hunt_fixed_rescale_matches_the_model(_ a: u128) -> bool {
+    let w = Wad::from_raw(a as u256)
+    let up = w.rescale<27>()
+    if up.raw() != (a as u256) * 1000000000 { return false }
+    if up.rescale<18>() != w { return false }
+    let r = Ray::from_raw(a as u256)
+    let down = r.rescale<18>()
+    let ceil = r.rescale_up<18>()
+    let q = (a as u256) / 1000000000
+    down.raw() == q && ceil.raw() == (if (a as u256) % 1000000000 == 0 { q } else { q + 1 })
+}
+
+pub fn prop_hunt_fixed_sqrt_is_the_integer_root(_ a: u128) -> bool {
+    // raw < 2^128: x * 10^18 < 2^188, s < 2^94, so every square below fits
+    let x = a as u256
+    let s = Wad::from_raw(x).sqrt().raw()
+    s * s <= x * E18 && x * E18 < (s + 1) * (s + 1)
+}
+
+// the 512-bit branch (raw * 10^18 overflows u256): necessary laws that need no wider integer, floor(s^2 / 10^18) <= x < ceil((s+1)^2 / 10^18)
+pub fn prop_hunt_fixed_sqrt_full_range(_ a: u256) -> bool {
+    let s = Wad::from_raw(a).sqrt().raw()
+    if mul_div(s, s, E18) > a { return false }
+    // ceil((s + 1)^2 / 10^18) exceeds a, but it can exceed 2^256 too when a is near the top: then mul_div_ceil panics by design, so only check the lower half
+    if a > (u256::max() >> 1) { return true }
+    mul_div_ceil(s + 1, s + 1, E18) > a
+}
+
+pub fn prop_hunt_fixed_signed_mul_div_truncate_toward_zero(_ p: (u128, u128, bool, bool)) -> bool {
+    let a = p.0 as u256
+    let b = p.1 as u256
+    let fa = if p.2 { -SWad::from_raw(i256::from_word(a)) } else { SWad::from_raw(i256::from_word(a)) }
+    let fb = if p.3 { -SWad::from_raw(i256::from_word(b)) } else { SWad::from_raw(i256::from_word(b)) }
+    let neg = p.2 != p.3
+    let mag = a * b / E18
+    let want = if neg { -SWad::from_raw(i256::from_word(mag)) } else { SWad::from_raw(i256::from_word(mag)) }
+    if fa * fb != want { return false }
+    if b == 0 { return true }
+    let dmag = a * E18 / b
+    let wantd = if neg { -SWad::from_raw(i256::from_word(dmag)) } else { SWad::from_raw(i256::from_word(dmag)) }
+    fa / fb == wantd
+}
+
+pub fn prop_hunt_fixed_order_agrees_with_raw(_ p: (u256, u256)) -> bool {
+    let a = Wad::from_raw(p.0)
+    let b = Wad::from_raw(p.1)
+    (a < b) == (p.0 < p.1) && (a <= b) == (p.0 <= p.1) && (a == b) == (p.0 == p.1) && a.min(b).raw() == (if p.0 <= p.1 { p.0 } else { p.1 }) && a.max(b).raw() == (if p.0 >= p.1 { p.0 } else { p.1 })
+}

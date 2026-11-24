@@ -273,12 +273,44 @@ Tested on macOS (Apple Silicon) locally and on Linux in CI (GitHub Actions, ubun
 
 Tested on Fe 26.7.0 (e6e6342) only; earlier versions are untested.
 
+1. Install Fe 26.7.0 (commit e6e6342) by downloading the release asset for your platform and checking its sha256 (the digest GitHub lists for the asset; CI does the same on Linux).
+
+Linux x86-64:
+
 ```bash
-# 1. install Fe 26.7.0 (commit e6e6342)
-curl -fsSL https://raw.githubusercontent.com/argotorg/fe/master/feup/feup.sh | bash -s -- --version v26.7.0
+mkdir -p ~/.fe/bin
+curl -fsSL -o ~/.fe/bin/fe https://github.com/argotorg/fe/releases/download/v26.7.0/fe_linux_amd64
+echo "4ef2b818e260f0ba0b0af4bd78468dda589dc4949503fffaef25d8188e5107d5  $HOME/.fe/bin/fe" | sha256sum -c -
+chmod +x ~/.fe/bin/fe
 export PATH="$HOME/.fe/bin:$PATH"
 fe --version          # fe 26.7.0 (e6e6342)
+```
 
+macOS, Apple Silicon:
+
+```bash
+mkdir -p ~/.fe/bin
+curl -fsSL -o ~/.fe/bin/fe https://github.com/argotorg/fe/releases/download/v26.7.0/fe_mac_arm64
+echo "fff9fe6ee9fad74f5c74039f8007e03b56d0f1f647d8244a43883f204671742e  $HOME/.fe/bin/fe" | shasum -a 256 -c -
+chmod +x ~/.fe/bin/fe
+export PATH="$HOME/.fe/bin:$PATH"
+fe --version          # fe 26.7.0 (e6e6342)
+```
+
+macOS, Intel:
+
+```bash
+mkdir -p ~/.fe/bin
+curl -fsSL -o ~/.fe/bin/fe https://github.com/argotorg/fe/releases/download/v26.7.0/fe_mac_amd64
+echo "8aee7b311263102f75bd3a9c0d9c547a535b41f1ad20f05e45999d2cfc8c0629  $HOME/.fe/bin/fe" | shasum -a 256 -c -
+chmod +x ~/.fe/bin/fe
+export PATH="$HOME/.fe/bin:$PATH"
+fe --version          # fe 26.7.0 (e6e6342)
+```
+
+Then, with `fe` on your `PATH`:
+
+```bash
 # 2. get the code
 git clone https://github.com/AjKadri/sparktest-fe.git
 cd sparktest-fe

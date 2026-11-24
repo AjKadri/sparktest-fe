@@ -24,7 +24,7 @@ Severities are the audit report's own; the one-line descriptions summarise its f
 | F7 | minor | Two native tests have names that claim more than they check (a bare `should_revert`, where any panic passes), and a comment claimed `PropertyFailed` carries all 6 words | fixed | dc7940e |
 | F8 | minor | CI and the README installed Fe from `feup.sh` on `master`, with no checksum | fixed | 8ccfc2b (CI), 289a1ca (README) |
 | F9 | minor | The vendored CoolCoin has no stated licence and was not excluded from the MIT OR Apache-2.0 statement | documented | e301915 |
-| F10 | nit | Joint shrinking silently switches off above 64 words | documented, code left as-is | 5a48f22 |
+| F10 | nit | Joint shrinking silently switches off above 64 words (undocumented), and keeps looping after its 400-candidate cap | documented, code left as-is | 5a48f22 |
 | F11 | nit | The 256-bit seed is folded to 64 bits by XOR, so different seeds can give the same stream | documented, code left as-is | 5a48f22 |
 | F12 | nit | `check_isolated` ignores the regression seeds of `Config` | documented | 5a48f22 |
 | F13 | nit | Hygiene: `__pycache__` not ignored, demo picker cards without accessible names, build outputs under `spike/` tracked | fixed in part (`.gitignore`, `aria-label`); `spike/` outputs left as-is | 3461a00 |

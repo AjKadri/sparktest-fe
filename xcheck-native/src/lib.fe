@@ -1,6 +1,6 @@
 // Native executable that prints the 11 cross-check scenarios (see scripts/cross-check.sh).
 use std::io::Stdout
-use sparktest::{Config, check, full}
+use sparktest::{Config, check, full, Outcome}
 use sparktest_native::{opaque_zero, print_summary, print_full}
 use props::{
     scenario_u256_below_1000,
@@ -19,6 +19,14 @@ use props::{
     DEMO_SEED_PAIR_SUM,
     DEMO_SEED_SATURATING_ADD,
     DEMO_SEED_BANK,
+    DEMO_SEED_PANIC,
+}
+
+// the fixed demo properties: prints the number of cases that passed (XP lines; scripts/build_demo.py reads them)
+fn print_pass(_ name: String<31>, _ cases: u256, _ failed: u256)
+uses (out: mut Stdout)
+{
+    println!("XP ", name, " failed=", failed, " cases=", cases)
 }
 
 pub fn main() -> i32 uses (out: mut Stdout) {
@@ -55,5 +63,46 @@ pub fn main() -> i32 uses (out: mut Stdout) {
             ),
         ),
     )
+    match check(
+        Config::new(DEMO_SEED_CAPPED_MINT + z),
+        props::prop_capped_mint_fixed,
+    ) {
+        Outcome::Pass { cases } => {
+            print_pass("capped_mint_fixed", cases, 0)
+        },
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => {
+            print_pass("capped_mint_fixed", 0, 1)
+        },
+    }
+    match check(
+        Config::new(DEMO_SEED_BUGGY_SORT + z),
+        props::prop_sorted_fixed,
+    ) {
+        Outcome::Pass { cases } => {
+            print_pass("buggy_sort_fixed", cases, 0)
+        },
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => {
+            print_pass("buggy_sort_fixed", 0, 1)
+        },
+    }
+    match check(Config::new(DEMO_SEED_BANK + z), props::prop_bank_fixed) {
+        Outcome::Pass { cases } => {
+            print_pass("bank_sequence_fixed", cases, 0)
+        },
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => {
+            print_pass("bank_sequence_fixed", 0, 1)
+        },
+    }
+    match check(
+        Config::new(DEMO_SEED_PANIC + z),
+        props::prop_panic_overflow_fixed,
+    ) {
+        Outcome::Pass { cases } => {
+            print_pass("panic_overflow_fixed", cases, 0)
+        },
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => {
+            print_pass("panic_overflow_fixed", 0, 1)
+        },
+    }
     0
 }

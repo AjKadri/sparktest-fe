@@ -131,3 +131,12 @@ button:disabled { opacity: .5; cursor: default; }
 .seq li { padding: 0 6px; border-radius: 4px; }
 .seq li.changed { background: var(--accent-soft); }
 .seq.final li { background: var(--bad-soft); margin-bottom: 2px; }
+
+/* Buggy / Fixed toggle */
+.modebox { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin: 0 0 12px; }
+.toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
+.toggle button { border: 0; border-radius: 0; padding: 7px 18px; background: transparent; }
+.toggle button + button { border-left: 1px solid var(--line); }
+.toggle button[aria-checked="true"]#mode-buggy { background: var(--bad-soft); color: var(--bad); }
+.toggle button[aria-checked="true"]#mode-fixed { background: var(--good-soft); color: var(--good); }
+.toggle button:disabled { opacity: .5; }

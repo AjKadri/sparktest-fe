@@ -4,7 +4,7 @@
 // Run: node web/sparktest.test.mjs
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import { loadSparktest, PROPS, PANIC_PROPS } from './sparktest-runner.mjs';
+import { loadSparktest, PROPS, PANIC_PROPS, FIXED_PROPS } from './sparktest-runner.mjs';
 
 const here = (f) => new URL(f, import.meta.url);
 const doc = JSON.parse(fs.readFileSync(here('./props.json'), 'utf8'));
@@ -97,6 +97,37 @@ for (const p of doc.props) {
   }
   n++;
 }
+// --- the Buggy / Fixed toggle: the fixed code passes the very seed that broke the buggy code, on all three backends ---
+assert.deepEqual(doc.props.filter((p) => p.fixed).map((p) => p.id), FIXED_PROPS, 'the props with a fixed version');
+let nf = 0;
+for (const p of doc.props.filter((q) => q.fixed)) {
+  const id = p.id + '_fixed';
+  const rec = recorded.props[id];
+  assert.ok(p.fixed.source.includes('FIXED:'), `${p.id}: the fixed source says what changed`);
+  assert.ok(p.fixed.note.length > 0, `${p.id}: the fixed version has a note`);
+  assert.ok(!/BUG:/.test(p.fixed.source), `${p.id}: the fixed source has no BUG comment`);
+  // the buggy version fails with this seed (again) ...
+  const buggy = PANIC_PROPS.includes(p.id) ? st.findPanic(p.id, p.seed, p.cases) : st.run(p.id, p.seed, p.cases);
+  assert.equal(buggy.passed, false, `${p.id}: buggy fails with seed ${p.seed}`);
+  // ... and the fixed version passes it: wasm = native = EVM, same number of cases
+  const w = PANIC_PROPS.includes(p.id) ? st.findPanic(id, p.seed, p.cases) : st.run(id, p.seed, p.cases);
+  assert.equal(w.passed, true, `${p.id}: fixed passes seed ${p.seed} (wasm)`);
+  assert.equal(w.cases, p.cases, `${p.id}: wasm ran all ${p.cases} cases`);
+  assert.equal(p.fixed.native.failed, 0, `${p.id}: fixed passes (native)`);
+  assert.equal(p.fixed.native.cases, p.cases, `${p.id}: native ran all ${p.cases} cases`);
+  assert.equal(rec.cases, p.cases, `${p.id}: EVM ran all ${p.cases} cases`);
+  assert.ok(rec.gas > 100000, `${p.id}: EVM gas ${rec.gas} shows the cases ran`);
+  // replay is identical, and random seeds pass too
+  assert.deepEqual(PANIC_PROPS.includes(p.id) ? st.findPanic(id, p.seed, p.cases) : st.run(id, p.seed, p.cases), w, `${p.id}: replay of the fixed run`);
+  for (let k = 1n; k <= 25n; k++) {
+    const seed = BigInt(p.seed) * 1000003n + k * 7919n;
+    const r = PANIC_PROPS.includes(p.id) ? st.findPanic(id, seed, p.cases) : st.run(id, seed, p.cases);
+    assert.equal(r.passed, true, `${p.id}: fixed passes random seed ${seed}`);
+  }
+  console.log(`PASS ${id.padEnd(22)} seed ${p.seed}: buggy fails, fixed passes ${w.cases} cases and 25 more seeds (wasm = EVM = native; EVM gas ${rec.gas})`);
+  nf++;
+}
+console.log(`\nall ${nf} fixed versions pass the seeds that broke the buggy versions, across wasm, sonatina (EVM) and native`);
 assert.equal(st.run('buggy_sort', 22, 256, 3).steps, 3); // max_shrinks caps the steps
 assert.throws(() => st.run('nope', 1), /unknown property/);
 console.log(`\nall ${n} demo properties agree across wasm, sonatina (EVM) and native`);

@@ -16,6 +16,9 @@ function highlight(src) {
 }
 
 let doc, recorded, st, current, seed, busy = false, skipRequested = false, lastResult = null;
+let fixed = false;        // the Buggy / Fixed toggle: true runs the fixed version of the current property
+let brokenSeed = null;    // the seed of the latest buggy failure of the current property (what "Replay this seed" runs on the fixed code)
+const runId = () => current.id + (fixed ? '_fixed' : '');
 
 async function boot() {
   try {
@@ -38,6 +41,8 @@ async function boot() {
   $('random').onclick = () => { seed = randomSeed(); showSeed(); start(seed); };
   $('replay').onclick = () => start(seed, true);
   $('skip').onclick = () => { skipRequested = true; };
+  $('mode-buggy').onclick = () => { if (!busy) setMode(false); };
+  $('mode-fixed').onclick = () => { if (!busy) setMode(true); };
   setBusy(false);
 }
 
@@ -58,13 +63,42 @@ function select(id) {
   current = doc.props.find((p) => p.id === id);
   seed = BigInt(current.seed);
   lastResult = null;
+  fixed = false;
+  brokenSeed = null;
   for (const b of $('picker').children) b.setAttribute('aria-checked', String(b.dataset.id === id));
   showSeed();
-  $('source').firstElementChild.innerHTML = highlight(current.source);
-  $('prop-claim').innerHTML = `Claim: <strong>${esc(current.property)}</strong>. ${current.expect === 'fail' ? 'This property is false; Sparktest should find out why.' : 'This property is true; Sparktest should find nothing.'}`;
-  renderRecorded();
+  paintMode();
   $('stage').innerHTML = '<p class="muted">Press <strong>Run</strong>. The wasm module generates inputs from the seed, checks the property and, on failure, shrinks the input.</p>';
   $('replay').disabled = true;
+}
+
+// Shows the buggy or the fixed code for the current property (the toggle only exists for properties that have a fixed version).
+function paintMode() {
+  const hasFix = !!current.fixed;
+  $('modebox').hidden = !hasFix;
+  $('mode-buggy').setAttribute('aria-checked', String(!fixed));
+  $('mode-fixed').setAttribute('aria-checked', String(fixed));
+  $('modehint').textContent = hasFix ? (fixed ? current.fixed.note : 'This version has a planted bug.') : '';
+  $('source-h').textContent = fixed ? 'The fixed code, in Fe' : 'The property, in Fe';
+  $('source').firstElementChild.innerHTML = highlight(fixed ? current.fixed.source : current.source);
+  $('prop-claim').innerHTML = fixed
+    ? `Claim: <strong>${esc(current.property)}</strong> (unchanged). This is the fixed code, and it should hold for every seed, including the one that broke the buggy version.`
+    : `Claim: <strong>${esc(current.property)}</strong>. ${current.expect === 'fail' ? 'This property is false; Sparktest should find out why.' : 'This property is true; Sparktest should find nothing.'}`;
+  $('replay').textContent = fixed ? 'Replay this seed' : 'Replay';
+  renderRecorded();
+}
+
+function setMode(f) {
+  if (!current.fixed || f === fixed) return;
+  fixed = f;
+  lastResult = null;
+  paintMode();
+  $('stage').innerHTML = fixed
+    ? (brokenSeed !== null
+      ? `<p class="muted">Fixed code. Press <strong>Replay this seed</strong> to run it with seed <code>${brokenSeed}</code>, the seed that broke the buggy version. Then press <strong>Random seed</strong> to try others.</p>`
+      : '<p class="muted">Fixed code. Press <strong>Run</strong> (or run the buggy version first to get a seed that breaks it).</p>')
+    : '<p class="muted">Buggy code. Press <strong>Run</strong>.</p>';
+  setBusy(false);
 }
 
 function showSeed() {
@@ -74,7 +108,8 @@ function showSeed() {
 function setBusy(b) {
   busy = b;
   for (const id of ['run', 'random']) $(id).disabled = b;
-  $('replay').disabled = b || !lastResult;
+  $('replay').disabled = b || (!lastResult && !fixed);
+  for (const id of ['mode-buggy', 'mode-fixed']) $(id).disabled = b;
   $('skip').hidden = !b;
   for (const c of $('picker').children) c.disabled = b;
 }
@@ -114,12 +149,13 @@ function valsHtml(words, prev, cls = '') {
 async function startPanic(s, isReplay) {
   const stage = $('stage');
   const t0 = performance.now();
-  const f = st.findPanic(current.id, s, current.cases);
+  const f = st.findPanic(runId(), s, current.cases);
   const ms = performance.now() - t0;
   if (f.passed) {
-    stage.innerHTML = `<div class="block"><h3>Result</h3><p class="big"><span class="verdict good">Held</span></p><p class="note">No panic or failure in ${f.cases} cases for this seed. Try a random seed.</p></div>`;
+    stage.innerHTML = fixed ? fixedPassHtml(f.cases, s) : `<div class="block"><h3>Result</h3><p class="big"><span class="verdict good">Held</span></p><p class="note">No panic or failure in ${f.cases} cases for this seed. Try a random seed.</p></div>`;
     lastResult = f; setBusy(false); return;
   }
+  brokenSeed = s;
   const one = (v) => `<div class="vals"><div class="val"><span class="n">x</span><span class="v">${esc(v)}</span></div></div>`;
   stage.innerHTML = '';
   const b1 = el('div', 'block');
@@ -157,6 +193,15 @@ function fmtMs(ms) { return ms < 0.01 ? '<0.01 ms' : `${ms.toFixed(ms < 1 ? 2 : 
 // Browsers coarsen performance.now(), and one run takes well under a millisecond, so: warm up once, time REPS
 // identical runs together and report the mean per run. Returns [result, milliseconds per run].
 const REPS = 200;
+
+// The result of the fixed code: it passes, with the count and the seed (and a pointer to the seed that broke the buggy version).
+function fixedPassHtml(cases, s, ms) {
+  const same = brokenSeed !== null && brokenSeed === s;
+  return `<div class="block"><h3>Result</h3><p class="big"><span class="verdict good">FIXED: passes ${cases} cases (seed ${s})</span></p>
+    ${ms !== undefined ? `<p class="counter">${cases} cases in ${fmtMs(ms)}<small>mean of ${REPS} runs, measured in your browser, in WebAssembly</small></p>` : ''}
+    <p class="note ${same ? 'ok' : ''}">${same ? `This is the seed that broke the buggy version: the same inputs now pass.` : brokenSeed !== null ? 'A different seed from the one that broke the buggy version; it passes too.' : 'Flip back to Buggy and press Run to see this property fail.'} ${current.fixed.note}</p>
+    <p class="note small">Run it with <strong>Random seed</strong> a few times: the fixed version holds for all of them. These are prebuilt properties; the page cannot compile your own Fe.</p></div>`;
+}
 function timed(f) {
   let r = f();
   const t0 = performance.now();
@@ -171,8 +216,14 @@ async function start(s, isReplay = false) {
   const stage = $('stage');
   const cases = current.cases;
   if (current.panic) { await startPanic(s, isReplay); return; }
-  const [r, ms] = timed(() => st.run(current.id, s, cases));
+  const [r, ms] = timed(() => st.run(runId(), s, cases));
 
+  if (r.passed && fixed) {
+    stage.innerHTML = fixedPassHtml(r.cases, s, ms);
+    lastResult = r;
+    setBusy(false);
+    return;
+  }
   if (r.passed) {
     stage.innerHTML = `<div class="block"><h3>Result</h3><p class="big"><span class="verdict good">Held</span></p>
       <p class="counter">${r.cases} cases in ${fmtMs(ms)}<small>mean of ${REPS} runs, measured in your browser, in WebAssembly</small></p>
@@ -182,6 +233,7 @@ async function start(s, isReplay = false) {
     return;
   }
 
+  brokenSeed = s;
   const trace = st.shrinkTrace(current.id, s, cases);
   const first = trace[0].words;
   stage.innerHTML = '';
@@ -218,10 +270,12 @@ async function start(s, isReplay = false) {
 }
 
 function renderRecorded() {
-  const e = recorded.props[current.id];
+  const e = recorded.props[runId()];
   const box = $('recorded');
   const rows = [];
-  if (current.expect === 'fail') {
+  if (fixed) {
+    rows.push(['seed', current.seed], ['result', `held for ${e.cases} cases`], ['gas for the run', e.gas.toLocaleString()]);
+  } else if (current.expect === 'fail') {
     const input = current.panic ? `x = ${e.input[0]}  (${e.reason})` : current.seq ? seqCommands(e.input.map(BigInt)).join('; ') : current.labels.map((l, i) => `${l} = ${e.input[i] ?? 0}`).join(', ');
     rows.push(['seed', e.seed], ['failed on case', e.case_index + 1], ['shrink steps', e.steps], ['shrunk input', input]);
   } else {
@@ -231,7 +285,7 @@ function renderRecorded() {
   box.innerHTML = `<span class="badge">Recorded, not computed here</span>
     <dl>${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
     <p class="cmd">to re-record: <code>${esc(recorded.command)}</code></p>
-    <p class="note small">This run happened on the sonatina EVM test backend (not in your browser), with the same seed${current.panic ? ', through check_isolated (each evaluation inside a harness contract, called with try_call)' : ''}. ${current.panic ? 'The native backend (<code>scripts/find-panic.sh</code>) gives the same result.' : 'The native backend gives the same result (checked by <code>scripts/cross-check.sh</code>).'}</p>`;
+    <p class="note small">This run happened on the sonatina EVM test backend (not in your browser), with the same seed${current.panic && !fixed ? ', through check_isolated (each evaluation inside a harness contract, called with try_call)' : ''}. ${fixed ? 'The native backend also passes all ' + current.fixed.native.cases + ' cases (counted by the repo\'s native tests).' : current.panic ? 'The native backend (<code>scripts/find-panic.sh</code>) gives the same result.' : 'The native backend gives the same result (checked by <code>scripts/cross-check.sh</code>).'}</p>`;
 }
 
 boot();

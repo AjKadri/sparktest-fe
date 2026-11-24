@@ -1,8 +1,8 @@
 {
   "wasm": {
     "file": "demo_wasm.wasm",
-    "bytes": 73106,
-    "sha256": "3b513768a08b7eacdd83eed76d5649c24114c8e3a3e0695e61e09de2abce977a",
+    "bytes": 83384,
+    "sha256": "873ebd368a5d54779709d629219aad6c1ad2f5e729ac702bd0e25dc823e2c5e0",
     "imports": [
       "env.__fe_revert",
       "env.st_fail",
@@ -16,10 +16,14 @@
       "gen_panic_overflow",
       "memory",
       "run_bank_sequence",
+      "run_bank_sequence_fixed",
       "run_buggy_sort",
+      "run_buggy_sort_fixed",
       "run_capped_mint",
+      "run_capped_mint_fixed",
       "run_pair_sum",
       "run_panic_overflow_cases",
+      "run_panic_overflow_fixed_cases",
       "run_saturating_add"
     ]
   },
@@ -52,7 +56,15 @@
         "supply",
         "amount"
       ],
-      "expect": "fail"
+      "expect": "fail",
+      "fixed": {
+        "source": "// FIXED: the cap is checked against the supply AFTER minting (`supply + amount > CAP`), so a mint can never overshoot.\npub fn mint_fixed(_ supply: u64, _ amount: u64) -> u64 {\n    if supply + amount > CAP {\n        return supply\n    }\n    supply + amount\n}\n\n// Property (unchanged): starting from any supply within the cap, minting any amount never exceeds the cap.\npub fn prop_capped_mint_fixed(_ p: (u32, u32)) -> bool {\n    let supply = p.0 as u64\n    if supply > CAP {\n        return true\n    }\n    mint_fixed(supply, p.1 as u64) <= CAP\n}\n",
+        "note": "The cap is now checked against the supply after minting.",
+        "native": {
+          "failed": 0,
+          "cases": 256
+        }
+      }
     },
     {
       "id": "buggy_sort",
@@ -83,7 +95,15 @@
         "a[2]",
         "a[3]"
       ],
-      "expect": "fail"
+      "expect": "fail",
+      "fixed": {
+        "source": "// FIXED: sorting 4 elements needs 3 passes, and this one makes 3.\npub fn sort4_fixed(_ input: [u32; 4]) -> [u32; 4] {\n    var a = input\n    var pass: usize = 0\n    while pass < 3 {\n        var i: usize = 0\n        while i < 3 {\n            if a[i] > a[i + 1] {\n                let t = a[i]\n                a[i] = a[i + 1]\n                a[i + 1] = t\n            }\n            i += 1\n        }\n        pass += 1\n    }\n    a\n}\n\n// Property (unchanged): the output is sorted.\npub fn prop_sorted_fixed(_ input: [u32; 4]) -> bool {\n    let o = sort4_fixed(input)\n    o[0] <= o[1] && o[1] <= o[2] && o[2] <= o[3]\n}\n",
+        "note": "The sort now makes three passes.",
+        "native": {
+          "failed": 0,
+          "cases": 256
+        }
+      }
     },
     {
       "id": "pair_sum",
@@ -177,7 +197,15 @@
         "amount"
       ],
       "seq": true,
-      "expect": "fail"
+      "expect": "fail",
+      "fixed": {
+        "source": "// FIXED: a deposit is always credited once, whether or not the account was drained before.\npub fn bank_apply_fixed(_ bank: mut Bank, _ cmd: (Index<3>, Index<3>, Index<3>, u16)) {\n    let kind = cmd.0.value\n    let a = cmd.1.value\n    let b = cmd.2.value\n    let amount = cmd.3 as u64\n    if kind == 0 {\n        bank.bal[a] += amount\n        bank.deposited += amount\n    } else if kind == 1 {\n        let taken = if amount < bank.bal[a] {\n            amount\n        } else {\n            bank.bal[a]\n        }\n        bank.bal[a] -= taken\n        bank.withdrawn += taken\n    } else {\n        if a != b && bank.bal[a] >= amount {\n            bank.bal[a] -= amount\n            bank.bal[b] += amount\n        }\n    }\n}\n\n// Property (unchanged): for every sequence of up to 8 commands, the invariant holds after every command.\npub fn prop_bank_fixed(_ s: Seq<(Index<3>, Index<3>, Index<3>, u16), 8>) -> bool {\n    var bank = bank_new()\n    var i: usize = 0\n    while i < s.len {\n        bank_apply_fixed(mut bank, s.items[i])\n        if !bank_consistent(bank) {\n            return false\n        }\n        i += 1\n    }\n    true\n}\n",
+        "note": "A deposit is credited once, even after the account was drained.",
+        "native": {
+          "failed": 0,
+          "cases": 256
+        }
+      }
     },
     {
       "id": "panic_overflow",
@@ -208,7 +236,15 @@
         "x"
       ],
       "panic": true,
-      "expect": "fail"
+      "expect": "fail",
+      "fixed": {
+        "source": "// FIXED: x is widened to u128 before multiplying, so x * 1000 cannot overflow for any u64 x and nothing panics.\npub fn prop_panic_overflow_fixed(_ x: u64) -> bool {\n    let w = x as u128\n    w * 1000 / 1000 == w\n}\n",
+        "note": "x is widened to u128 before multiplying, so nothing overflows or panics.",
+        "native": {
+          "failed": 0,
+          "cases": 256
+        }
+      }
     }
   ]
 }

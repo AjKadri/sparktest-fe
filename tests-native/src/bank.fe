@@ -63,3 +63,23 @@ fn bank_fixed_passes() {
     // exact proof of work: the property was evaluated once per case, 100000 times
     assert!(tally.attempted == 100000)
 }
+
+// the same Config (seed 960, 512 cases) that finds the planted bug passes on the fixed bank; the exact evaluation count proves the cases ran
+#[test]
+fn bank_fixed_passes_the_seed_that_broke_the_bug() {
+    var tally = Tally::new()
+    match with (mut tally) {
+        check(
+            Config::new(fixed_seed(960)).with_cases(512),
+            counted_bank_fixed,
+        )
+    } {
+        Outcome::Pass { cases } => {
+            assert!(cases == 512)
+        },
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => {
+            assert!(false)
+        },
+    }
+    assert!(tally.attempted == 512)
+}

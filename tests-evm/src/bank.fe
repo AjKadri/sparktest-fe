@@ -52,3 +52,21 @@ fn bank_fixed_passes() uses (evm: mut Evm) {
         g0 - evm.gas() >= 256 * 5000,
     ) // proof of work: every case runs up to 8 commands
 }
+
+// the same Config (seed 960, 512 cases) that finds the planted bug passes on the fixed bank
+#[test]
+fn bank_fixed_passes_the_seed_that_broke_the_bug() uses (evm: mut Evm) {
+    let g0 = evm.gas()
+    match check(
+        Config::new(fixed_seed(960)).with_cases(512),
+        props::prop_bank_fixed,
+    ) {
+        Outcome::Pass { cases } => {
+            assert!(cases == 512)
+        },
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => {
+            assert!(false)
+        },
+    }
+    assert!(g0 - evm.gas() >= 512 * 2000)
+}

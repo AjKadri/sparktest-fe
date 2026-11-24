@@ -3,6 +3,8 @@
 
 export const PROPS = ['capped_mint', 'buggy_sort', 'pair_sum', 'saturating_add', 'bank_sequence', 'panic_overflow'];
 export const PANIC_PROPS = ['panic_overflow'];
+// properties that also have a fixed version, run under the name <id>_fixed (same seeds, same number of cases)
+export const FIXED_PROPS = ['capped_mint', 'buggy_sort', 'bank_sequence', 'panic_overflow'];
 const U64 = (1n << 64n) - 1n;
 
 // bytes: ArrayBuffer | Uint8Array of the .wasm. Returns { run, shrinkTrace }.

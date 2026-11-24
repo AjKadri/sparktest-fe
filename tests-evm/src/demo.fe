@@ -62,3 +62,70 @@ fn demo_saturating_add_passes() uses (evm: mut Evm) {
     }
     assert!(g0 - evm.gas() >= 256 * 50)
 }
+
+// capped_mint: the same Config (seed 500) fails on the buggy code and passes on the fixed code; gas proves the cases ran
+#[test]
+fn demo_capped_mint_fixed_passes_the_seed_that_broke_the_bug()
+uses (evm: mut Evm)
+{
+    match check(Config::new(fixed_seed(500)), props::prop_capped_mint) {
+        Outcome::Pass { cases: _ } => {
+            assert!(false)
+        },
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => {},
+    }
+    let g0 = evm.gas()
+    match check(
+        Config::new(fixed_seed(500)),
+        props::prop_capped_mint_fixed,
+    ) {
+        Outcome::Pass { cases } => {
+            assert!(cases == 256)
+        },
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => {
+            assert!(false)
+        },
+    }
+    assert!(g0 - evm.gas() >= 256 * 50)
+}
+
+// buggy_sort: the same Config (seed 501) fails on the buggy code and passes on the fixed code; gas proves the cases ran
+#[test]
+fn demo_buggy_sort_fixed_passes_the_seed_that_broke_the_bug()
+uses (evm: mut Evm)
+{
+    match check(Config::new(fixed_seed(501)), props::prop_sorted) {
+        Outcome::Pass { cases: _ } => {
+            assert!(false)
+        },
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => {},
+    }
+    let g0 = evm.gas()
+    match check(Config::new(fixed_seed(501)), props::prop_sorted_fixed) {
+        Outcome::Pass { cases } => {
+            assert!(cases == 256)
+        },
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => {
+            assert!(false)
+        },
+    }
+    assert!(g0 - evm.gas() >= 256 * 50)
+}
+
+// panic_overflow: the buggy version panics (see tests-isolated); the fixed version widens to u128 and passes the same seed; gas proves the cases ran
+#[test]
+fn demo_panic_overflow_fixed_passes() uses (evm: mut Evm) {
+    let g0 = evm.gas()
+    match check(
+        Config::new(fixed_seed(8101)),
+        props::prop_panic_overflow_fixed,
+    ) {
+        Outcome::Pass { cases } => {
+            assert!(cases == 256)
+        },
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => {
+            assert!(false)
+        },
+    }
+    assert!(g0 - evm.gas() >= 256 * 50)
+}

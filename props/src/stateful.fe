@@ -16,6 +16,8 @@ pub fn prop_seq_no_adjacent_equal(_ s: Seq<Index<3>, 8>) -> bool {
 }
 
 // ---- the fixed bank (never doubles a deposit) ----
+// @demo bank_sequence_fixed
+// FIXED: a deposit is always credited once, whether or not the account was drained before.
 pub fn bank_apply_fixed(_ bank: mut Bank, _ cmd: (Index<3>, Index<3>, Index<3>, u16)) {
     let kind = cmd.0.value
     let a = cmd.1.value
@@ -40,6 +42,7 @@ pub fn bank_apply_fixed(_ bank: mut Bank, _ cmd: (Index<3>, Index<3>, Index<3>, 
     }
 }
 
+// Property (unchanged): for every sequence of up to 8 commands, the invariant holds after every command.
 pub fn prop_bank_fixed(_ s: Seq<(Index<3>, Index<3>, Index<3>, u16), 8>) -> bool {
     var bank = bank_new()
     var i: usize = 0
@@ -52,3 +55,4 @@ pub fn prop_bank_fixed(_ s: Seq<(Index<3>, Index<3>, Index<3>, u16), 8>) -> bool
     }
     true
 }
+// @end

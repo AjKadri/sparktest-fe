@@ -13,7 +13,7 @@ def run(cmd, cwd=None):
     return subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True)
 
 EXPECTED_FAILS = ['capped_mint', 'buggy_sort', 'pair_sum', 'bank_sequence']   # rec_<name> tests that must fail with PropertyFailed
-EXPECTED_PASS = ['saturating_add']                           # rec_<name> test that must pass and emit its stats
+EXPECTED_PASS = ['saturating_add', 'capped_mint_fixed', 'buggy_sort_fixed', 'bank_sequence_fixed', 'panic_overflow_fixed']   # rec_<name> tests that must pass and emit their stats (the *_fixed ones run the fixed code with the buggy code's seed)
 
 out = run(['fe', 'test', '--show-logs'], cwd='evm-recordings').stdout
 lines = out.splitlines()

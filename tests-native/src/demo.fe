@@ -72,3 +72,87 @@ fn demo_saturating_add_passes() {
     }
     assert!(tally.attempted == 100000)
 }
+
+// evaluates `props::prop_capped_mint_fixed` and records the evaluation
+fn counted_capped_mint_fixed(_ p: (u32, u32)) -> bool uses (tally: mut Tally) {
+    tally.call(true)
+    props::prop_capped_mint_fixed(p)
+}
+
+// capped_mint: the same Config (seed 500) fails on the buggy code and passes on the fixed code; the exact evaluation count proves the cases ran
+#[test]
+fn demo_capped_mint_fixed_passes_the_seed_that_broke_the_bug() {
+    match check(Config::new(fixed_seed(500)), props::prop_capped_mint) {
+        Outcome::Pass { cases: _ } => {
+            assert!(false)
+        },
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => {},
+    }
+    var tally = Tally::new()
+    match with (mut tally) {
+        check(Config::new(fixed_seed(500)), counted_capped_mint_fixed)
+    } {
+        Outcome::Pass { cases } => {
+            assert!(cases == 256)
+        },
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => {
+            assert!(false)
+        },
+    }
+    assert!(tally.attempted == 256)
+}
+
+// evaluates `props::prop_sorted_fixed` and records the evaluation
+fn counted_buggy_sort_fixed(_ p: [u32; 4]) -> bool uses (tally: mut Tally) {
+    tally.call(true)
+    props::prop_sorted_fixed(p)
+}
+
+// buggy_sort: the same Config (seed 501) fails on the buggy code and passes on the fixed code; the exact evaluation count proves the cases ran
+#[test]
+fn demo_buggy_sort_fixed_passes_the_seed_that_broke_the_bug() {
+    match check(Config::new(fixed_seed(501)), props::prop_sorted) {
+        Outcome::Pass { cases: _ } => {
+            assert!(false)
+        },
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => {},
+    }
+    var tally = Tally::new()
+    match with (mut tally) {
+        check(Config::new(fixed_seed(501)), counted_buggy_sort_fixed)
+    } {
+        Outcome::Pass { cases } => {
+            assert!(cases == 256)
+        },
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => {
+            assert!(false)
+        },
+    }
+    assert!(tally.attempted == 256)
+}
+
+// evaluates `props::prop_panic_overflow_fixed` and records the evaluation
+fn counted_panic_overflow_fixed(_ x: u64) -> bool uses (tally: mut Tally) {
+    tally.call(true)
+    props::prop_panic_overflow_fixed(x)
+}
+
+// panic_overflow: the buggy version aborts a native process (see scripts/find-panic.sh); the fixed version widens to u128 and passes; the exact evaluation count proves the cases ran
+#[test]
+fn demo_panic_overflow_fixed_passes() {
+    var tally = Tally::new()
+    match with (mut tally) {
+        check(
+            Config::new(fixed_seed(8101)),
+            counted_panic_overflow_fixed,
+        )
+    } {
+        Outcome::Pass { cases } => {
+            assert!(cases == 256)
+        },
+        Outcome::Fail { original: _, shrunk: _, case: _, seed: _, steps: _, early: _ } => {
+            assert!(false)
+        },
+    }
+    assert!(tally.attempted == 256)
+}

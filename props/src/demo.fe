@@ -143,3 +143,59 @@ pub fn prop_panic_overflow(_ x: u64) -> bool {
     x * 1000 / 1000 == x
 }
 // @end
+
+// ---- fixed versions of the demo properties with a planted bug (the page's Buggy / Fixed toggle runs these with the same seeds) ----
+
+// @demo capped_mint_fixed
+// FIXED: the cap is checked against the supply AFTER minting (`supply + amount > CAP`), so a mint can never overshoot.
+pub fn mint_fixed(_ supply: u64, _ amount: u64) -> u64 {
+    if supply + amount > CAP {
+        return supply
+    }
+    supply + amount
+}
+
+// Property (unchanged): starting from any supply within the cap, minting any amount never exceeds the cap.
+pub fn prop_capped_mint_fixed(_ p: (u32, u32)) -> bool {
+    let supply = p.0 as u64
+    if supply > CAP {
+        return true
+    }
+    mint_fixed(supply, p.1 as u64) <= CAP
+}
+// @end
+
+// @demo buggy_sort_fixed
+// FIXED: sorting 4 elements needs 3 passes, and this one makes 3.
+pub fn sort4_fixed(_ input: [u32; 4]) -> [u32; 4] {
+    var a = input
+    var pass: usize = 0
+    while pass < 3 {
+        var i: usize = 0
+        while i < 3 {
+            if a[i] > a[i + 1] {
+                let t = a[i]
+                a[i] = a[i + 1]
+                a[i + 1] = t
+            }
+            i += 1
+        }
+        pass += 1
+    }
+    a
+}
+
+// Property (unchanged): the output is sorted.
+pub fn prop_sorted_fixed(_ input: [u32; 4]) -> bool {
+    let o = sort4_fixed(input)
+    o[0] <= o[1] && o[1] <= o[2] && o[2] <= o[3]
+}
+// @end
+
+// @demo panic_overflow_fixed
+// FIXED: x is widened to u128 before multiplying, so x * 1000 cannot overflow for any u64 x and nothing panics.
+pub fn prop_panic_overflow_fixed(_ x: u64) -> bool {
+    let w = x as u128
+    w * 1000 / 1000 == w
+}
+// @end

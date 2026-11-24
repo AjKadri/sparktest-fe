@@ -46,11 +46,17 @@ manifest = json.load(open(os.path.join(out, 'demo_wasm.manifest.json')))
 wasm_bytes = open('web/demo_wasm.wasm', 'rb').read()
 
 # 2. sources
-src = open('props/src/demo.fe').read()
+src = open('props/src/demo.fe').read() + '\n' + open('props/src/stateful.fe').read()   # the fixed bank lives in stateful.fe (// @demo bank_sequence_fixed)
 sources = {}
 for m in re.finditer(r'// @demo (\w+)\n(.*?)// @end', src, re.S):
     sources[m.group(1)] = m.group(2).rstrip() + '\n'
-missing = set(SEEDS) - set(sources)
+FIXED = {   # properties with a planted bug that also have a fixed version (same seed, same number of cases); id -> what the fix changes
+    'capped_mint': 'The cap is now checked against the supply after minting.',
+    'buggy_sort': 'The sort now makes three passes.',
+    'bank_sequence': 'A deposit is credited once, even after the account was drained.',
+    'panic_overflow': 'x is widened to u128 before multiplying, so nothing overflows or panics.',
+}
+missing = (set(SEEDS) | {k + '_fixed' for k in FIXED}) - set(sources)
 if missing:
     sys.exit(f'no // @demo block for: {missing}')
 
@@ -64,6 +70,15 @@ for i, l in enumerate(nat):
     if m:
         shr = [int(x) for x in nat[i + 2].split('=')[1].split(',')]
         native[m.group(1)] = dict(failed=int(m.group(2)), case_index=int(m.group(3)), steps=int(m.group(4)), shrunk=shr)
+
+# the fixed versions: native pass counts (XP lines)
+for l in nat:
+    m = re.match(r'XP (\w+)_fixed failed=(\d) cases=(\d+)', l)
+    if m:
+        native[m.group(1) + '_fixed'] = dict(failed=int(m.group(2)), cases=int(m.group(3)))
+missing_native = [k + '_fixed' for k in FIXED if k + '_fixed' not in native]
+if missing_native:
+    sys.exit(f'no native XP line for: {missing_native}')
 
 for i, l in enumerate(nat):
     m = re.match(r'XW demo_(\w+) failed=(\d) case=(\d+) steps=(\d+)', l)
@@ -91,7 +106,10 @@ for pid in ['capped_mint', 'buggy_sort', 'pair_sum', 'saturating_add', 'bank_seq
                     bug_lines.append(l2.lstrip()[2:].strip())
                 else:
                     break
-    props.append(dict(id=pid, seed=SEEDS[pid], cases=256, source=sources[pid], bug=' '.join(bug_lines), native=native[pid], **META[pid]))
+    entry = dict(id=pid, seed=SEEDS[pid], cases=256, source=sources[pid], bug=' '.join(bug_lines), native=native[pid], **META[pid])
+    if pid in FIXED:
+        entry['fixed'] = dict(source=sources[pid + '_fixed'], note=FIXED[pid], native=native[pid + '_fixed'])
+    props.append(entry)
 
 doc = dict(
     wasm=dict(file='demo_wasm.wasm', bytes=len(wasm_bytes), sha256=hashlib.sha256(wasm_bytes).hexdigest(),

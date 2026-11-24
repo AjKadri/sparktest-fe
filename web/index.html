@@ -25,6 +25,13 @@
     <div id="picker" class="picker" role="radiogroup" aria-label="Property"></div>
 
     <h2 class="label">2 · Run it</h2>
+    <div id="modebox" class="modebox" hidden>
+      <div class="toggle" role="radiogroup" aria-label="Version of the code">
+        <button id="mode-buggy" type="button" role="radio" aria-checked="true">Buggy</button>
+        <button id="mode-fixed" type="button" role="radio" aria-checked="false">Fixed</button>
+      </div>
+      <span class="muted small" id="modehint"></span>
+    </div>
     <div class="controls">
       <div class="seedbox">
         <span class="k">seed</span>
@@ -44,7 +51,7 @@
   </section>
 
   <aside class="col side">
-    <h2 class="label">The property, in Fe</h2>
+    <h2 class="label" id="source-h">The property, in Fe</h2>
     <p class="muted small" id="prop-claim"></p>
     <pre class="code" id="source" tabindex="0" aria-label="Fe source"><code></code></pre>
 

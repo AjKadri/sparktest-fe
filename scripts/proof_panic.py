@@ -43,7 +43,7 @@ def section(run, problems):
              (2, 'divzero', 8102, 'divzero: `a / b * b <= a` over `(u32, u32)`', '(a, b) = (0, 0), panicked: division by zero', [0, 0], 274),
              (3, 'false', 8103, 'a normal false-returning property: `x < 1000` over `u256`', 'x = 1000, returned false (identical to `check`)', [1000], 1)]
     s = ['## Panic recovery: properties whose code panics (new APIs; `check` is unchanged)', '',
-         'A panic inside a property used to end the whole test with no report. Expected results were written before the runs (docs/EXPECTATIONS.md, section "L7b"). The same seed gives the same input stream on every backend,',
+         'A panic inside a property used to end the whole test with no report. Expected results were committed before the results commit (docs/EXPECTATIONS.md, section "L7b"). The same seed gives the same input stream on every backend,',
          'so the first failing case, the shrunk input and the number of shrink steps are expected to be identical. Case numbers are 1-based.', '',
          '- **sonatina**: `check_isolated` runs each evaluation inside a harness contract called through `evm.try_call`; a panic is a failed call, and the reason is read from the revert data (`Panic(0x11)`, `Panic(0x12)`).',
          '- **native**: a panic aborts the process, so `scripts/find-panic.sh` drives the replay executable: it bisects the case limit to the first aborting case, then shrinks by replaying candidates as single-case runs (the reason is the process\'s stderr text).',

@@ -1,4 +1,4 @@
-# Expected minimums (written BEFORE the proof suites were run)
+# Expected minimums (committed before the results commit)
 
 This file is committed before any L4 property was executed, so the results in PROOF.md cannot be fitted to the
 outcomes. Every expectation below is a prediction from reading the planted code, not from running it.

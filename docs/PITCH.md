@@ -14,7 +14,7 @@
 
 **Before / after.** Three unit tests of a vault with a rounding bug pass. One property finds it and shrinks it to a vault of 3 assets and 1 share, with a deposit of 1.
 
-Proof in the repo: five planted bug classes found, an ERC20 fixture checked through contract calls, the Fe Guide's ERC-20 with 8 of 10 planted mutants caught and 4 of 5 held-out mutants caught as predicted, 27 std properties pass (no Fe bug found), a panic shrunk to its exact boundary, expectations written before running.
+Proof in the repo: five planted bug classes found, an ERC20 fixture checked through contract calls, the Fe Guide's ERC-20 with 8 of 10 planted mutants caught and 4 of 5 held-out mutants caught as predicted, 27 std properties pass (no Fe bug found), a panic shrunk to its exact boundary, expectations committed before the results commit.
 
 ## Fe-specific highlight (for the submission form)
 

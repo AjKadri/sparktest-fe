@@ -16,7 +16,7 @@ def section(run, problems):
     evm = _results(run, 'tests-evm')
     nat = _results(run, 'tests-native')
     s = ['## Std hunt (L9): properties over std and core, looking for Fe bugs', '',
-         'Expected results were written before the runs (docs/EXPECTATIONS.md, section "L9"): every property is expected to pass. 64 cases per property; the reference models are plain integer or array code.',
+         'Expected results were committed before the results commit (docs/EXPECTATIONS.md, section "L9"): every property is expected to pass. 64 cases per property; the reference models are plain integer or array code.',
          'Sources: `props/src/hunt_*.fe` (shared), `tests-evm/src/hunt.fe`, `tests-native/src/hunt.fe`. Rerun: `cd tests-evm && fe test --filter hunt_`, `cd tests-native && fe test --filter hunt_`.', '',
          '| area | property | sonatina | native |', '|---|---|---|---|']
     bad = 0

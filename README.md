@@ -393,3 +393,5 @@ AjKadri (AJ Sidemen), solo.
 ## License
 
 Licensed under either of Apache License 2.0 or MIT license at your option. See [LICENSE-APACHE](LICENSE-APACHE) and [LICENSE-MIT](LICENSE-MIT).
+
+The vendored CoolCoin (`examples/coolcoin`, and its mutant copies in `examples/coolcoin-mutants` and `examples/coolcoin-heldout`) has no stated licence and is not covered by the MIT OR Apache-2.0 grant.

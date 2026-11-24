@@ -93,6 +93,12 @@ impl Decode for {t} {{
     fn fits(_ w: [u256; 64], _ pos: usize) -> usize {{
         if pos < 64 && signed_fits(w[pos], {w}) {{ pos + 1 }} else {{ 0 }}
     }}
+    fn mark_signed(_ m: mut [bool; 64], _ pos: usize) -> usize {{
+        if pos < 64 {{
+            m[pos] = true
+        }}
+        pos + 1
+    }}
 }}
 
 impl Encode for {t} {{

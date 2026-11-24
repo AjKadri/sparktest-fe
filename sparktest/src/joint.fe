@@ -1,10 +1,13 @@
 // Joint shrinking: candidates that change SEVERAL components at once, for tuples, arrays and sequences. Component-wise shrinking gets stuck
 // when components are coupled (an equal pair (3, 3), a sum that must stay put, an account index shared by several commands).
 //
-// Work on the flattened Encode words `w` (the first `skip` words, such as a sequence's length, are left alone). A candidate must be
-// STRICTLY SIMPLER than the input, where `a` is simpler than `b` when sum(a) < sum(b) (saturating) or the sums are equal and `a` is
-// lexicographically smaller. It must also decode back to the same words (so it fits every component's width) and differ from the input.
-// The order is well-founded, so a shrinking run always terminates. Candidates, in this order:
+// Work on the flattened Encode words (the first `skip` words, such as a sequence's length, are left alone). A SIGNED word (marked by
+// `Decode::mark_signed`) is worked on as its magnitude, the distance from zero, and keeps its sign; every other word is its own magnitude.
+// So the order below is the per-type shrinkers' order (toward zero), and the joint moves and the per-type moves never pull opposite ways.
+// A candidate must be STRICTLY SIMPLER than the input, where `a` is simpler than `b` when sum(a) < sum(b) (saturating) or the sums are
+// equal and `a` is lexicographically smaller (over the magnitudes). It must also decode back to the same words (so it fits every
+// component's width) and differ from the input. The order is well-founded, so the joint moves alone cannot cycle; a whole shrinking run
+// is bounded by `max_shrinks`. Candidates, in this order:
 //   (a) every word halved; every nonzero word minus 1;
 //   (b) every group of equal nonzero words set to 0, to half, to minus 1 (keeping them equal); with `width > 0` (sequences)
 //       also every group of equal words in the same column of the commands;
@@ -45,6 +48,11 @@ fn simpler(_ cand: [u256; 64], _ orig: [u256; 64], _ n: usize, _ s: usize) -> bo
     false
 }
 
+// do words a and b hold the same encoded word (same magnitude, same sign)?
+fn same_word(_ w: [u256; 64], _ neg: [bool; 64], _ a: usize, _ b: usize) -> bool {
+    w[a] == w[b] && neg[a] == neg[b]
+}
+
 pub fn to_dyn(_ a: [u256; 64], _ n: usize) -> DynArray<u256> {
     var v: MemVec<u256> = MemVec::new()
     var i: usize = 0
@@ -57,12 +65,16 @@ pub fn to_dyn(_ a: [u256; 64], _ n: usize) -> DynArray<u256> {
 
 // at most this many valid candidates are ever produced (bounds the work of one shrinking pass)
 const MAX_JOINT: u256 = 400
+// 2^255: the sign bit of a 256-bit word, and the largest magnitude a negative signed value can have
+const SIGN256: u256 = 0x8000000000000000000000000000000000000000000000000000000000000000
 
 // one candidate: Some(words) when it is valid and is the `target`-th valid candidate
+// `orig` and `cand` are magnitudes; `neg` says which words are negative signed values (their words are the negated magnitudes)
 fn offer<F: Fn([u256; 64]) -> bool>(
     _ cur: mut Cursor,
     _ orig: [u256; 64],
     _ cand: [u256; 64],
+    _ neg: [bool; 64],
     _ n: usize,
     _ s: usize,
     _ valid: F,
@@ -75,12 +87,23 @@ uses F::E
     if !simpler(cand, orig, n, s) {
         return Option::None
     }
-    if !valid(cand) {
+    var words = cand
+    var i: usize = s
+    while i < n {
+        if neg[i] && cand[i] != 0 {
+            if cand[i] > SIGN256 {
+                return Option::None
+            }
+            words[i] = (0 as u256).wrapping_sub(cand[i])
+        }
+        i += 1
+    }
+    if !valid(words) {
         return Option::None
     }
     if cur.count == cur.target {
         cur.count += 1
-        return Option::Some(cand)
+        return Option::Some(words)
     }
     cur.count += 1
     Option::None
@@ -93,6 +116,7 @@ pub fn joint_nth<F: Fn([u256; 64]) -> bool>(
     _ width: usize,
     _ target: u256,
     _ redistribute: bool,
+    _ signed: [bool; 64],
     _ valid: F,
 ) -> Option<[u256; 64]>
 uses F::E
@@ -101,10 +125,17 @@ uses F::E
     if n > 64 {
         return Option::None
     }
+    // w: the magnitudes of the words (a signed word at or above 2^255 is negative, its magnitude is its negation); neg: which words are negative
     var w: [u256; 64] = [0; 64]
+    var neg: [bool; 64] = [false; 64]
     var i: usize = 0
     while i < n {
-        w[i] = xw.get(i)
+        let x = xw.get(i)
+        w[i] = x
+        if signed[i] && x >= SIGN256 {
+            neg[i] = true
+            w[i] = (0 as u256).wrapping_sub(x)
+        }
         i += 1
     }
     var cur = Cursor { count: 0, target }
@@ -116,7 +147,7 @@ uses F::E
         c[i] = w[i] / 2
         i += 1
     }
-    match offer(mut cur, w, c, n, skip, valid) {
+    match offer(mut cur, w, c, neg, n, skip, valid) {
         Option::Some(t) => {
             return Option::Some(t)
         },
@@ -130,7 +161,7 @@ uses F::E
         }
         i += 1
     }
-    match offer(mut cur, w, c, n, skip, valid) {
+    match offer(mut cur, w, c, neg, n, skip, valid) {
         Option::Some(t) => {
             return Option::Some(t)
         },
@@ -145,7 +176,7 @@ uses F::E
         var cnt: usize = 0
         var j: usize = skip
         while j < n {
-            if w[j] == v {
+            if same_word(w, neg, j, i) {
                 cnt += 1
                 if j < i { first = false }
             }
@@ -172,10 +203,12 @@ uses F::E
                     c = w
                     var k: usize = skip
                     while k < n {
-                        if w[k] == v { c[k] = nv }
+                        if same_word(w, neg, k, i) {
+                            c[k] = nv
+                        }
                         k += 1
                     }
-                    match offer(mut cur, w, c, n, skip, valid) {
+                    match offer(mut cur, w, c, neg, n, skip, valid) {
                         Option::Some(t) => {
                             return Option::Some(t)
                         },
@@ -198,7 +231,7 @@ uses F::E
                 var cnt: usize = 0
                 var q: usize = skip + col
                 while q < n {
-                    if w[q] == v {
+                    if same_word(w, neg, q, p) {
                         cnt += 1
                         if q < p { first = false }
                     }
@@ -225,10 +258,12 @@ uses F::E
                             c = w
                             var k: usize = skip + col
                             while k < n {
-                                if w[k] == v { c[k] = nv }
+                                if same_word(w, neg, k, p) {
+                                    c[k] = nv
+                                }
                                 k += width
                             }
-                            match offer(mut cur, w, c, n, skip, valid) {
+                            match offer(mut cur, w, c, neg, n, skip, valid) {
                                 Option::Some(t) => {
                                     return Option::Some(t)
                                 },
@@ -262,7 +297,7 @@ uses F::E
                             c = w
                             c[i] = w[i] - d
                             c[j] = raised
-                            match offer(mut cur, w, c, n, skip, valid) {
+                            match offer(mut cur, w, c, neg, n, skip, valid) {
                                 Option::Some(t) => {
                                     return Option::Some(t)
                                 },
@@ -286,12 +321,15 @@ uses F::E
 pub fn joint_candidate<T: Encode + Decode + Copy>(_ x: T, _ target: u256) -> Option<T> {
     let xw = x.words()
     let n = xw.len()
+    var signed: [bool; 64] = [false; 64]
+    let _ = <T as Decode>::mark_signed(mut signed, 0)
     match joint_nth(
         xw,
         0,
         0,
         target,
         true,
+        signed,
         |c: [u256; 64]| <T as Decode>::fits(c, 0) == n,
     ) {
         Option::Some(c) => {

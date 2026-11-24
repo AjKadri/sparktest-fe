@@ -62,6 +62,11 @@ for n in (2, 3, 4):
     for idx, p in enumerate(ps):
         o.append(f'        let p{idx + 1} = <{p} as Decode>::fits(w, p{idx})')
         o.append(f'        if p{idx + 1} == 0 {{ return 0 }}')
+    o += [f'        p{n}', '    }']
+    o.append('    fn mark_signed(_ m: mut [bool; 64], _ pos: usize) -> usize {')
+    o.append('        let p0 = pos')
+    for idx, p in enumerate(ps):
+        o.append(f'        let p{idx + 1} = <{p} as Decode>::mark_signed(mut m, p{idx})')
     o += [f'        p{n}', '    }', '}', '']
     o += [f'impl<{enc_bounds}> Encode for {ty} {{',
           '    fn words(self) -> DynArray<u256> {',
@@ -128,6 +133,15 @@ impl<T: Decode + Copy, const N: usize> Decode for [T; N] {
         while i < N {
             p = <T as Decode>::fits(w, p)
             if p == 0 { return 0 }
+            i += 1
+        }
+        p
+    }
+    fn mark_signed(_ m: mut [bool; 64], _ pos: usize) -> usize {
+        var p = pos
+        var i: usize = 0
+        while i < N {
+            p = <T as Decode>::mark_signed(mut m, p)
             i += 1
         }
         p

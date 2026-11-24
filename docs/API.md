@@ -141,7 +141,7 @@ assert!(out.len() == 2)
 |---|---|---|
 | `u256` | about 1 in 4 draws is an edge: 0, 1, 2, `MAX`, `MAX - 1`, 2^k, 2^k - 1, 2^k + 1; the rest are uniform | 0 |
 | `u8`, `u16`, `u32`, `u64`, `u128` | the same edge set within the width | 0 |
-| `i8`, `i16`, `i32`, `i64`, `i128`, `i256` | about 1 draw in 4 is an edge value (min, max, -1, 0, 1, 2, -2, +-2^k), the rest are uniform over all bit patterns; `Encode` is the sign-extended 256-bit word (-1 is 2^256 - 1) | 0: first 0, then (for a negative) its absolute value, then the magnitude halved toward 0 with the original sign. Joint shrinking sees a negative as a large word, so tuples of signed values shrink one component at a time |
+| `i8`, `i16`, `i32`, `i64`, `i128`, `i256` | about 1 draw in 4 is an edge value (min, max, -1, 0, 1, 2, -2, +-2^k), the rest are uniform over all bit patterns; `Encode` is the sign-extended 256-bit word (-1 is 2^256 - 1) | 0: first 0, then (for a negative) its absolute value, then the magnitude halved toward 0 with the original sign. Joint shrinking works on the magnitude and keeps the sign, so signed components inside tuples and arrays take the same joint moves as unsigned ones (all together, equal together, redistribution) |
 | `bool` | either | `false` |
 | `Address` | 160 random bits with edge values (zero address, `0x...01`, max address) | the zero address |
 | tuples of 2, 3 and 4 | each component | one component at a time, then joint moves (all together, equal components together, redistribution) |

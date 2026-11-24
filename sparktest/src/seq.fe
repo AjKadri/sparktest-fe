@@ -111,12 +111,21 @@ impl<C: Shrink + Encode + Decode + Copy, const N: usize> Shrink for Seq<C, N> {
         let n = xw.len()
         let width: usize = self.items[0].words().len()
         let orig = self
+        // the signed words of the commands (word 0 is the length)
+        var signed: [bool; 64] = [false; 64]
+        var pos: usize = 1
+        var k: usize = 0
+        while k < self.len {
+            pos = <C as Decode>::mark_signed(mut signed, pos)
+            k += 1
+        }
         match joint_nth(
             xw,
             1,
             width,
             rest,
             false,
+            signed,
             |c: [u256; 64]| seq_fits<C>(c, orig.len, n),
         ) {
             Option::Some(c) => {

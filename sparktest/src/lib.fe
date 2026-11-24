@@ -99,6 +99,12 @@ pub trait Decode {
     // returns the position after it, else 0. Joint shrinking uses it to test thousands of candidates without touching the heap
     // (sonatina never reclaims memory).
     fn fits(_ w: [u256; 64], _ pos: usize) -> usize
+    // Marks `m[i] = true` for every word of this value (starting at `pos`) that holds a SIGNED integer, and returns the position after the
+    // value. Joint shrinking (joint.fe) compares such words by magnitude, like the per-type shrinkers, instead of as huge two's-complement
+    // words. The default is one unsigned word, which is right for every scalar except the signed integers; composites and signed types override it.
+    fn mark_signed(_ m: mut [bool; 64], _ pos: usize) -> usize {
+        pos + 1
+    }
 }
 
 pub fn one_word(_ w: u256) -> DynArray<u256> {

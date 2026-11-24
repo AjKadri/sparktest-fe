@@ -70,6 +70,12 @@ impl<A: Decode, B: Decode> Decode for (A, B) {
         if p2 == 0 { return 0 }
         p2
     }
+    fn mark_signed(_ m: mut [bool; 64], _ pos: usize) -> usize {
+        let p0 = pos
+        let p1 = <A as Decode>::mark_signed(mut m, p0)
+        let p2 = <B as Decode>::mark_signed(mut m, p1)
+        p2
+    }
 }
 
 impl<A: Encode + Copy, B: Encode + Copy> Encode for (A, B) {
@@ -150,6 +156,13 @@ impl<A: Decode, B: Decode, C: Decode> Decode for (A, B, C) {
         if p2 == 0 { return 0 }
         let p3 = <C as Decode>::fits(w, p2)
         if p3 == 0 { return 0 }
+        p3
+    }
+    fn mark_signed(_ m: mut [bool; 64], _ pos: usize) -> usize {
+        let p0 = pos
+        let p1 = <A as Decode>::mark_signed(mut m, p0)
+        let p2 = <B as Decode>::mark_signed(mut m, p1)
+        let p3 = <C as Decode>::mark_signed(mut m, p2)
         p3
     }
 }
@@ -252,6 +265,14 @@ impl<A: Decode, B: Decode, C: Decode, D: Decode> Decode for (A, B, C, D) {
         if p4 == 0 { return 0 }
         p4
     }
+    fn mark_signed(_ m: mut [bool; 64], _ pos: usize) -> usize {
+        let p0 = pos
+        let p1 = <A as Decode>::mark_signed(mut m, p0)
+        let p2 = <B as Decode>::mark_signed(mut m, p1)
+        let p3 = <C as Decode>::mark_signed(mut m, p2)
+        let p4 = <D as Decode>::mark_signed(mut m, p3)
+        p4
+    }
 }
 
 impl<A: Encode + Copy, B: Encode + Copy, C: Encode + Copy, D: Encode + Copy> Encode for (
@@ -333,6 +354,15 @@ impl<T: Decode + Copy, const N: usize> Decode for [T; N] {
         while i < N {
             p = <T as Decode>::fits(w, p)
             if p == 0 { return 0 }
+            i += 1
+        }
+        p
+    }
+    fn mark_signed(_ m: mut [bool; 64], _ pos: usize) -> usize {
+        var p = pos
+        var i: usize = 0
+        while i < N {
+            p = <T as Decode>::mark_signed(mut m, p)
             i += 1
         }
         p

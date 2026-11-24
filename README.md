@@ -6,11 +6,11 @@
 
 **[Live demo](https://ajkadri.github.io/sparktest-fe/)** (the properties run in your browser as compiled Fe, via WebAssembly).
 
-**Try it in one minute:** open the demo, pick a property (for example *Buggy sort*), press **Run**, watch the first counterexample shrink step by step to the smallest input that still fails, then press **Replay** to reproduce the same failure from the same seed.
+**Try it in one minute:** open the demo, pick a property (for example *Buggy sort*), press **Run**, watch the first counterexample shrink step by step to a small input that still fails, then press **Replay** to reproduce the same failure from the same seed.
 
 **For judges**, one line per criterion:
 
-- **Technical quality:** [CI](https://github.com/AjKadri/sparktest-fe/actions/workflows/ci.yml) runs the whole suite (sonatina, native, wasm) on every push; every result is in [docs/PROOF.md](docs/PROOF.md), with its expected value committed beforehand in [docs/EXPECTATIONS.md](docs/EXPECTATIONS.md).
+- **Technical quality:** [CI](https://github.com/AjKadri/sparktest-fe/actions/workflows/ci.yml) runs the whole suite (sonatina, native, wasm) on every push; the results are in [docs/PROOF.md](docs/PROOF.md), with its expected value committed beforehand in [docs/EXPECTATIONS.md](docs/EXPECTATIONS.md).
 - **Fe-specific value:** [Fe highlight](#fe-highlight): panics recovered inside `fe test` through `try_call`, the same Fe on three backends, an effect-polymorphic runner; two Fe compiler bugs found and reported ([#2066](https://github.com/argotorg/fe/issues/2066), [#2067](https://github.com/argotorg/fe/issues/2067)).
 - **Originality:** one runner for plain values, contract calls and call sequences, with shrinking and panic recovery on all three backends.
 - **Usefulness:** [Quickstart](#quickstart) adds it as a git dependency; [Proof](#proof) runs it against contracts we didn't write, with planted and held-out mutants.
@@ -215,7 +215,7 @@ uses (evm: mut Evm)
 
 ## Fe highlight
 
-**A panic becomes a value, and the same Fe runs in three places.** On the EVM test backend, `check_isolated` runs each evaluation inside a harness contract and calls it with `evm.try_call`, so a property that panics is reported with its reason and shrunk inside `fe test`, instead of ending the test with no report. The same property code compiles to sonatina, native and WebAssembly; the same numeric seed gives identical results on all three (`scripts/cross-check.sh`, 11/11), and the live demo runs six properties in your browser. Underneath both is an effect-polymorphic runner: `check` is declared `uses P::E`, so whatever effects the property needs become effects of `check` itself, and one runner accepts a pure property, a property that calls contracts (`Evm`) and a property that records into a `Tally`. The core has no effects of its own. Below, the property declares `uses (tally: mut Tally)`, and the test provides the `Tally` with `with (mut tally) { ... }` around `check`; afterwards the test reads what the property recorded (`examples/quickstart/src/lib.fe`):
+**A panic becomes a value, and the same Fe runs in three places.** On the EVM test backend, `check_isolated` runs each evaluation inside a harness contract and calls it with `evm.try_call`, so a property that panics is reported with its reason and shrunk inside `fe test`, instead of ending the test with no report. The same property code compiles to sonatina, native and WebAssembly; the same numeric seed gives identical results on sonatina and native (`scripts/cross-check.sh`, 11/11) and on WebAssembly for the six demo properties, which the live demo runs in your browser. Underneath both is an effect-polymorphic runner: `check` is declared `uses P::E`, so whatever effects the property needs become effects of `check` itself, and one runner accepts a pure property, a property that calls contracts (`Evm`) and a property that records into a `Tally`. The core has no effects of its own. Below, the property declares `uses (tally: mut Tally)`, and the test provides the `Tally` with `with (mut tally) { ... }` around `check`; afterwards the test reads what the property recorded (`examples/quickstart/src/lib.fe`):
 
 ```fe-excerpt
 fn deposit_is_recorded(_ amount: u32) -> bool uses (tally: mut Tally) {

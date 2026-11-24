@@ -272,7 +272,7 @@ The repository root has a `fe.toml` workspace of the sonatina (EVM) ingots (see 
 
 Tested on macOS (Apple Silicon) locally and on Linux in CI (GitHub Actions, ubuntu-latest). You need Fe 26.7.0, Node 20 or newer (tested with 24.15.0), Python 3 (standard library only; tested with 3.9.6) and git.
 
-Tested on Fe 26.7.0 (e6e6342) only; earlier versions are untested.
+Tested on Fe 26.7.0 (e6e6342). On 26.6.0, `fe check` passes but 7 of 337 tests fail; earlier versions are untested.
 
 1. Install Fe 26.7.0 (commit e6e6342) by downloading the release asset for your platform and checking its sha256 (the digest GitHub lists for the asset; CI does the same on Linux).
 

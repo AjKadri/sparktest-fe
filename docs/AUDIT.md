@@ -1,7 +1,7 @@
 # Independent audit
 
 - Audited commit: `28ee20aef283768eeb54cebd179c171e60f5bcb4`
-- Auditor: an independent Claude session, working from a fresh clone, read-only, given only the repository URL, the commit and the contest rules.
+- Auditor: an independent Claude session, working from a fresh clone, read-only, given only the repository URL, the commit, the live demo URL, the contest rules and the submission template.
 - Date: 2026-11-24
 - Written after the fixes: the commits listed at the end of this file.
 
@@ -9,7 +9,7 @@
 
 The test suite passed from a clean clone. The audit reported 13 findings: 1 major, 8 minor and 4 nits. Eight are fixed in code, tests or text (F1 to F8), four are documented without a code change (F9 to F12), and one (F13) is fixed in part. One further audit remark, that CI had not been verified for the audited commit, was incorrect and is corrected below.
 
-The severity column and the one-line descriptions below are written from the fix briefs, not copied from the audit report. Where they differ from the audit report's own wording, the report wins.
+Severities are the audit report's own; the one-line descriptions summarise its findings.
 
 ## Findings
 
@@ -19,7 +19,7 @@ The severity column and the one-line descriptions below are written from the fix
 | F2 | minor | The Buggy / Fixed toggle shows on Pair sum and Saturating add: a CSS `display` rule overrides the `hidden` attribute | fixed | 7b33e4f |
 | F3 | minor | A note in docs/PROOF.md says `fee_buggy` stops at a local minimum, which contradicts the table in the same file | fixed | 8784fba |
 | F4 | minor | Test counts in the README did not match what `test-all.sh` prints | fixed | dd04fb2 |
-| F5 | minor | Docs said expected results were "written down before each run"; what the commit history shows is expectations committed before the results commit | fixed (reworded) | 36b9319 |
+| F5 | minor | Docs said expected results were "written down before each run"; what the commit history shows is expectations committed before the results commit. On 22 November, before the repository was first pushed, the history was rewritten once to replace a placeholder commit identity (`spike <spike@localhost>`) with the author's own (`AjKadri`); commit messages, contents and author dates were unchanged, and `2555bd4` re-recorded the EVM runs because every commit hash changed. | fixed (reworded) | 36b9319 |
 | F6 | minor | "A failure never loses its report" holds only with `check_gas` / `check_gen_gas`, and "smallest" overstated what greedy shrinking guarantees | fixed (reworded) | 3412e17 |
 | F7 | minor | Two native tests have names that claim more than they check (a bare `should_revert`, where any panic passes), and a comment claimed `PropertyFailed` carries all 6 words | fixed | dc7940e |
 | F8 | minor | CI and the README installed Fe from `feup.sh` on `master`, with no checksum | fixed | 8ccfc2b (CI), 289a1ca (README) |
@@ -61,7 +61,7 @@ The mechanism is not fully identified. Adding the `mark_signed` method alone mov
 
 ## Left as-is, with reasons
 
-- **F10, joint shrinking above 64 words.** The joint arrays in `joint.fe` have a fixed size of 64 words, so the early return is what keeps larger inputs out. Lifting the limit would be a library change that helps only inputs above 64 words, and, as F1 showed, a library change moves recorded gas. The limit is documented in docs/API.md and the README Limitations.
+- **F10, the 400-candidate cap.** The audit suggested returning early once joint shrinking reaches its 400-candidate cap, instead of looping through the remaining candidates. That only saves gas, and as F1 showed, any change to the shrinking code moves recorded gas, so it was not added. The 64-word limit the audit also flagged is documented in docs/API.md and the README Limitations.
 - **F11, seed folding.** Changing how seeds are mixed would change every recorded result, every row of docs/PROOF.md and every demo output. It is documented instead (docs/API.md, README Limitations). Replaying a reported seed is not affected, because it folds the same way.
 - **F13, tracked build outputs under `spike/`.** They are the evidence cited by the spike reports, so they stay.
 

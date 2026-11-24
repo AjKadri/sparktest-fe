@@ -55,6 +55,7 @@ function buildPicker() {
     b.type = 'button';
     b.setAttribute('role', 'radio');
     b.dataset.id = p.id;
+    b.setAttribute('aria-label', p.title);   // kept in step with the visible title in paintMode
     b.innerHTML = `<span class="t"><span class="name">${esc(p.title)}</span><span class="tag ${p.expect}">${p.expect === 'fail' ? 'has a bug' : 'holds'}</span></span><span class="d">${esc(p.blurb)}</span>`;
     b.onclick = () => { if (!busy) select(p.id); };
     box.appendChild(b);
@@ -90,7 +91,9 @@ function paintMode() {
   for (const b of $('picker').children) {   // every card, so leaving a property while it is on Fixed restores its title
     const p = doc.props.find((q) => q.id === b.dataset.id);
     const fx = fixed && p === current && p.fixed;   // this card shows the fixed version
-    b.querySelector('.name').textContent = fx && FIXED_LABELS[p.id] ? FIXED_LABELS[p.id] : p.title;
+    const title = fx && FIXED_LABELS[p.id] ? FIXED_LABELS[p.id] : p.title;
+    b.querySelector('.name').textContent = title;
+    b.setAttribute('aria-label', title);
     const tag = b.querySelector('.tag');
     tag.className = `tag ${fx ? 'fixed' : p.expect}`;
     tag.textContent = fx ? 'fixed' : p.expect === 'fail' ? 'has a bug' : 'holds';

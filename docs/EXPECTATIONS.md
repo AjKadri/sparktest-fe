@@ -400,3 +400,18 @@ Rows above are not edited.
 | signed (done): edges, shrink toward 0, absolute value first | i8 draws reach -128, -1, 0, 1, 127; `x >= -100` over `i32` shrinks to -101; `x < 100` over `i64` to 100; always false over `i128` to 0; `x != min` over `i256` finds `min`; a negative tries 0, then its absolute value, then the halved magnitude; Encode is the sign-extended word and `fits` rejects 200 and 0xff for `i8`. One of MY properties overflowed (`i8 + i8`); fixed with `i16` casts | yes |
 | `x * x >= 0` over `i8` fails on overflow only through a checked helper | not tested (the checked helpers are unsigned) | not done |
 Limits found: `between` and `one_of` produce `u256`, so narrower types need a cast (the quickstart example uses `downcast_truncate()`); a `Seq` cannot be a tuple component (L9); joint shrinking sees a negative as a large word.
+
+## F1: joint shrinking with signed components (amendment, 2026-11-24, written BEFORE any test or fix for it)
+Rows above are not edited. An independent audit found, and we reproduced, that for tuples and arrays containing a signed integer the per-type shrinker (-3 to -2, toward zero) and the joint "minus 1" pass (-2 to -3, a smaller raw word, because a negative is a huge sign-extended word) pull opposite ways and cycle to the 1000-step cap: `check(Config::new(7), |p: (i32, u8)| p.0 >= -100)` gave steps = 1000 and shrunk -102 (true minimum -101), while a plain `i32` finishes in 24 steps at -101.
+
+### Design (stated before the code)
+Fix A: joint candidates use the same "simpler" order as the per-type shrinkers. For every signed word, joint shrinking works on the magnitude (distance from zero) and keeps the sign; a word's sign is known from its type (a new `Decode` method marks the signed words, the unsigned types and all existing results are unaffected). Fall back to B (skip joint moves for signed components, as docs/API.md says today) if A needs changes outside `joint.fe`, `seq.fe`, the `Decode` trait and the per-type encoding code, or if A moves any value in docs/PROOF.md or web/recorded.json (gas included). Under B the expectations for the two joint tests below become "local minimum, terminates under the cap" and are recorded as a second dated amendment.
+
+### Predictions (new regression tests, on sonatina and native; the two backends use different `fixed_seed` starts, so step counts differ, results do not)
+| test | prediction |
+|---|---|
+| `(i32, u8)`, `p.0 >= -100`, `check` with a fixed seed | fails; shrunk exactly (-101, 0); steps at most 100 (a plain `i32` took 24 for the audit's seed, the `u8` adds a handful; the cap is 1000) |
+| `shrink_input((-3 as i8, 0 as u8), \|p\| p.0 >= -2, 1000)` (the start is already minimal) | terminates with steps == 0 and shrunk (-3, 0); before the fix it runs to the cap |
+| `[i64; 2]`, `a[0] >= -100`, `check` with a fixed seed | fails; shrunk exactly [-101, 0]; steps at most 100 |
+| JOINT-ONLY: `shrink_input((-40, -40) as (i32, i32), \|p\| !(p.0 == p.1 && p.0 <= -5), 1000)`: the property fails only for EQUAL negative pairs at or below -5, so no single component can move without breaking equality | exactly (-5, -5) (equal group to half: -20, -10, -5; then half of 5 is 2 and minus 1 is 4, both pass); at most 20 steps. Before the fix: not (-5, -5) (it walks down to (i32::MIN, i32::MIN) or hits the cap). Under B: (-40, -40) unchanged, steps 0 |
+| unchanged | `./scripts/proof.sh --check` and `./scripts/record-evm.sh --check` pass with docs/PROOF.md and web/recorded.json byte-identical; cross-check IDENTICAL (11/11); the existing joint and signed tests pass unchanged |

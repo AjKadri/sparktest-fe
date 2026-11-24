@@ -15,6 +15,7 @@
 - **Originality:** one runner for plain values, contract calls and call sequences, with shrinking and panic recovery on all three backends.
 - **Usefulness:** [Quickstart](#quickstart) adds it as a git dependency; [Proof](#proof) runs it against contracts we didn't write, with planted and held-out mutants.
 - **Documentation and demo:** the [live demo](https://ajkadri.github.io/sparktest-fe/) works in about a minute with nothing to install; see also [Architecture](#architecture) and [Limitations](#limitations).
+- **Independent audit:** findings and fixes in [docs/AUDIT.md](docs/AUDIT.md).
 
 ## The problem
 
@@ -427,7 +428,7 @@ Not implemented (each is a limit found while building, not a plan):
 - The Apache-2.0 licence text from argotorg/fe, in `examples/erc20/LICENSE-APACHE` (and the two copies beside the planted-bug fixtures).
 - The JavaScript keccak-256 in `tools/decode-revert/keccak.mjs` and the 64-bit xorshift generator in `sparktest/src/lib.fe` are our own implementations, written in this repository, of public algorithms (Keccak-f[1600] with Ethereum's 0x01 padding; Marsaglia's xorshift with shifts 13, 7, 17). No third-party source code was copied; the Keccak round constants and rotation offsets are the published values, and `tools/decode-revert/test.mjs` checks the implementation against known vectors and against the selector the Fe compiler computes independently.
 
-**AI assistance:** Built with AI agents under my direction. Claude (Anthropic) wrote most of the Fe library, tests, scripts, web demo and documentation, one bounded task at a time from my specifications, each with acceptance checks. Claude also helped me plan the design and the build, check results and word the docs. It hit the two Fe compiler issues while building and drafted the reports. I chose the idea, made the design decisions, reviewed every result, ran the full test suite myself, filed the issues, and can explain the code. Expected results were committed before each proof run (docs/EXPECTATIONS.md). No one outside the project has reviewed the code.
+**AI assistance:** Built with AI agents under my direction. Claude (Anthropic) wrote most of the Fe library, tests, scripts, web demo and documentation, one bounded task at a time from my specifications, each with acceptance checks. Claude also helped me plan the design and the build, check results and word the docs. It hit the two Fe compiler issues while building and drafted the reports. A separate, independent Claude session audited the submission commit; its findings and the fixes are in `docs/AUDIT.md`. I chose the idea, made the design decisions, reviewed every result, ran the full test suite myself, filed the issues, and can explain the code. Expected results were committed before each proof run (docs/EXPECTATIONS.md). No one outside the project has reviewed the code.
 
 ## Team
 

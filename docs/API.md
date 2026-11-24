@@ -87,7 +87,7 @@ impl Rng for Counter {
 ```
 
 ### `Xorshift::seeded(seed: u256) -> Xorshift`
-The built-in 64-bit xorshift generator. Equal seeds give equal streams; the all-zero state is avoided.
+The built-in 64-bit xorshift generator. Equal seeds give equal streams; the all-zero state is avoided. The 256-bit seed is folded to 64 bits by XOR of its four 64-bit limbs (`seed ^ seed >> 64 ^ seed >> 128 ^ seed >> 192`), so different seeds can give the same stream; replay is unaffected, because a replayed seed folds the same way. For example, in a fresh test EVM the chain id is 1, so `sparktest_evm::fixed_seed(2)` and `sparktest_native::fixed_seed(3)` fold to the same state and give the same input stream.
 ```fe
 var a = Xorshift::seeded(42)
 var b = Xorshift::seeded(42)
@@ -106,7 +106,7 @@ assert!(a.word() < 1461501637330902918203684832716283019655932542976)
 ```
 
 ### `trait Shrink { fn shrink_step(self, _ i: u256) -> Option<Self>; fn joint_step(self, _ i: u256) -> Option<Self> }`
-The `i`-th simpler candidate (`i = 0, 1, 2, ...`), or `None` when candidates run out. For integers: `0`, then `x - x/2`, `x - x/4`, ..., then `x - 1`. `joint_step` (default: none) offers joint candidates that move several components together (tuples, arrays and `Seq` implement it, at the top level only). `check` tries the `shrink_step` candidates until none fails (a fixed point), then the `joint_step` candidates as a finishing pass, and repeats while anything improves.
+The `i`-th simpler candidate (`i = 0, 1, 2, ...`), or `None` when candidates run out. For integers: `0`, then `x - x/2`, `x - x/4`, ..., then `x - 1`. `joint_step` (default: none) offers joint candidates that move several components together (tuples, arrays and `Seq` implement it, at the top level only). `check` tries the `shrink_step` candidates until none fails (a fixed point), then the `joint_step` candidates as a finishing pass, and repeats while anything improves. Joint shrinking works on at most 64 words (the flattened `Encode` words of the whole input): above that, `joint_step` offers nothing and only the one-component candidates run.
 ```fe
 let x: u256 = 1000
 match x.shrink_step(0) {
@@ -363,7 +363,7 @@ contract Harness {
 ```
 
 ### `check_isolated<T>(cfg, harness, id) -> IsoOutcome<T>`
-Like `check`, but each evaluation is a `try_call` to the harness: it generates inputs in the test, a failed call (returned false or panicked) is a failing case, and the input is shrunk the same way. `IsoOutcome::Pass { cases }` or `IsoOutcome::Fail { original, shrunk, case, seed, steps, reason, original_reason }`.
+Like `check`, but each evaluation is a `try_call` to the harness: it generates inputs in the test, a failed call (returned false or panicked) is a failing case, and the input is shrunk the same way. `IsoOutcome::Pass { cases }` or `IsoOutcome::Fail { original, shrunk, case, seed, steps, reason, original_reason }`. It uses `cfg.seed`, `cfg.cases` and `cfg.max_shrinks` only: the regression seeds of `Config::with_regressions` are ignored.
 ```fe
 let harness = evm.create<Harness>(value: Wei::zero(), args: ())
 match check_isolated<u64>(Config::new(fixed_seed(1)), harness, 1) {

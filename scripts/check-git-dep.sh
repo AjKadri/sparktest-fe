@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Checks the git dependency shown in the README Quickstart: builds a throw-away ingot that depends on sparktest and sparktest_evm
-# through source = "https://github.com/AjKadri/sparktest-fe", rev = "fa9695c036dd35a5ae4644fd8b512ea38154740f" (a full commit hash: Fe 26.7.0 rejects tag names), and runs one property with `fe test`.
+# through source = "https://github.com/AjKadri/sparktest-fe", rev = "02c6e67bdad15bce0d82b6af7244b8d3d63fa94b" (a full commit hash: Fe 26.7.0 rejects tag names), and runs one property with `fe test`.
 # Needs network access and that commit on GitHub. Not part of test-all.sh.
 #   ./scripts/check-git-dep.sh                 uses the URL and rev below
 #   REPO_URL=file:///path/to/clone REV=<commit> ./scripts/check-git-dep.sh     tests the same syntax against a local clone
 set -eu
 export PATH="$HOME/.fe/bin:$PATH"
 REPO_URL="${REPO_URL:-https://github.com/AjKadri/sparktest-fe}"
-REV="${REV:-fa9695c036dd35a5ae4644fd8b512ea38154740f}"
+REV="${REV:-02c6e67bdad15bce0d82b6af7244b8d3d63fa94b}"
 dir="$(mktemp -d)"
 trap 'rm -rf "$dir"' EXIT
 mkdir -p "$dir/src"

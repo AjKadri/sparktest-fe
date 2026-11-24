@@ -96,12 +96,12 @@ sparktest = { path = "../sparktest" }
 sparktest_evm = { path = "../sparktest-evm" }   # EVM shim: assert_holds, seeds
 ```
 
-Fe 26.7.0 also accepts a git dependency (`source`, `rev`, and `path` for the subdirectory of the ingot). Pinned to commit fa9695c (tagged v0.1.0; verified with `./scripts/check-git-dep.sh`). Fe 26.7.0 accepts only a full commit hash in `rev`, not a tag name.
+Fe 26.7.0 also accepts a git dependency (`source`, `rev`, and `path` for the subdirectory of the ingot). Pinned to commit 02c6e67 (the F1 fix; verified with `./scripts/check-git-dep.sh`). Fe 26.7.0 accepts only a full commit hash in `rev`, not a tag name.
 
 ```toml
 [dependencies]
-sparktest = { source = "https://github.com/AjKadri/sparktest-fe", rev = "fa9695c036dd35a5ae4644fd8b512ea38154740f", path = "sparktest" }
-sparktest_evm = { source = "https://github.com/AjKadri/sparktest-fe", rev = "fa9695c036dd35a5ae4644fd8b512ea38154740f", path = "sparktest-evm" }
+sparktest = { source = "https://github.com/AjKadri/sparktest-fe", rev = "02c6e67bdad15bce0d82b6af7244b8d3d63fa94b", path = "sparktest" }
+sparktest_evm = { source = "https://github.com/AjKadri/sparktest-fe", rev = "02c6e67bdad15bce0d82b6af7244b8d3d63fa94b", path = "sparktest-evm" }
 ```
 
 **2. Write a property**: a function from one input to `bool` that returns `true` when the rule holds. The input can be any type with a generator (`u8` to `u256`, `Address`, tuples, arrays, `Index<N>`, `Seq<C, N>`, or your own struct; see [docs/API.md](docs/API.md)).

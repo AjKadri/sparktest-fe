@@ -1,6 +1,6 @@
 # Sparktest: pitch
 
-**Sparktest is a property-testing library written in Fe: you state a rule, and it searches for the input that breaks it in plain values, contract calls and call sequences, shrinks the failure to a minimal case (even when the code panics) and replays it from a seed, on the EVM, natively and in the browser.**
+**Sparktest is a property-testing library written in Fe: state a rule, and it finds the input that breaks it (in values, contract calls or call sequences), shrinks it to a minimal case even through panics, and replays it from a seed on the EVM, natively and in the browser.**
 
 **Problem.** Unit tests only check the inputs you thought of. Contract bugs live at the edges: a rounding direction, an overflow at a large amount, a state that takes several calls to reach. Fe's built-in test runner has no property testing.
 

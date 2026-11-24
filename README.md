@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/AjKadri/sparktest-fe/actions/workflows/ci.yml/badge.svg)](https://github.com/AjKadri/sparktest-fe/actions/workflows/ci.yml)
 
-**Pitch:** Sparktest is a property-testing library written in Fe: you state a rule, and it searches for the input that breaks it in plain values, contract calls and call sequences, shrinks the failure to a minimal case (even when the code panics) and replays it from a seed, on the EVM, natively and in the browser.
+**Pitch:** Sparktest is a property-testing library written in Fe: state a rule, and it finds the input that breaks it (in values, contract calls or call sequences), shrinks it to a minimal case even through panics, and replays it from a seed on the EVM, natively and in the browser.
 
 **[Live demo](https://ajkadri.github.io/sparktest-fe/)** (the properties run in your browser as compiled Fe, via WebAssembly).
 
@@ -358,7 +358,8 @@ Two kinds of result are labelled differently on the page. The counterexample and
 
 - [argotorg/fe#2066](https://github.com/argotorg/fe/issues/2066): `Type::assoc_fn()` fails for a user trait implemented on `std::evm::Address` (minimal repro: `spike/repros/e7a_static_trait_call.fe`; workaround: `<Address as Trait>::f`).
 - [argotorg/fe#2067](https://github.com/argotorg/fe/issues/2067): `println!` with an untyped integer literal fails type inference (repro: `spike/repros/e7b_println_untyped_literal.fe`).
-- [argotorg/fe#2035](https://github.com/argotorg/fe/issues/2035): an existing report that unknown attributes are accepted silently. Related behaviour seen here: unknown keys inside `#[test(...)]` are also accepted silently (spike 2, check E4).
+
+**Related existing report (not ours):** argotorg/fe#2035, filed by another contributor, covers unknown attributes being accepted silently; we saw the same behaviour with unknown keys inside `#[test(...)]` (spike 2, check E4).
 
 ## Roadmap
 

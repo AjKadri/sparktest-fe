@@ -263,6 +263,8 @@ The repository root has a `fe.toml` workspace of the sonatina (EVM) ingots (see 
 
 Tested on macOS (Apple Silicon) locally and on Linux in CI (GitHub Actions, ubuntu-latest). You need Fe 26.7.0, Node 20 or newer (tested with 24.15.0), Python 3 (standard library only; tested with 3.9.6) and git.
 
+Tested on Fe 26.7.0 (e6e6342) only; earlier versions are untested.
+
 ```bash
 # 1. install Fe 26.7.0 (commit e6e6342)
 curl -fsSL https://raw.githubusercontent.com/argotorg/fe/master/feup/feup.sh | bash -s -- --version v26.7.0

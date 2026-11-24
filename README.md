@@ -8,6 +8,14 @@
 
 **Try it in one minute:** open the demo, pick a property (for example *Buggy sort*), press **Run**, watch the first counterexample shrink step by step to the smallest input that still fails, then press **Replay** to reproduce the same failure from the same seed.
 
+**For judges**, one line per criterion:
+
+- **Technical quality:** [CI](https://github.com/AjKadri/sparktest-fe/actions/workflows/ci.yml) runs the whole suite (sonatina, native, wasm) on every push; every result is in [docs/PROOF.md](docs/PROOF.md), with its expected value committed beforehand in [docs/EXPECTATIONS.md](docs/EXPECTATIONS.md).
+- **Fe-specific value:** [Fe highlight](#fe-highlight): panics recovered inside `fe test` through `try_call`, the same Fe on three backends, an effect-polymorphic runner; two Fe compiler bugs found and reported ([#2066](https://github.com/argotorg/fe/issues/2066), [#2067](https://github.com/argotorg/fe/issues/2067)).
+- **Originality:** one runner for plain values, contract calls and call sequences, with shrinking and panic recovery on all three backends.
+- **Usefulness:** [Quickstart](#quickstart) adds it as a git dependency; [Proof](#proof) runs it against contracts we didn't write, with planted and held-out mutants.
+- **Documentation and demo:** the [live demo](https://ajkadri.github.io/sparktest-fe/) works in about a minute with nothing to install; see also [Architecture](#architecture) and [Limitations](#limitations).
+
 ## The problem
 
 Unit tests check the inputs you thought of. The bugs that cost money tend to sit elsewhere: rounding at the edge of a vault, an overflow at a large amount, a state you reach only after several calls. Property-based testing states a rule ("depositing and withdrawing never returns more than you put in") and lets the tool search for the input that breaks it.

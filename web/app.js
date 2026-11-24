@@ -18,6 +18,8 @@ function highlight(src) {
 let doc, recorded, st, current, seed, busy = false, skipRequested = false, lastResult = null;
 let fixed = false;        // the Buggy / Fixed toggle: true runs the fixed version of the current property
 let brokenSeed = null;    // the seed of the latest buggy failure of the current property (what "Replay this seed" runs on the fixed code)
+// the picker label of the current property in Fixed mode (the card keeps its title otherwise)
+const FIXED_LABELS = { buggy_sort: 'Sort' };
 const runId = () => current.id + (fixed ? '_fixed' : '');
 
 async function boot() {
@@ -53,7 +55,7 @@ function buildPicker() {
     b.type = 'button';
     b.setAttribute('role', 'radio');
     b.dataset.id = p.id;
-    b.innerHTML = `<span class="t">${esc(p.title)}<span class="tag ${p.expect}">${p.expect === 'fail' ? 'has a bug' : 'holds'}</span></span><span class="d">${esc(p.blurb)}</span>`;
+    b.innerHTML = `<span class="t"><span class="name">${esc(p.title)}</span><span class="tag ${p.expect}">${p.expect === 'fail' ? 'has a bug' : 'holds'}</span></span><span class="d">${esc(p.blurb)}</span>`;
     b.onclick = () => { if (!busy) select(p.id); };
     box.appendChild(b);
   }
@@ -85,6 +87,10 @@ function paintMode() {
     ? `Claim: <strong>${esc(current.property)}</strong> (unchanged). This is the fixed code, and it should hold for every seed, including the one that broke the buggy version.`
     : `Claim: <strong>${esc(current.property)}</strong>. ${current.expect === 'fail' ? 'This property is false; Sparktest should find out why.' : 'This property is true; Sparktest should find nothing.'}`;
   $('replay').textContent = fixed ? 'Replay this seed' : 'Replay';
+  for (const b of $('picker').children) {   // every card, so leaving a property while it is on Fixed restores its title
+    const p = doc.props.find((q) => q.id === b.dataset.id);
+    b.querySelector('.name').textContent = fixed && p === current && FIXED_LABELS[p.id] ? FIXED_LABELS[p.id] : p.title;
+  }
   renderRecorded();
 }
 

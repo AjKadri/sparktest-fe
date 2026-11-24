@@ -23,15 +23,15 @@ Five realistic contract bug classes, each with a buggy and a fixed version. Reru
 
 | id | target | property | backends | cases | expected minimum | minimum found | as expected | case | shrink steps | seed | sonatina = native | gas (sonatina) | rerun |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| vault_buggy | a) vault deposit rounds minted shares up | deposit then withdraw never returns more than deposited | sonatina + native | 256 | almost-empty vault, A,S,x <= 10 (global min A=3,S=1,x=1) | assets=3, shares=1, amount=1 | yes | 2 | 44 | 5001 | identical | 1,187,692 | `cd tests-evm && fe test --filter proof_vault_buggy --show-logs`; native: `./scripts/proof.sh` |
+| vault_buggy | a) vault deposit rounds minted shares up | deposit then withdraw never returns more than deposited | sonatina + native | 256 | almost-empty vault, A,S,x <= 10 (global min A=3,S=1,x=1) | assets=3, shares=1, amount=1 | yes | 2 | 44 | 5001 | identical | 1,518,030 | `cd tests-evm && fe test --filter proof_vault_buggy --show-logs`; native: `./scripts/proof.sh` |
 | vault_fixed | a) fixed: rounds down | deposit then withdraw never returns more than deposited | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 5002 | identical | 361,404 | `cd tests-evm && fe test --filter proof_vault_fixed --show-logs`; native: `./scripts/proof.sh` |
-| fee_buggy | b) fee multiplies before dividing (u64 overflow) | fee computation never overflows and fee <= amount (bps <= 10000) | sonatina + native | 256 | amount*bps >= 2^64 and (amount-1)*bps < 2^64 | amount=1844674407370956, bps=10000 | yes | 10 | 187 | 5003 | identical | 114,304,174 | `cd tests-evm && fe test --filter proof_fee_buggy --show-logs`; native: `./scripts/proof.sh` |
+| fee_buggy | b) fee multiplies before dividing (u64 overflow) | fee computation never overflows and fee <= amount (bps <= 10000) | sonatina + native | 256 | amount*bps >= 2^64 and (amount-1)*bps < 2^64 | amount=1844674407370956, bps=10000 | yes | 10 | 187 | 5003 | identical | 121,007,677 | `cd tests-evm && fe test --filter proof_fee_buggy --show-logs`; native: `./scripts/proof.sh` |
 | fee_fixed | b) fixed: divide first, split multiply | fee computation never overflows and fee <= amount (bps <= 10000) | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 5004 | identical | 233,604 | `cd tests-evm && fe test --filter proof_fee_fixed --show-logs`; native: `./scripts/proof.sh` |
-| withdraw_buggy | c) subtract before checking balance >= amount | an accepted withdrawal never exceeds the balance | sonatina + native | 256 | (balance 0, amount 1) | balance=0, amount=1 | yes | 2 | 65 | 5005 | identical | 207,642 | `cd tests-evm && fe test --filter proof_withdraw_buggy --show-logs`; native: `./scripts/proof.sh` |
+| withdraw_buggy | c) subtract before checking balance >= amount | an accepted withdrawal never exceeds the balance | sonatina + native | 256 | (balance 0, amount 1) | balance=0, amount=1 | yes | 2 | 65 | 5005 | identical | 235,414 | `cd tests-evm && fe test --filter proof_withdraw_buggy --show-logs`; native: `./scripts/proof.sh` |
 | withdraw_fixed | c) fixed: check first | an accepted withdrawal never exceeds the balance | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 5006 | identical | 245,527 | `cd tests-evm && fe test --filter proof_withdraw_fixed --show-logs`; native: `./scripts/proof.sh` |
-| pack_buggy | d) two u128 packed into a u256 with shift 127 | unpack(pack(a, b)) == (a, b) | sonatina + native | 256 | (a=1, b=0) | a=1, b=0 | yes | 2 | 125 | 5007 | identical | 5,572,690 | `cd tests-evm && fe test --filter proof_pack_buggy --show-logs`; native: `./scripts/proof.sh` |
+| pack_buggy | d) two u128 packed into a u256 with shift 127 | unpack(pack(a, b)) == (a, b) | sonatina + native | 256 | (a=1, b=0) | a=1, b=0 | yes | 2 | 125 | 5007 | identical | 5,615,654 | `cd tests-evm && fe test --filter proof_pack_buggy --show-logs`; native: `./scripts/proof.sh` |
 | pack_fixed | d) fixed: shift 128 | unpack(pack(a, b)) == (a, b) | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 5008 | identical | 277,936 | `cd tests-evm && fe test --filter proof_pack_fixed --show-logs`; native: `./scripts/proof.sh` |
-| bounds_buggy | e) index check uses <= instead of < | an index declared in bounds is below len | sonatina + native | 256 | (i=0, len=0) | i=0, len=0 | yes | 28 | 0 | 5009 | identical | 56,746 | `cd tests-evm && fe test --filter proof_bounds_buggy --show-logs`; native: `./scripts/proof.sh` |
+| bounds_buggy | e) index check uses <= instead of < | an index declared in bounds is below len | sonatina + native | 256 | (i=0, len=0) | i=0, len=0 | yes | 28 | 0 | 5009 | identical | 75,340 | `cd tests-evm && fe test --filter proof_bounds_buggy --show-logs`; native: `./scripts/proof.sh` |
 | bounds_fixed | e) fixed: < | an index declared in bounds is below len | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 5010 | identical | 200,262 | `cd tests-evm && fe test --filter proof_bounds_fixed --show-logs`; native: `./scripts/proof.sh` |
 
 ## Properties of std (pure, sonatina and native)
@@ -41,16 +41,16 @@ Properties of Fe standard-library code. Rerun: `./scripts/proof.sh`.
 | id | target | property | backends | cases | expected minimum | minimum found | as expected | case | shrink steps | seed | sonatina = native | gas (sonatina) | rerun |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | std_int_u8 | core::num: u8 wrapping_/saturating_ add, sub, mul | equal to a widened u256 model | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6001 | identical | 325,215 | `cd tests-evm && fe test --filter proof_std_int_u8 --show-logs`; native: `./scripts/proof.sh` |
-| std_int_u32 | core::num: u32 wrapping_/saturating_ add, sub, mul | equal to a widened u256 model | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6002 | identical | 329,709 | `cd tests-evm && fe test --filter proof_std_int_u32 --show-logs`; native: `./scripts/proof.sh` |
+| std_int_u32 | core::num: u32 wrapping_/saturating_ add, sub, mul | equal to a widened u256 model | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6002 | identical | 335,571 | `cd tests-evm && fe test --filter proof_std_int_u32 --show-logs`; native: `./scripts/proof.sh` |
 | std_int_u64 | core::num: u64 wrapping_/saturating_ add, sub, mul | equal to a widened u256 model | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6003 | identical | 341,204 | `cd tests-evm && fe test --filter proof_std_int_u64 --show-logs`; native: `./scripts/proof.sh` |
-| std_mul_div | core::num: mul_div, mul_div_ceil, addmod, mulmod | equal to the u256 model (a*b/d, ceil, mod) | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6004 | identical | 483,374 | `cd tests-evm && fe test --filter proof_std_mul_div --show-logs`; native: `./scripts/proof.sh` |
+| std_mul_div | core::num: mul_div, mul_div_ceil, addmod, mulmod | equal to the u256 model (a*b/d, ceil, mod) | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6004 | identical | 489,236 | `cd tests-evm && fe test --filter proof_std_mul_div --show-logs`; native: `./scripts/proof.sh` |
 | std_isqrt | core::num: isqrt | r*r <= x < (r+1)^2 | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6005 | identical | 280,084 | `cd tests-evm && fe test --filter proof_std_isqrt --show-logs`; native: `./scripts/proof.sh` |
-| std_sort_heap | core::sort on [u8; 20] (heapsort path) | sorted, a permutation, and equal to insertion_sort and heap_sort | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6006 | identical | 23,260,371 | `cd tests-evm && fe test --filter proof_std_sort_heap --show-logs`; native: `./scripts/proof.sh` |
-| std_sort_small | core::sort on [u8; 6] (insertion path) | sorted and a permutation | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6007 | identical | 1,720,140 | `cd tests-evm && fe test --filter proof_std_sort_small --show-logs`; native: `./scripts/proof.sh` |
-| std_dedup | core::sort::dedup_sorted on [u8; 8] | first k strictly increasing and cover every value | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6008 | identical | 4,212,335 | `cd tests-evm && fe test --filter proof_std_dedup --show-logs`; native: `./scripts/proof.sh` |
-| std_binary_search | core::sort::binary_search on sorted [u8; 8] | finds every element, and only elements | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6009 | identical | 3,965,876 | `cd tests-evm && fe test --filter proof_std_binary_search --show-logs`; native: `./scripts/proof.sh` |
+| std_sort_heap | core::sort on [u8; 20] (heapsort path) | sorted, a permutation, and equal to insertion_sort and heap_sort | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6006 | identical | 23,229,427 | `cd tests-evm && fe test --filter proof_std_sort_heap --show-logs`; native: `./scripts/proof.sh` |
+| std_sort_small | core::sort on [u8; 6] (insertion path) | sorted and a permutation | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6007 | identical | 1,726,270 | `cd tests-evm && fe test --filter proof_std_sort_small --show-logs`; native: `./scripts/proof.sh` |
+| std_dedup | core::sort::dedup_sorted on [u8; 8] | first k strictly increasing and cover every value | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6008 | identical | 4,219,265 | `cd tests-evm && fe test --filter proof_std_dedup --show-logs`; native: `./scripts/proof.sh` |
+| std_binary_search | core::sort::binary_search on sorted [u8; 8] | finds every element, and only elements | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6009 | identical | 3,973,722 | `cd tests-evm && fe test --filter proof_std_binary_search --show-logs`; native: `./scripts/proof.sh` |
 | std_abi_u256 | std ABI codec, u256 | decode(encode(x)) == x | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6010 | identical | 119,418 | `cd tests-evm && fe test --filter proof_std_abi_u256 --show-logs`; native: `./scripts/proof.sh` |
-| std_abi_tuple | std ABI codec, (u8, u256, bool) | decode(encode(x)) == x | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6011 | identical | 280,951 | `cd tests-evm && fe test --filter proof_std_abi_tuple --show-logs`; native: `./scripts/proof.sh` |
+| std_abi_tuple | std ABI codec, (u8, u256, bool) | decode(encode(x)) == x | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6011 | identical | 286,813 | `cd tests-evm && fe test --filter proof_std_abi_tuple --show-logs`; native: `./scripts/proof.sh` |
 | std_abi_address | std ABI codec, Address | decode(encode(x)) == x | sonatina + native | 256 | passes | passed 256 cases | yes | - | - | 6012 | identical | 142,266 | `cd tests-evm && fe test --filter proof_std_abi_address --show-logs`; native: `./scripts/proof.sh` |
 
 ## ERC20 through contract calls (sonatina only)
@@ -72,45 +72,45 @@ nothing was vendored as `examples/erc20-docs/`. The other ERC20-like files in th
 
 | # | property | input | expected | found | as expected | cases | case | shrink steps | calls accepted / attempted | vacuous? | gas | backend | rerun |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| P1 | transfer(amount <= balance) succeeds and moves exactly amount | (sender, receiver, amount) | passes | passed 64 cases | yes | 64 | - | - | 64 / 64 | no | 20,942,747 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
-| P2 | transfer(amount > balance) does not succeed and changes nothing | (sender, receiver, amount over balance) | passes | passed 64 cases | yes | 64 | - | - | 0 / 64 | no | 20,950,024 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
-| P3 | transfers never change totalSupply | (sender, receiver, amount) | passes | passed 64 cases | yes | 64 | - | - | 9 / 64 | no | 20,761,316 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
-| P4 | approve, then transferFrom(amount <= allowance) lowers the allowance by exactly amount | (owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 128 / 128 | no | 22,609,710 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
-| P5 | transferFrom(amount > allowance) does not succeed | (owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 64 / 128 | no | 22,271,288 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
-| P6 | balances of the 4 actors always sum to totalSupply | (sender, receiver, amount) | passes | passed 64 cases | yes | 64 | - | - | 64 / 64 | no | 21,044,923 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P1 | transfer(amount <= balance) succeeds and moves exactly amount | (sender, receiver, amount) | passes | passed 64 cases | yes | 64 | - | - | 64 / 64 | no | 20,951,367 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P2 | transfer(amount > balance) does not succeed and changes nothing | (sender, receiver, amount over balance) | passes | passed 64 cases | yes | 64 | - | - | 0 / 64 | no | 20,959,181 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P3 | transfers never change totalSupply | (sender, receiver, amount) | passes | passed 64 cases | yes | 64 | - | - | 9 / 64 | no | 20,767,786 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P4 | approve, then transferFrom(amount <= allowance) lowers the allowance by exactly amount | (owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 128 / 128 | no | 22,620,873 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P5 | transferFrom(amount > allowance) does not succeed | (owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 64 / 128 | no | 22,279,370 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P6 | balances of the 4 actors always sum to totalSupply | (sender, receiver, amount) | passes | passed 64 cases | yes | 64 | - | - | 64 / 64 | no | 21,054,900 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
 
 ### Planted bug, actors picked with a raw `u8 % 4` (original run 2026-11-22, commit c7004ad; live re-run since L7c: the original results are frozen in the table below)
 
 | # | property | input | expected | found | as expected | cases | case | shrink steps | calls accepted / attempted | vacuous? | gas | backend | rerun |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| P1 | transfer(amount <= balance) succeeds and moves exactly amount | (sender, receiver, amount) | fails; minimum (0, 0, 1) | (sender=1, receiver=1, amount=1) | partly: a self-transfer of amount 1, but raw indices are not minimal (both map to the same actor) | 64 | 3 | 40 | 475 / 475 | no | 159,522,009 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
-| P2 | transfer(amount > balance) does not succeed and changes nothing | (sender, receiver, amount over balance) | passes | passed 64 cases | yes | 64 | - | - | 0 / 64 | no | 21,134,467 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
-| P3 | transfers never change totalSupply | (sender, receiver, amount) | passes | passed 64 cases | yes | 64 | - | - | 4 / 64 | no | 20,942,631 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
-| P4 | approve, then transferFrom(amount <= allowance) lowers the allowance by exactly amount | (owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 128 / 128 | no | 22,712,253 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
-| P5 | transferFrom(amount > allowance) does not succeed | (owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 64 / 128 | no | 22,399,646 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
-| P6 | balances of the 4 actors always sum to totalSupply | (sender, receiver, amount) | fails; minimum (0, 0, 1) | (sender=0, receiver=0, amount=1) | yes: exactly (0, 0, 1) | 64 | 2 | 22 | 306 / 306 | no | 102,880,136 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P1 | transfer(amount <= balance) succeeds and moves exactly amount | (sender, receiver, amount) | fails; minimum (0, 0, 1) | (sender=1, receiver=1, amount=1) | partly: a self-transfer of amount 1, but raw indices are not minimal (both map to the same actor) | 64 | 3 | 40 | 475 / 475 | no | 160,470,097 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P2 | transfer(amount > balance) does not succeed and changes nothing | (sender, receiver, amount over balance) | passes | passed 64 cases | yes | 64 | - | - | 0 / 64 | no | 21,143,624 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P3 | transfers never change totalSupply | (sender, receiver, amount) | passes | passed 64 cases | yes | 64 | - | - | 4 / 64 | no | 20,949,101 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P4 | approve, then transferFrom(amount <= allowance) lowers the allowance by exactly amount | (owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 128 / 128 | no | 22,723,389 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P5 | transferFrom(amount > allowance) does not succeed | (owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 64 / 128 | no | 22,407,728 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P6 | balances of the 4 actors always sum to totalSupply | (sender, receiver, amount) | fails; minimum (0, 0, 1) | (sender=0, receiver=0, amount=1) | yes: exactly (0, 0, 1) | 64 | 2 | 22 | 306 / 306 | no | 102,986,990 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
 
 ### AMENDMENT 2026-11-22 (commit c601b87; live re-run since L7c): unchanged contract, actors picked with `Index<4>`
 
 | # | property | input | expected | found | as expected | cases | case | shrink steps | calls accepted / attempted | vacuous? | gas | backend | rerun |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| P1 | transfer(amount <= balance) succeeds and moves exactly amount | (Index<4> sender, Index<4> receiver, amount) | passes | passed 64 cases | yes | 64 | - | - | 64 / 64 | no | 20,950,309 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
-| P2 | transfer(amount > balance) does not succeed and changes nothing | (Index<4> sender, Index<4> receiver, amount over balance) | passes | passed 64 cases | yes | 64 | - | - | 0 / 64 | no | 20,930,666 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
-| P3 | transfers never change totalSupply | (Index<4> sender, Index<4> receiver, amount) | passes | passed 64 cases | yes | 64 | - | - | 7 / 64 | no | 20,739,392 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
-| P4 | approve, then transferFrom(amount <= allowance) lowers the allowance by exactly amount | (Index<4> owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 128 / 128 | no | 22,608,838 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
-| P5 | transferFrom(amount > allowance) does not succeed | (Index<4> owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 64 / 128 | no | 22,221,605 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
-| P6 | balances of the 4 actors always sum to totalSupply | (Index<4> sender, Index<4> receiver, amount) | passes | passed 64 cases | yes | 64 | - | - | 64 / 64 | no | 20,972,618 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P1 | transfer(amount <= balance) succeeds and moves exactly amount | (Index<4> sender, Index<4> receiver, amount) | passes | passed 64 cases | yes | 64 | - | - | 64 / 64 | no | 20,958,929 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P2 | transfer(amount > balance) does not succeed and changes nothing | (Index<4> sender, Index<4> receiver, amount over balance) | passes | passed 64 cases | yes | 64 | - | - | 0 / 64 | no | 20,939,823 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P3 | transfers never change totalSupply | (Index<4> sender, Index<4> receiver, amount) | passes | passed 64 cases | yes | 64 | - | - | 7 / 64 | no | 20,745,862 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P4 | approve, then transferFrom(amount <= allowance) lowers the allowance by exactly amount | (Index<4> owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 128 / 128 | no | 22,619,885 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P5 | transferFrom(amount > allowance) does not succeed | (Index<4> owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 64 / 128 | no | 22,229,687 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P6 | balances of the 4 actors always sum to totalSupply | (Index<4> sender, Index<4> receiver, amount) | passes | passed 64 cases | yes | 64 | - | - | 64 / 64 | no | 20,981,775 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
 
 ### AMENDMENT 2026-11-22 (commit c601b87; live re-run since L7c): planted bug, actors picked with `Index<4>`
 
 | # | property | input | expected | found | as expected | cases | case | shrink steps | calls accepted / attempted | vacuous? | gas | backend | rerun |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| P1 | transfer(amount <= balance) succeeds and moves exactly amount | (Index<4> sender, Index<4> receiver, amount) | fails; minimum (0, 0, 1) (honest prediction: (a, a, 1)) | (sender=0, receiver=0, amount=1) | yes: exactly (0, 0, 1) | 64 | 1 | 9 | 80 / 80 | no | 26,609,562 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
-| P2 | transfer(amount > balance) does not succeed and changes nothing | (Index<4> sender, Index<4> receiver, amount over balance) | passes | passed 64 cases | yes | 64 | - | - | 0 / 64 | no | 21,117,342 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
-| P3 | transfers never change totalSupply | (Index<4> sender, Index<4> receiver, amount) | passes | passed 64 cases | yes | 64 | - | - | 10 / 64 | no | 20,927,672 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
-| P4 | approve, then transferFrom(amount <= allowance) lowers the allowance by exactly amount | (Index<4> owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 128 / 128 | no | 22,802,977 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
-| P5 | transferFrom(amount > allowance) does not succeed | (Index<4> owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 64 / 128 | no | 22,426,363 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
-| P6 | balances of the 4 actors always sum to totalSupply | (Index<4> sender, Index<4> receiver, amount) | fails; minimum (0, 0, 1) (honest prediction: (a, a, 1)) | (sender=0, receiver=0, amount=1) | yes: exactly (0, 0, 1) | 64 | 1 | 8 | 21 / 21 | no | 6,987,443 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P1 | transfer(amount <= balance) succeeds and moves exactly amount | (Index<4> sender, Index<4> receiver, amount) | fails; minimum (0, 0, 1) (honest prediction: (a, a, 1)) | (sender=0, receiver=0, amount=1) | yes: exactly (0, 0, 1) | 64 | 1 | 9 | 80 / 80 | no | 26,674,095 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P2 | transfer(amount > balance) does not succeed and changes nothing | (Index<4> sender, Index<4> receiver, amount over balance) | passes | passed 64 cases | yes | 64 | - | - | 0 / 64 | no | 21,126,499 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P3 | transfers never change totalSupply | (Index<4> sender, Index<4> receiver, amount) | passes | passed 64 cases | yes | 64 | - | - | 10 / 64 | no | 20,934,142 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P4 | approve, then transferFrom(amount <= allowance) lowers the allowance by exactly amount | (Index<4> owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 128 / 128 | no | 22,814,126 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P5 | transferFrom(amount > allowance) does not succeed | (Index<4> owner, spender, to, packed allowance/amount) | passes | passed 64 cases | yes | 64 | - | - | 64 / 128 | no | 22,434,445 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
+| P6 | balances of the 4 actors always sum to totalSupply | (Index<4> sender, Index<4> receiver, amount) | fails; minimum (0, 0, 1) (honest prediction: (a, a, 1)) | (sender=0, receiver=0, amount=1) | yes: exactly (0, 0, 1) | 64 | 1 | 8 | 21 / 21 | no | 7,019,345 | sonatina | `cd tests-erc20 && fe test --show-logs   (or ./scripts/proof.sh)` |
 
 ### Frozen: the same planted-bug runs before joint shrinking (commit 01941fa, frozen from docs/PROOF.md at that commit)
 
@@ -142,9 +142,9 @@ Expected sequences were committed first (`docs/EXPECTATIONS.md`, section "L6"). 
 
 | scenario | expected minimal sequence | found (shrunk) sequence | length | as expected | case | shrink steps | seed | sonatina = native | gas (sonatina) | rerun |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Seq<Index<3>, 8>: no two adjacent commands are equal | length 2, two equal commands (a, a) | cmd 0 ; cmd 0 | 2 | yes | 3 | 2 | 8001 | identical | 82,199 | `cd tests-evm && fe test --filter stateful_seq_adjacent --show-logs`; native: `./scripts/proof.sh` |
-| bank model (planted bug: a drained account's next deposit counts twice) | length 3: deposit(a,1), withdraw(a,1), deposit(a,1) | deposit(acct 0, 1) ; withdraw(acct 0, 1) ; deposit(acct 0, 1) | 3 | yes: exactly the pre-registered shape (account 0) | 137 | 49 | 8002 | identical | 18,619,441 | `cd tests-evm && fe test --filter stateful_bank_buggy --show-logs`; native: `./scripts/proof.sh` |
-| bank model, fixed | passes | passed 256 cases | - | yes | - | - | 8003 | identical | 3,278,323 | `cd tests-evm && fe test --filter stateful_bank_fixed --show-logs`; native: `./scripts/proof.sh` |
+| Seq<Index<3>, 8>: no two adjacent commands are equal | length 2, two equal commands (a, a) | cmd 0 ; cmd 0 | 2 | yes | 3 | 2 | 8001 | identical | 147,229 | `cd tests-evm && fe test --filter stateful_seq_adjacent --show-logs`; native: `./scripts/proof.sh` |
+| bank model (planted bug: a drained account's next deposit counts twice) | length 3: deposit(a,1), withdraw(a,1), deposit(a,1) | deposit(acct 0, 1) ; withdraw(acct 0, 1) ; deposit(acct 0, 1) | 3 | yes: exactly the pre-registered shape (account 0) | 137 | 49 | 8002 | identical | 19,912,104 | `cd tests-evm && fe test --filter stateful_bank_buggy --show-logs`; native: `./scripts/proof.sh` |
+| bank model, fixed | passes | passed 256 cases | - | yes | - | - | 8003 | identical | 3,325,245 | `cd tests-evm && fe test --filter stateful_bank_fixed --show-logs`; native: `./scripts/proof.sh` |
 
 ### Stateful ERC20 (sonatina only): the ERC20 test fixture from the Fe compiler repo vs a pure reference model
 
@@ -156,8 +156,8 @@ unshrunk (for example 407994619, which is 4 mod 9), so the amount became an `Ind
 
 | scenario | expected | found (shrunk) sequence | length | as expected | case | shrink steps | calls accepted / attempted | commands executed (Transfer, Approve, TransferFrom, owner Mint, adversarial Mint) | vacuous? | gas | backend | rerun |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| unchanged fixture | passes 64 cases | passed 64 cases | - | yes | - | - | 183 / 248 | 64, 39, 51, 29, 65 | no | 24,293,042 | sonatina | `cd tests-erc20 && fe test --filter stateful_orig --show-logs` |
-| examples/erc20-stateful-bug (PLANTED: after a transfer takes a holder to 0, the next transfer into it credits twice) | length 2: Transfer(a -> b, 4), Transfer(c -> a, 1), b != a, c != a | Transfer(actor 0 -> actor 1, 4) ; Transfer(actor 1 -> actor 0, 1) | 2 | yes: length 2, amounts exactly 4 and 1, all indices minimal (a = 0) | 102 | 9 | 444 / 547 | 256, 67, 62, 54, 108 | no | 75,992,616 | sonatina | `cd tests-erc20 && fe test --filter stateful_bug --show-logs` |
+| unchanged fixture | passes 64 cases | passed 64 cases | - | yes | - | - | 183 / 248 | 64, 39, 51, 29, 65 | no | 24,293,925 | sonatina | `cd tests-erc20 && fe test --filter stateful_orig --show-logs` |
+| examples/erc20-stateful-bug (PLANTED: after a transfer takes a holder to 0, the next transfer into it credits twice) | length 2: Transfer(a -> b, 4), Transfer(c -> a, 1), b != a, c != a | Transfer(actor 0 -> actor 1, 4) ; Transfer(actor 1 -> actor 0, 1) | 2 | yes: length 2, amounts exactly 4 and 1, all indices minimal (a = 0) | 102 | 9 | 444 / 547 | 256, 67, 62, 54, 108 | no | 76,328,316 | sonatina | `cd tests-erc20 && fe test --filter stateful_bug --show-logs` |
 
 
 ## The Fe Guide ERC-20 (CoolCoin) and a mutation test (sonatina only)
@@ -172,13 +172,13 @@ over Transfer, Approve, TransferFrom, Mint by the owner and Mint by an actor tha
 
 | property | result | calls accepted / attempted | vacuous? | gas | rerun |
 |---|---|---|---|---|---|
-| P1 transfer moves exactly amount | passed 64 cases | 64 / 64 | no | 36,778,736 | `cd tests-coolcoin && fe test --filter guide_ --show-logs` |
-| P2 transfer over balance changes nothing | passed 64 cases | 0 / 64 | no | 36,628,444 | `cd tests-coolcoin && fe test --filter guide_ --show-logs` |
-| P3 transfer keeps totalSupply | passed 64 cases | 10 / 64 | no | 36,463,960 | `cd tests-coolcoin && fe test --filter guide_ --show-logs` |
-| P4 transferFrom lowers the allowance exactly | passed 64 cases | 128 / 128 | no | 38,526,843 | `cd tests-coolcoin && fe test --filter guide_ --show-logs` |
-| P5 transferFrom over allowance fails | passed 64 cases | 64 / 128 | no | 38,011,833 | `cd tests-coolcoin && fe test --filter guide_ --show-logs` |
-| P6 balances sum to totalSupply | passed 64 cases | 64 / 64 | no | 36,963,066 | `cd tests-coolcoin && fe test --filter guide_ --show-logs` |
-| stateful model check | passed 64 cases | 115 / 239 | no | 40,597,304 | `cd tests-coolcoin && fe test --filter guide_ --show-logs` |
+| P1 transfer moves exactly amount | passed 64 cases | 64 / 64 | no | 36,783,484 | `cd tests-coolcoin && fe test --filter guide_ --show-logs` |
+| P2 transfer over balance changes nothing | passed 64 cases | 0 / 64 | no | 36,633,730 | `cd tests-coolcoin && fe test --filter guide_ --show-logs` |
+| P3 transfer keeps totalSupply | passed 64 cases | 10 / 64 | no | 36,466,556 | `cd tests-coolcoin && fe test --filter guide_ --show-logs` |
+| P4 transferFrom lowers the allowance exactly | passed 64 cases | 128 / 128 | no | 38,534,037 | `cd tests-coolcoin && fe test --filter guide_ --show-logs` |
+| P5 transferFrom over allowance fails | passed 64 cases | 64 / 128 | no | 38,016,043 | `cd tests-coolcoin && fe test --filter guide_ --show-logs` |
+| P6 balances sum to totalSupply | passed 64 cases | 64 / 64 | no | 36,969,158 | `cd tests-coolcoin && fe test --filter guide_ --show-logs` |
+| stateful model check | passed 64 cases | 115 / 239 | no | 40,623,442 | `cd tests-coolcoin && fe test --filter guide_ --show-logs` |
 
 Stateful run, commands executed (Transfer, Approve, TransferFrom, owner Mint, adversarial Mint): 61, 38, 37, 34, 69.
 
@@ -244,12 +244,12 @@ so the first failing case, the shrunk input and the number of shrink steps are e
 
 | property | expected | sonatina (isolated) | native (find-panic.sh) | wasm (demo page) | agree |
 |---|---|---|---|---|---|
-| overflow: `x * 1000 / 1000 == x` over `u64` | x = 18446744073709552, panicked: arithmetic overflow | case 1, 35 steps, shrunk 18446744073709552, panicked: arithmetic overflow; 1,864,918 gas | case 1, 35 steps, shrunk 18446744073709552, panicked: arithmetic overflow; 897 native runs | case 1, 35 steps, 18446744073709552, panicked: arithmetic overflow; bisect 8 steps, 898 module runs | yes |
-| divzero: `a / b * b <= a` over `(u32, u32)` | (a, b) = (0, 0), panicked: division by zero | case 42, 1 steps, shrunk (0, 0), panicked: division by zero; 225,172 gas | case 42, 1 steps, shrunk (0, 0), panicked: division by zero; 10 native runs | - | yes |
-| a normal false-returning property: `x < 1000` over `u256` | x = 1000, returned false (identical to `check`) | case 1, 249 steps, shrunk 1000, returned false; 1,045,116 gas | case 1, 249 steps, shrunk 1000, returned false; 537 native runs | - | yes |
+| overflow: `x * 1000 / 1000 == x` over `u64` | x = 18446744073709552, panicked: arithmetic overflow | case 1, 35 steps, shrunk 18446744073709552, panicked: arithmetic overflow; 1,886,344 gas | case 1, 35 steps, shrunk 18446744073709552, panicked: arithmetic overflow; 897 native runs | case 1, 35 steps, 18446744073709552, panicked: arithmetic overflow; bisect 8 steps, 898 module runs | yes |
+| divzero: `a / b * b <= a` over `(u32, u32)` | (a, b) = (0, 0), panicked: division by zero | case 42, 1 steps, shrunk (0, 0), panicked: division by zero; 239,379 gas | case 42, 1 steps, shrunk (0, 0), panicked: division by zero; 10 native runs | - | yes |
+| a normal false-returning property: `x < 1000` over `u256` | x = 1000, returned false (identical to `check`) | case 1, 249 steps, shrunk 1000, returned false; 1,057,782 gas | case 1, 249 steps, shrunk 1000, returned false; 537 native runs | - | yes |
 
-Gas of ONE isolated evaluation on sonatina (encode the input, `try_call` the harness, decode the result): **1,576** gas when the property holds, **1,599** when it returns false, **1,558** when it panics (a reverting call).
-The whole isolated runs above cost 1,864,918 (overflow), 225,172 (divzero) and 1,045,116 gas (false-returning, 249 shrink steps), far below the 1,000,000,000 per-test cap.
+Gas of ONE isolated evaluation on sonatina (encode the input, `try_call` the harness, decode the result): **1,576** gas when the property holds, **1,608** when it returns false, **1,585** when it panics (a reverting call).
+The whole isolated runs above cost 1,886,344 (overflow), 239,379 (divzero) and 1,057,782 gas (false-returning, 249 shrink steps), far below the 1,000,000,000 per-test cap.
 
 The native bisect, as printed by `./scripts/find-panic.sh divzero 8102 256` (the first panicking case is deep enough to show the bisection):
 

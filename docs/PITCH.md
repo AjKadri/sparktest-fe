@@ -1,6 +1,6 @@
 # Sparktest: pitch
 
-**Sparktest is a property-testing library written in Fe: state a rule, and it finds the input that breaks it (in values, contract calls or call sequences), shrinks it to a minimal case even through panics, and replays it from a seed on the EVM, natively and in the browser.**
+**Sparktest is a property-testing library written in Fe: state a rule, and it finds the input that breaks it (in values, contract calls or call sequences), shrinks it to a small case even through panics, and replays it from a seed on the EVM, natively and in the browser.**
 
 **Problem.** Unit tests only check the inputs you thought of. Contract bugs live at the edges: a rounding direction, an overflow at a large amount, a state that takes several calls to reach. Fe's built-in test runner has no property testing.
 
@@ -8,7 +8,7 @@
 
 **Cost.** Rounding direction is a known attack surface: OpenZeppelin's ERC-4626 guide shows how an inflation attack uses share rounding to take a depositor's tokens. The demo's vault bug rounds the other way and overpays depositors, draining the vault instead.
 
-**Solution.** You state a rule; Sparktest tries many inputs, favouring edge values such as zero and the maximum. When the rule breaks, it shrinks the input to the smallest one that still breaks it and prints a seed that reproduces the failure exactly. It runs on EVM tests, native code and WebAssembly, calls deployed contracts, recovers from panics, tests sequences of calls, takes custom generators, discards cases whose premise fails (counting the discards and flagging a vacuous run) and replays regression seeds first, and stops shrinking before the gas cap so a failure never loses its report.
+**Solution.** You state a rule; Sparktest tries many inputs, favouring edge values such as zero and the maximum. When the rule breaks, it shrinks the input to a small one that still breaks it (shrinking is greedy, so not always the smallest) and prints a seed that reproduces the failure exactly. It runs on EVM tests, native code and WebAssembly, calls deployed contracts, recovers from panics, tests sequences of calls, takes custom generators, discards cases whose premise fails (counting the discards and flagging a vacuous run) and replays regression seeds first, and, with `check_gas` (or `check_gen_gas`), stops shrinking before the gas cap so a failure run that way never loses its report.
 
 **Walkthrough.** Open the demo, pick *Buggy sort*, press Run. Sparktest finds an unsorted input, shrinks it in 132 steps to `[1, 1, 1, 0]`, and Replay reproduces it from the seed. For the same numeric seed, every demo result is identical on WebAssembly, native and EVM.
 

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/AjKadri/sparktest-fe/actions/workflows/ci.yml/badge.svg)](https://github.com/AjKadri/sparktest-fe/actions/workflows/ci.yml)
 
-**Pitch:** Sparktest is a property-testing library written in Fe: state a rule, and it finds the input that breaks it (in values, contract calls or call sequences), shrinks it to a minimal case even through panics, and replays it from a seed on the EVM, natively and in the browser.
+**Pitch:** Sparktest is a property-testing library written in Fe: state a rule, and it finds the input that breaks it (in values, contract calls or call sequences), shrinks it to a small case even through panics, and replays it from a seed on the EVM, natively and in the browser.
 
 **[Live demo](https://ajkadri.github.io/sparktest-fe/)** (the properties run in your browser as compiled Fe, via WebAssembly).
 

@@ -89,7 +89,12 @@ function paintMode() {
   $('replay').textContent = fixed ? 'Replay this seed' : 'Replay';
   for (const b of $('picker').children) {   // every card, so leaving a property while it is on Fixed restores its title
     const p = doc.props.find((q) => q.id === b.dataset.id);
-    b.querySelector('.name').textContent = fixed && p === current && FIXED_LABELS[p.id] ? FIXED_LABELS[p.id] : p.title;
+    const fx = fixed && p === current && p.fixed;   // this card shows the fixed version
+    b.querySelector('.name').textContent = fx && FIXED_LABELS[p.id] ? FIXED_LABELS[p.id] : p.title;
+    const tag = b.querySelector('.tag');
+    tag.className = `tag ${fx ? 'fixed' : p.expect}`;
+    tag.textContent = fx ? 'fixed' : p.expect === 'fail' ? 'has a bug' : 'holds';
+    b.querySelector('.d').textContent = fx ? p.fixed.note : p.blurb;
   }
   renderRecorded();
 }

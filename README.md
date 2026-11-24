@@ -12,7 +12,7 @@
 
 - **Technical quality:** [CI](https://github.com/AjKadri/sparktest-fe/actions/workflows/ci.yml) runs the whole suite (sonatina, native, wasm) on every push; the results are in [docs/PROOF.md](docs/PROOF.md), with its expected value committed beforehand in [docs/EXPECTATIONS.md](docs/EXPECTATIONS.md).
 - **Fe-specific value:** [Fe highlight](#fe-highlight): panics recovered inside `fe test` through `try_call`, the same Fe on three backends, an effect-polymorphic runner; two Fe compiler bugs found and reported ([#2066](https://github.com/argotorg/fe/issues/2066), [#2067](https://github.com/argotorg/fe/issues/2067)).
-- **Originality:** one runner for plain values, contract calls and call sequences, with shrinking and panic recovery on all three backends.
+- **Originality:** one library for plain values, contract calls (EVM backend) and call sequences, with shrinking and panic recovery. Properties without contract calls run on sonatina, native and WebAssembly.
 - **Usefulness:** [Quickstart](#quickstart) adds it as a git dependency; [Proof](#proof) runs it against contracts we didn't write, with planted and held-out mutants.
 - **Documentation and demo:** the [live demo](https://ajkadri.github.io/sparktest-fe/) works in about a minute with nothing to install; see also [Architecture](#architecture) and [Limitations](#limitations).
 - **Independent audit:** findings and fixes in [docs/AUDIT.md](docs/AUDIT.md).

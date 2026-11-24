@@ -1,6 +1,6 @@
 // Signed integers i8..i256 (L10), native: edge values, shrinking toward 0, Encode/Decode. Expected values: docs/EXPECTATIONS.md, "L10".
 use std::abi::DynArray
-use sparktest::{check, Config, Outcome, Arbitrary, Shrink, Encode, Decode, Xorshift}
+use sparktest::{check, shrink_input, Config, Outcome, Arbitrary, Shrink, Encode, Decode, Xorshift}
 use sparktest_native::fixed_seed
 
 #[test]
@@ -161,4 +161,58 @@ fn signed_values_work_inside_tuples() {
             assert!((shrunk.0 as i16) + (shrunk.1 as i16) < -10)
         },
     }
+}
+
+// ---- F1 (docs/EXPECTATIONS.md, "F1"): joint shrinking with signed components terminates and still works ----
+#[test]
+fn a_signed_component_in_a_tuple_shrinks_to_the_boundary_and_terminates() {
+    match check(
+        Config::new(fixed_seed(10410)),
+        |p: (i32, u8)| p.0 >= -100,
+    ) {
+        Outcome::Pass { cases: _ } => {
+            assert!(false)
+        },
+        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps, early: _ } => {
+            assert!(shrunk.0 == -101)
+            assert!(shrunk.1 == 0)
+            assert!(steps <= 100)
+        },
+    }
+}
+
+#[test]
+fn a_minimal_signed_tuple_terminates_without_a_step() {
+    let (m, steps) = shrink_input((-3 as i8, 0 as u8), |p: (i8, u8)| p.0 >= -2, 1000)
+    assert!(m.0 == -3 && m.1 == 0)
+    assert!(steps == 0)
+}
+
+#[test]
+fn a_signed_component_in_an_array_shrinks_to_the_boundary_and_terminates() {
+    match check(
+        Config::new(fixed_seed(10411)),
+        |a: [i64; 2]| a[0] >= -100,
+    ) {
+        Outcome::Pass { cases: _ } => {
+            assert!(false)
+        },
+        Outcome::Fail { original: _, shrunk, case: _, seed: _, steps, early: _ } => {
+            assert!(shrunk[0] == -101)
+            assert!(shrunk[1] == 0)
+            assert!(steps <= 100)
+        },
+    }
+}
+
+// only a joint move can solve this: the failure needs EQUAL negative components, so neither can move alone
+#[test]
+fn equal_signed_components_shrink_together() {
+    let (m, steps) = shrink_input(
+        (-40 as i32, -40 as i32),
+        |p: (i32, i32)| !(p.0 == p.1 && p.0 <= -5),
+        1000,
+    )
+    assert!(m.0 == -5 && m.1 == -5)
+    assert!(steps <= 20)
 }

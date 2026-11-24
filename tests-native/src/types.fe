@@ -432,9 +432,12 @@ fn encode_composites_report_all_words() {
     )
 }
 
-// PropertyFailed carries all 6 words of an array counterexample
+// Native only checks that assert_holds reverts on a failing array property (6 elements): any revert passes, neither the selector
+// nor the reported words are checked here. The sonatina test of the same name in tests-evm checks the selector 0x4c350703 (PropertyFailed).
 #[test(should_revert)]
-fn revert_reports_array_counterexample() uses (out: mut Stdout) {
+fn array_counterexample_assert_holds_reverts_any_reason()
+uses (out: mut Stdout)
+{
     assert_holds(
         check(
             Config::new(fixed_seed(72)),

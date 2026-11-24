@@ -157,9 +157,12 @@ fn g_bool_shrinks_to_true() {
     }
 }
 
-// 0x4c350703 = selector of PropertyFailed(uint256,uint256,uint256,uint256[]) as emitted by the compiler
+// Native only checks that assert_holds reverts on a failing property: any revert passes, the selector is not checked here.
+// The sonatina twin in tests-evm checks the selector 0x4c350703 = PropertyFailed(uint256,uint256,uint256,uint256[]).
 #[test(should_revert)]
-fn h_assert_holds_reverts_with_property_failed() uses (out: mut Stdout) {
+fn h_assert_holds_reverts_on_a_failing_property_any_reason()
+uses (out: mut Stdout)
+{
     assert_holds(check(Config::new(fixed_seed(10)), props::prop_below_1000))
 }
 

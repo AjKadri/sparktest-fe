@@ -326,7 +326,7 @@ fn encode_composites_report_all_words() uses (evm: mut Evm) {
     )
 }
 
-// PropertyFailed carries all 6 words of an array counterexample
+// assert_holds on a failing array property (6 elements) reverts with the PropertyFailed selector 0x4c350703; the reported words are not checked here
 #[test(should_revert, selector = 0x4c350703)]
 fn revert_reports_array_counterexample() uses (evm: mut Evm) {
     assert_holds(

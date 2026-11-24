@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs the 5 cross-check scenarios on sonatina (events) and native (println) with identical numeric seeds
+# Runs the 11 cross-check scenarios on sonatina (events) and native (println) with identical numeric seeds
 # and diffs the results. Exit 0 only if identical.
 set -eu
 export PATH="$HOME/.fe/bin:$PATH"

@@ -275,7 +275,7 @@ cd sparktest-fe
 
 # 3. check and test at the repository root
 fe check              # no output, exit code 0
-fe test               # test result: ok. 329 passed; 0 failed
+fe test               # test result: ok. 337 passed; 0 failed
 
 # 4. run every part of the suite
 ./scripts/test-all.sh   # exit code 0 when every part passes
@@ -286,8 +286,8 @@ The root `fe.toml` is a workspace of the sonatina (EVM) ingots: the library, its
 `test-all.sh` runs these parts and prints `ALL PARTS PASSED` at the end (counts from the last run):
 
 ```
-tests-evm (sonatina)                    155 passed
-tests-native (native)                   118 passed
+tests-evm (sonatina)                    163 passed
+tests-native (native)                   126 passed
 decode-revert (node)                    all decode-revert tests passed
 cross-check (sonatina vs native)        CROSS-CHECK: IDENTICAL (11/11)
 erc20 (sonatina only)                   vendored bodies byte-identical to upstream; 1 + 32 passed
